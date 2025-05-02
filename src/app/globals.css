@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+
+
+:root {
+  --blue: #000b31;
+  --jaune: #f68c09;
+  --light: #e5ecfb;
+  --blue-ciel: #00d9ff;
+  --secondary-color: #2ecc71;
+  --font-family: 'Arial', sans-serif;
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Backgrounds */
+.bg-blue { background-color: var(--blue)!important; }
+.bg-jaune { background-color: var(--jaune)!important; }
+.bg-blue-ciel { background-color: var(--blue-ciel)!important; }
+
+/* Text colors */
+.color-jaune { color: var(--jaune)!important; }
+.color-blue-ciel { color: var(--blue-ciel)!important; }
+.color-blue { color: var(--blue)!important; }
+
+/* Boutons */
+.btn-blue, .btn-jaune, .btn-blue-ciel {
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  font-family: var(--font-family);
+  font-weight: bold;
+  text-align: center;
+  display: inline-block;
+  padding: 10px 20px;
+  font-size: 16px;
+  text-decoration: none;
+}
+.btn-blue { background-color: var(--blue)!important; color: white!important; }
+.btn-jaune { background-color: var(--jaune)!important; color: black!important; }
+.btn-blue-ciel { background-color: var(--blue-ciel)!important; color: black!important; }
+
+@media (max-width: 768px) {
+  .btn-blue, .btn-jaune, .btn-blue-ciel {
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-blue, .btn-jaune, .btn-blue-ciel {
+    padding: 6px 12px;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+}
+/* Ajouts CSS */
+.bg-light { background-color: var(--light)!important; }
+.color-secondary-color { color: var(--secondary-color)!important; }
+
+.hover\:color-jaune:hover { color: var(--jaune)!important; }
+.hover\:opacity-90:hover { opacity: 0.9; }
+
+.resize-none { resize: none; }
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
