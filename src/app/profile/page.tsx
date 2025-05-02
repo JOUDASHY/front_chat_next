@@ -2,8 +2,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { User, Profile } from '@/types';
 import api from '@/lib/axiosClient';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+
 interface UserProfile extends User {
   profile: Profile;
   first_name: string;
@@ -11,6 +13,7 @@ interface UserProfile extends User {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,7 +115,6 @@ export default function ProfilePage() {
       formDataToSend.append('profile.status', formData.status);
       formDataToSend.append('profile.passion', formData.passion);
       
-      // Ajouter l'image si elle a été modifiée
       if (fileInputRef.current?.files?.[0]) {
         formDataToSend.append('profile.image', fileInputRef.current.files[0]);
       }
@@ -123,7 +125,6 @@ export default function ProfilePage() {
         },
       });
 
-      // Mettre à jour les données utilisateur avec la réponse
       setUser(data);
       setShowEditModal(false);
     } catch (err: any) {
@@ -133,122 +134,120 @@ export default function ProfilePage() {
     }
   };
 
+  const handleBack = () => {
+    router.push('/chat');
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue"></div>
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[var(--blue)]"></div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-500">{error || 'User not found'}</p>
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <p className="text-red-500 bg-gray-100 backdrop-blur-md p-6 rounded-xl shadow-xl">{error || 'User not found'}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue)]/90 relative overflow-hidden">
-      {/* Éléments décoratifs animés */}
-      <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/dark-stripes.png')]" />
-      
-      {[...Array(8)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-[var(--blue-ciel)]/20 rounded-full"
-          initial={{
-            scale: 0,
-            x: Math.random() * 100 - 50,
-            y: Math.random() * 100 - 50
-          }}
-          animate={{
-            scale: [0, 1, 0],
-            x: "100vw",
-            rotate: 360
-          }}
-          transition={{
-            duration: 10 + Math.random() * 10,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-      ))}
+    <div className="fixed inset-0 bg-white overflow-auto">
+      {/* Back button */}
+      <button 
+        onClick={handleBack}
+        className="fixed top-4 left-4 z-20 bg-[var(--blue)] hover:bg-[var(--blue-ciel)] text-white p-2 rounded-full shadow-lg transition-colors"
+        aria-label="Retour"
+      >
+        <ArrowLeftIcon className="h-6 w-6" />
+      </button>
 
-      <div className="max-w-3xl mx-auto py-12 px-4">
+      {/* Fond étoilé animé - removed for white background */}
+
+      <div className="max-w-5xl mx-auto py-12 px-4 relative z-10 min-h-screen flex flex-col justify-center">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[var(--light)]/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-[var(--blue-ciel)]/20 overflow-hidden"
+          transition={{ duration: 0.6 }}
+          className="bg-[var(--blue)] rounded-3xl shadow-2xl backdrop-blur-xl border border-white/10 overflow-hidden"
         >
-          {/* En-tête du profil */}
-          <div className="relative bg-gradient-to-r from-[var(--blue)]/30 to-[var(--blue-ciel)]/20 p-8">
-            <div className="flex flex-col items-center space-y-4">
-              <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="relative group"
-              >
-                <img
-                  src={user.profile.image || '/default-avatar.png'}
-                  alt="Profile"
-                  className="w-32 h-32 rounded-full object-cover border-4 border-[var(--light)]/30 shadow-xl"
-                />
-                <div className="absolute inset-0 rounded-full border-4 border-transparent group-hover:border-[var(--jaune)]/30 transition-all" />
-              </motion.div>
-              
-              <div className="text-center">
-                <h1 className="text-4xl font-bold text-[var(--light)] drop-shadow-md">
-                  {user.username}
-                </h1>
-                <p className="text-[var(--light)]/80 mt-1">{user.email}</p>
-                {(user.first_name || user.last_name) && (
-                  <p className="text-[var(--light)]/80 mt-2">
-                    {user.first_name} {user.last_name}
-                  </p>
-                )}
-              </div>
-            </div>
+          {/* En-tête avec couleur solide */}
+          <div className="relative h-48 bg-[var(--blue-ciel)] overflow-hidden">
+            {/* Removed the positioning that was causing the half-circle effect */}
           </div>
 
-          {/* Détails du profil */}
-          <div className="p-8 space-y-6">
-            <ProfileInfoItem 
-              label="📍 Lieu" 
-              value={user.profile.lieu || 'Non spécifié'}
-              icon="🌍"
-            />
-            
-            {user.profile.date_naiv && (
-              <ProfileInfoItem
-                label="🎂 Date de naissance"
-                value={user.profile.date_naiv}
-                icon="📅"
-              />
-            )}
+          {/* Profile image - now positioned to be fully visible */}
+          <div className="flex justify-center -mt-16 mb-4">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="relative group"
+            >
+              <div className="absolute inset-0 rounded-full bg-[var(--jaune)] blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/30 shadow-2xl relative z-10">
+                <img
+                  src={user.profile?.image || '/default-avatar.png'}
+                  alt={user.username}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback if image fails to load
+                    (e.target as HTMLImageElement).src = '/default-avatar.png';
+                  }}
+                />
+              </div>
+            </motion.div>
+          </div>
 
-            {user.profile.status && (
-              <ProfileInfoItem
-                label="💼 Statut"
-                value={user.profile.status}
-                icon="🌟"
-              />
-            )}
+          {/* Contenu principal */}
+          <div className="pb-8 px-12 space-y-6">
+            <div className="text-center">
+              <motion.h1 
+                className="text-4xl font-bold text-[var(--light)]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {user.username}
+              </motion.h1>
+              
+              <div className="mt-4 flex flex-wrap justify-center gap-4">
+                <Badge icon="✉️" value={user.email} />
+                {user.first_name && <Badge icon="👤" value={user.first_name} />}
+                {user.last_name && <Badge icon="👥" value={user.last_name} />}
+              </div>
+            </div>
 
-            <ProfileInfoItem
-              label="📝 Bio"
-              value={user.profile.passion || 'Aucune bio pour le moment'}
-              icon="✏️"
-              isBio
-            />
+            {/* Grille d'informations */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <ProfileCard 
+                title="Informations personnelles"
+                icon="📌"
+                items={[
+                  { label: 'Lieu', value: user.profile?.lieu },
+                  { label: 'Date de naissance', value: user.profile?.date_naiv ? new Date(user.profile.date_naiv).toLocaleDateString('fr-FR') : undefined },
+                  { label: 'Statut', value: user.profile?.status }
+                ]}
+              />
+              
+              <ProfileCard 
+                title="À propos"
+                icon="📝"
+                items={[
+                  { label: 'Passions', value: user.profile?.passion }
+                ]}
+              />
+            </div>
 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleOpenEditModal}
-              className="w-full bg-gradient-to-r from-[var(--blue)] to-[var(--blue-ciel)] text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-[var(--blue-ciel)]/20 transition-all"
+              className="w-full bg-[var(--blue-ciel)] p-[2px] rounded-xl shadow-lg"
             >
-              ✨ Modifier le profil
+              <div className="bg-[var(--blue)] hover:bg-[var(--blue)]/90 text-white py-3 rounded-[11px] transition-all">
+                ✨ Modifier le profil
+              </div>
             </motion.button>
           </div>
         </motion.div>
@@ -266,37 +265,39 @@ export default function ProfilePage() {
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-[var(--light)]/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-[var(--blue-ciel)]/20 max-w-md w-full"
+              className="relative bg-[var(--blue)] backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 max-w-md w-full"
             >
-              {/* En-tête du modal */}
-              <div className="flex justify-between items-center p-6 border-b border-[var(--blue)]/20">
-                <h3 className="text-xl font-bold bg-gradient-to-r from-[var(--blue-ciel)] to-[var(--jaune)] bg-clip-text text-transparent">
+              <div className="flex justify-between items-center p-6 border-b border-white/10">
+                <h3 className="text-xl font-bold text-[var(--jaune)]">
                   Éditer le profil
                 </h3>
                 <button 
                   onClick={handleCloseEditModal}
-                  className="p-2 hover:bg-[var(--blue)]/10 rounded-full transition-colors"
+                  className="p-2 hover:bg-white/5 rounded-full transition-colors"
                 >
-                  <XMarkIcon className="h-6 w-6 text-[var(--light)]/80" />
+                  <XMarkIcon className="h-6 w-6 text-white/80" />
                 </button>
               </div>
               
-              {/* Formulaire */}
               <form onSubmit={handleSave} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-                {/* Image de profil */}
                 <div className="flex flex-col items-center space-y-3">
                   <div className="relative group">
-                    <img
-                      src={previewImage || user.profile.image || '/default-avatar.png'}
-                      alt="Profile"
-                      className="w-24 h-24 rounded-full object-cover border-4 border-[var(--light)]/30 shadow-lg"
-                    />
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/30 shadow-lg">
+                      <img
+                        src={previewImage || user.profile?.image || '/default-avatar.png'}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/default-avatar.png';
+                        }}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 bg-[var(--blue)] p-2 rounded-full shadow-md hover:bg-[var(--blue-ciel)] transition-colors"
+                      className="absolute bottom-0 right-0 bg-[var(--blue-ciel)] p-2 rounded-full shadow-md hover:bg-[var(--blue-ciel)]/80 transition-colors"
                     >
-                      <svg className="w-5 h-5 text-[var(--light)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
@@ -309,12 +310,11 @@ export default function ProfilePage() {
                       onChange={handleImageUpload}
                     />
                   </div>
-                  <p className="text-sm text-center text-[var(--light)]/60">
+                  <p className="text-sm text-center text-white/60">
                     Format JPEG ou PNG (max 2MB)
                   </p>
                 </div>
 
-                {/* Champs du formulaire */}
                 <div className="space-y-4">
                   {[
                     { label: '👤 Nom d\'utilisateur', name: 'username', required: true },
@@ -326,7 +326,7 @@ export default function ProfilePage() {
                     { label: '💼 Statut', name: 'status' },
                   ].map((field) => (
                     <div key={field.name}>
-                      <label className="block text-[var(--light)]/80 mb-1.5">
+                      <label className="block text-white/80 mb-1.5">
                         {field.label}
                       </label>
                       <input
@@ -334,39 +334,37 @@ export default function ProfilePage() {
                         name={field.name}
                         value={formData[field.name as keyof typeof formData]}
                         onChange={handleInputChange}
-                        className="w-full bg-[var(--light)]/5 border border-[var(--blue)]/20 rounded-lg px-4 py-2.5 text-[var(--light)] focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
                         required={field.required}
                       />
                     </div>
                   ))}
 
                   <div>
-                    <label className="block text-[var(--light)]/80 mb-1.5">
+                    <label className="block text-white/80 mb-1.5">
                       📝 Bio
                     </label>
                     <textarea
                       name="passion"
                       value={formData.passion}
                       onChange={handleInputChange}
-                      className="w-full bg-[var(--light)]/5 border border-[var(--blue)]/20 rounded-lg px-4 py-2.5 text-[var(--light)] focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] h-32 resize-none transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] h-32 resize-none transition-all"
                     />
                   </div>
                 </div>
 
-                {/* Messages d'erreur */}
                 {error && (
                   <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg">
                     ⚠️ {error}
                   </div>
                 )}
 
-                {/* Boutons */}
                 <div className="flex justify-end gap-3 pt-4">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     type="button"
                     onClick={handleCloseEditModal}
-                    className="px-5 py-2.5 bg-[var(--blue)]/20 text-[var(--light)] rounded-lg hover:bg-[var(--blue)]/30 transition-colors"
+                    className="px-5 py-2.5 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors"
                     disabled={isSaving}
                   >
                     Annuler
@@ -396,14 +394,32 @@ export default function ProfilePage() {
   );
 }
 
-const ProfileInfoItem = ({ label, value, icon, isBio = false }: { label: string; value: string; icon?: string; isBio?: boolean }) => (
-  <div className="bg-[var(--light)]/5 p-4 rounded-xl border border-[var(--blue)]/20">
-    <div className="flex items-center gap-2 text-[var(--light)]/80 mb-2">
-      {icon && <span>{icon}</span>}
-      <span className="font-medium">{label}</span>
+// Composants supplémentaires
+const ProfileCard = ({ title, icon, items }: { title: string; icon: string; items: { label: string; value?: string }[] }) => (
+  <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-[var(--blue-ciel)]/30 transition-all">
+    <div className="flex items-center gap-3 mb-4 text-[var(--blue-ciel)]">
+      <span className="text-2xl">{icon}</span>
+      <h3 className="text-xl font-semibold text-white">{title}</h3>
     </div>
-    <p className={`text-[var(--light)] ${isBio ? 'italic opacity-90' : 'font-semibold'}`}>
-      {value}
-    </p>
+    <div className="space-y-3">
+      {items.map((item, index) => (
+        <div key={index} className="flex gap-2">
+          <span className="text-white/60 flex-[0_0_120px]">{item.label}</span>
+          <span className="text-white/90 flex-1 font-medium">
+            {item.value || 'Non spécifié'}
+          </span>
+        </div>
+      ))}
+    </div>
   </div>
+);
+
+const Badge = ({ icon, value }: { icon: string; value: string }) => (
+  <motion.div 
+    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10"
+    whileHover={{ y: -2 }}
+  >
+    <span>{icon}</span>
+    <span className="text-white/90">{value}</span>
+  </motion.div>
 );
