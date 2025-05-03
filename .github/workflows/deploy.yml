@@ -55,5 +55,5 @@ jobs:
           docker pull unitfianar/chat-next-app:latest
           docker stop chat-next-app || true
           docker rm chat-next-app || true
-          docker run -d --name chat-next-app -p 6230:3000 --env-file /var/www/chat/.env.local unitfianar/chat-next-app:latest
+          docker run -d --name chat-next-app -p 7895:3000 --env-file /var/www/chat/.env.local unitfianar/chat-next-app:latest
         EOF
