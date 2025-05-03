@@ -224,9 +224,9 @@ export default function ProfilePage() {
                 title="Informations personnelles"
                 icon="📌"
                 items={[
-                  { label: 'Lieu', value: user.profile?.lieu },
+                  { label: 'Lieu', value: user.profile?.lieu || undefined },
                   { label: 'Date de naissance', value: user.profile?.date_naiv ? new Date(user.profile.date_naiv).toLocaleDateString('fr-FR') : undefined },
-                  { label: 'Statut', value: user.profile?.status }
+                  { label: 'Statut', value: user.profile?.status || undefined }
                 ]}
               />
               
@@ -234,7 +234,7 @@ export default function ProfilePage() {
                 title="À propos"
                 icon="📝"
                 items={[
-                  { label: 'Passions', value: user.profile?.passion }
+                  { label: 'Passions', value: user.profile?.passion || undefined }
                 ]}
               />
             </div>

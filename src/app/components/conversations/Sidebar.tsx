@@ -20,6 +20,11 @@ export interface Conversation {
   isGroup: boolean;
   userId?: string | number;
   avatar?: string;
+  user: {
+    profile?: {
+      image?: string;
+    }
+  };
 }
 
 interface User {
