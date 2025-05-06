@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/axiosClient';
+import axios from 'axios';
 import {
   UserCircleIcon,
   PaperAirplaneIcon,
   EllipsisVerticalIcon,
-  PaperClipIcon
+  PaperClipIcon,
+  ArrowLeftIcon // Add this import
 } from '@heroicons/react/24/outline';
 import Pusher from 'pusher-js';
 import { useRouter } from 'next/navigation';
@@ -16,7 +18,7 @@ interface Message {
   content: string;
   sender: string;
   timestamp: string;
-  attachment?: string; // Add attachment field
+  attachment?: string;
   recipient?: {
     id: number;
     username: string;
@@ -37,33 +39,66 @@ interface User {
   email: string;
   first_name: string;
   last_name: string;
+  is_online: boolean;
+}
+
+interface Conversation {
+  id: number;
+  name: string;
+  lastMessage: string;
+  timestamp: string;
+  isGroup: boolean;
+  userId?: number;
 }
 
 interface ChatWindowProps {
-  conversation: {
-    id: string | number;    // ID de l'autre utilisateur (pour private) ou de la conversation de groupe
-    name: string;
-    isGroup: boolean;
-  } | null;
-  userId: string | number | null; // ID de l'utilisateur connecté
+  conversation: Conversation | null;
+  userId: string | number;
+  onBackClick?: () => void; // Fonction pour gérer le retour à la sidebar
+  isMobile?: boolean; // Pour savoir si on est sur mobile
 }
 
-export default function ChatWindow({ conversation, userId }: ChatWindowProps) {
+export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [pusherClient, setPusherClient] = useState<Pusher | null>(null);
-  const [user, setUser] = useState<User | null>(null); // Ajout de l'état pour l'utilisateur connecté
-
+  const [user, setUser] = useState<User | null>(null);
+  const [recipientOnline, setRecipientOnline] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [recipientId, setRecipientId] = useState<number | null>(null);
+  const [recipient, setRecipient] = useState<any>(null);
+  
+  // Référence pour stocker l'instance Pusher
+  const pusherRef = useRef<Pusher | null>(null);
+  
   const handleProfileClick = () => {
-    if (conversation && !conversation.isGroup && messages[0]?.recipient?.id) {
-      router.push(`/profile/${messages[0].recipient.id}`);
+    if (conversation && !conversation.isGroup && recipientId) {
+      router.push(`/profile/${recipientId}`);
     }
   };
 
-  // Chargement initial des messages (private OU group)
+  // Chargement des données utilisateur
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+
+  }, []);
+  const currentUser= user?.id;
+
+  // Déterminer l'ID du destinataire pour les conversations privées
+  useEffect(() => {
+    if (conversation && !conversation.isGroup && conversation.userId) {
+      setRecipientId(Number(conversation.userId));
+    } else if (messages.length > 0 && messages[0]?.recipient?.id) {
+      setRecipientId(messages[0].recipient.id);
+    }
+  }, [conversation, messages]);
+
+  // Chargement initial des messages
   useEffect(() => {
     if (!conversation?.id || userId == null) return;
 
@@ -72,118 +107,199 @@ export default function ChatWindow({ conversation, userId }: ChatWindowProps) {
         const endpoint = conversation.isGroup
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/chat/group/${conversation.id}/`
           : `${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/`;
+        
         console.log('🛠️ Loading messages from', endpoint);
-        const { data } = await api.get<Message[]>(endpoint);
-        setMessages(data);
+        console.log('Authorization token:', localStorage.getItem('accessToken'));
+        
+        const { data } = await api.get(endpoint);
+        console.log('API Response:', data);
+        
+        if (data && data.messages) {
+          setMessages(data.messages);
+          
+          if (data.recipient) {
+            setRecipient(data.recipient);
+          }
+        } else if (Array.isArray(data)) {
+          console.log('Setting messages from array:', data);
+          setMessages(data);
+        } else {
+          console.error('Unexpected data format:', data);
+          setMessages([]);
+        }
       } catch (err) {
         console.error('Error loading messages:', err);
+        if (axios.isAxiosError(err)) {
+          console.error('Response status:', err.response?.status);
+          console.error('Response data:', err.response?.data);
+        }
       }
     };
+    
     loadMessages();
   }, [conversation?.id, userId]);
 
-  // Initialisation unique du client Pusher
+  // Initialisation de Pusher et abonnement aux canaux
   useEffect(() => {
-    if (userId == null) return;
-
-    // @ts-ignore
-    Pusher.logToConsole = true;
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-      forceTLS: true,
-      authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
-      auth: {
-        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-      },
-    });
-    pusher.connection.bind('state_change', ({ previous, current }: { previous: string; current: string }) =>
-      console.log('Pusher state', previous, '→', current)
-    );
-    pusher.connection.bind('error', (err: Error) =>
-      console.error('Pusher connection error:', err)
-    );
-    setPusherClient(pusher);
-    return () => { pusher.disconnect(); };
-  }, [userId]);
-
-  // (Dé)souscription au canal correct pour privé OU group
-  useEffect(() => {
-    if (!pusherClient || !conversation?.id || userId == null || !user) return;
-
+    if (!userId || !conversation?.id) return;
+    
+    // Initialiser Pusher une seule fois
+    if (!pusherRef.current) {
+      console.log('Initializing Pusher client');
+      // @ts-ignore
+      Pusher.logToConsole = true;
+      pusherRef.current = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+        forceTLS: true,
+        authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
+        auth: {
+          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        },
+      });
+    }
+    
+    // Déterminer le nom du canal pour les messages
     let channelName: string;
     if (conversation.isGroup) {
       channelName = `group-chat-${conversation.id}`;
     } else {
-      // pour privé : tri des deux IDs
-      const a = Math.min(Number(userId), user.id);
-      const b = Math.max(Number(userId), user.id);
+      // Pour les conversations privées
+      const otherUserId = conversation.userId || recipientId || conversation.id;
+      const a = Math.min(Number(currentUser ?? 0), Number(otherUserId));
+      const b = Math.max(Number(currentUser ?? 0), Number(otherUserId));
       channelName = `private-chat-${a}-${b}`;
     }
-
-    console.log('→ Pusher subscribe', channelName);
-    const channel = pusherClient.subscribe(channelName);
-    channel.bind('new-message', handleNewMessage);
-
-    return () => {
-      console.log('← Pusher unsubscribe', channelName);
-      channel.unbind_all();
-      pusherClient.unsubscribe(channelName);
+    
+    console.log(`Subscribing to channel: ${channelName}`);
+    
+    // S'abonner au canal de messages
+    const channel = pusherRef.current.subscribe(channelName);
+    
+    // Écouter les nouveaux messages
+    const handleNewMessage = (data: Message) => {
+      console.log('New message received:', data);
+      setMessages(prev => [...prev, data]);
     };
-  }, [pusherClient, conversation?.id, userId, user]);
-
-  const handleNewMessage = (message: Message) => {
-    console.log('New message received:', message);
-    setMessages(prev => {
-      console.log('Updating messages state with new message:', message);
-      return [...prev, message];
+    
+    channel.bind('new-message', handleNewMessage);
+    
+    // S'abonner au canal de présence pour le statut en ligne
+    const presenceChannel = pusherRef.current.subscribe('presence-channel');
+    
+    presenceChannel.bind('pusher:subscription_succeeded', (data: any) => {
+      if (recipientId && data && data.members) {
+        const isOnline = Object.keys(data.members).includes(String(recipientId));
+        setRecipientOnline(isOnline);
+      }
     });
+    
+    presenceChannel.bind('pusher:member_added', (member: any) => {
+      if (recipientId && member.id == recipientId) {
+        setRecipientOnline(true);
+      }
+    });
+    
+    presenceChannel.bind('pusher:member_removed', (member: any) => {
+      if (recipientId && member.id == recipientId) {
+        setRecipientOnline(false);
+      }
+    });
+    
+    // Nettoyage lors du démontage du composant
+    return () => {
+      console.log(`Unsubscribing from channels`);
+      channel.unbind('new-message', handleNewMessage);
+      pusherRef.current?.unsubscribe(channelName);
+      presenceChannel.unbind_all();
+      pusherRef.current?.unsubscribe('presence-channel');
+    };
+  }, [userId, conversation?.id, recipientId, conversation?.userId]);
+  
+  // Nettoyage de Pusher lors du démontage complet
+  useEffect(() => {
+    return () => {
+      if (pusherRef.current) {
+        console.log('Disconnecting Pusher client');
+        pusherRef.current.disconnect();
+        pusherRef.current = null;
+      }
+    };
+  }, []);
+
+  // Défilement automatique
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Envoi de message
   const sendMessage = async () => {
-    if (!newMessage.trim() && !file || !conversation?.id || isSending || userId == null) return;
+    if ((!newMessage.trim() && !file) || !conversation?.id || isSending || userId == null) return;
     setIsSending(true);
+  
     try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL!;
       const endpoint = conversation.isGroup
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/chat/group/${conversation.id}/`
-        : `${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/`;
+        ? `${API_URL}/api/chat/group/${conversation.id}/`
+        : `${API_URL}/api/chat/private/${userId}/`;
   
       const formData = new FormData();
-      formData.append('content', newMessage);
+      formData.append('content', newMessage.trim() || ' ');
+      
+      // Pour les conversations privées, ajouter explicitement l'ID du destinataire
+      if (!conversation.isGroup && recipientId) {
+        formData.append('recipient', String(recipientId));
+      }
+      
       if (file) {
         formData.append('attachment', file);
       }
   
-      // Log the formData entries
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ', ' + pair[1]);
-      }
-  
-      const response = await api.post(endpoint, formData, {
+      console.log('🛠️ POST to', endpoint);
+      
+      const { data } = await api.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      console.log('Message sent:', response.data);
+  
+      console.log('✅ Sent:', data);
       setNewMessage('');
       setFile(null);
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error('❌ Error sending message:', err);
+      if (axios.isAxiosError(err) && err.response) {
+        console.error('Response data:', err.response.data);
+        console.error('Status:', err.response.status);
+      }
     } finally {
       setIsSending(false);
     }
   };
 
-  
+  // Vérifier le statut en ligne du destinataire
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
+    if (!recipientId) return;
+    
+    const checkOnlineStatus = async () => {
+      try {
+        const { data } = await api.get(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/users/${recipientId}/`);
+        setRecipientOnline(data.is_online || false);
+      } catch (err) {
+        console.error('Error checking online status:', err);
+      }
+    };
+    
+    checkOnlineStatus();
+  }, [recipientId]);
 
   if (!conversation) {
     return (
-      <div className="fixed right-0 top-0 bottom-0 left-[384px] bg-gray-50 flex flex-col">
+      <div className="w-full h-full bg-gray-50 flex flex-col">
+
         <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
           <h1 className="text-2xl font-bold">WhatsApp</h1>
           <EllipsisVerticalIcon className="h-6 w-6 cursor-pointer" />
@@ -196,93 +312,245 @@ export default function ChatWindow({ conversation, userId }: ChatWindowProps) {
   }
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 left-[384px] bg-gray-50 flex flex-col">
+    <div className="h-full w-full flex flex-col bg-gray-50">
+
       {/* Header */}
       <div
-        className="p-4 bg-white border-b flex items-center gap-3 shadow-md cursor-pointer"
+        className="p-4 bg-white border-b flex items-center gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
         onClick={handleProfileClick}
       >
-        <div className="h-12 w-12 rounded-full overflow-hidden border-1 border-black">
-          {messages[0]?.recipient?.profile?.image ? (
+        {/* Bouton de retour - visible uniquement sur mobile */}
+        {isMobile && onBackClick && (
+          <button
+            onClick={onBackClick}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Retour"
+          >
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </button>
+        )}
+        
+        <div className="h-12 w-12 rounded-full overflow-hidden border border-indigo-100 shadow-sm">
+          {recipient?.profile?.image ? (
             <img
-              src={messages[0].recipient.profile.image}
+              src={recipient.profile.image}
               alt={conversation.name}
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="h-full w-full bg-indigo-100 flex items-center justify-center">
+            <div className="h-full w-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
               <UserCircleIcon className="h-8 w-8 text-indigo-600" />
             </div>
           )}
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="font-bold text-xl text-gray-900">{conversation.name}</h2>
-          <p className="text-sm text-gray-500">
-            {conversation.isGroup ? 'Groupe' : 'En ligne'}
+          <p className="text-sm text-gray-500 flex items-center">
+            {conversation.isGroup ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-indigo-400 mr-2"></span>
+                Groupe
+              </>
+            ) : (
+              <>
+                <span className={`h-2 w-2 rounded-full ${recipientOnline ? 'bg-green-500' : 'bg-gray-400'} mr-2`}></span>
+                {recipientOnline ? 'En ligne' : 'Hors ligne'}
+              </>
+            )}
           </p>
         </div>
+        <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+          <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
+        </button>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
-        {messages.map(msg => {
-          const isCurrentUser = msg.sender === user?.username;
-          return (
-            <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-              {/* Afficher l'avatar uniquement pour les messages reçus */}
-              {!isCurrentUser && (
-                <div className="mr-2">
-                  <div className="h-8 w-8 rounded-full overflow-hidden">
-                    {messages[0]?.recipient?.profile?.image ? (
-                      <img
-                        src={messages[0].recipient.profile.image}
-                        alt={messages[0].recipient.username}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full bg-indigo-100 flex items-center justify-center">
-                        <UserCircleIcon className="h-6 w-6 text-indigo-600" />
+        {Array.isArray(messages) && messages.length > 0 ? (
+          messages.map(msg => {
+            const isCurrentUser = msg.sender === user?.username;
+            return (
+              <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                {/* Avatar pour les messages reçus */}
+                {!isCurrentUser && (
+                  <div className="mr-2 mt-1">
+                    <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
+                      {recipient?.profile?.image ? (
+                        <img
+                          src={recipient.profile.image}
+                          alt={recipient.username}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
+                          <UserCircleIcon className="h-6 w-6 text-indigo-600" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className={`max-w-xs md:max-w-md lg:max-w-lg ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col`}>
+                  <div
+                    className={`p-3 rounded-lg shadow-sm ${
+                      isCurrentUser
+                        ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none'
+                        : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                    }`}
+                  >
+                    {/* En-tête du message */}
+                    <div className="flex justify-between mb-2 items-center">
+                      <span className={`text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800'}`}>
+                        {isCurrentUser ? 'Vous' : msg.sender}
+                      </span>
+                      <span className={`ms-2 text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
+                        {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    
+                    {/* Contenu du message */}
+                    {msg.content && (
+                      <p className={`text-sm ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
+                        {msg.content}
+                      </p>
+                    )}
+                    
+                    {/* Pièce jointe */}
+                    {msg.attachment && (
+                      <div className={`mt-2 rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/30' : 'bg-gray-50'}`}>
+                        {(() => {
+                          const fileUrl = msg.attachment;
+                          const fileExtension = fileUrl.split('.').pop()?.toLowerCase();
+                          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExtension || '');
+                          const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(fileExtension || '');
+                          const isPdf = fileExtension === 'pdf';
+                          const isAudio = ['mp3', 'wav', 'ogg', 'aac'].includes(fileExtension || '');
+                          
+                          // Extraire le nom du fichier de l'URL
+                          const fileName = fileUrl.split('/').pop() || 'fichier';
+                          const decodedFileName = decodeURIComponent(fileName);
+
+                          if (isImage) {
+                            return (
+                              <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-1`}>
+                                <img 
+                                  src={fileUrl} 
+                                  alt={decodedFileName}
+                                  className="max-w-full h-auto rounded-lg max-h-60 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => window.open(fileUrl, '_blank')}
+                                />
+                                <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
+                                  {decodedFileName}
+                                </div>
+                              </div>
+                            );
+                          } else if (isVideo) {
+                            return (
+                              <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-2`}>
+                                <video 
+                                  src={fileUrl} 
+                                  controls 
+                                  className="max-w-full max-h-60 rounded-lg"
+                                />
+                                <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
+                                  {decodedFileName}
+                                </div>
+                              </div>
+                            );
+                          } else if (isPdf) {
+                            return (
+                              <div className={`flex flex-col p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-lg`}>
+                                <div className="flex items-center mb-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-red-300' : 'text-red-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                  </svg>
+                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700'}`}>{decodedFileName}</span>
+                                </div>
+                                <iframe 
+                                  src={`${fileUrl}#toolbar=0&navpanes=0`} 
+                                  className="w-full h-60 rounded border border-gray-300 bg-white"
+                                  title={decodedFileName}
+                                />
+                                <a 
+                                  href={fileUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className={`${isCurrentUser ? 'text-indigo-200' : 'text-indigo-600'} hover:underline text-sm mt-2 text-center`}
+                                >
+                                  Ouvrir le PDF
+                                </a>
+                              </div>
+                            );
+                          } else if (isAudio) {
+                            return (
+                              <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-3`}>
+                                <div className="flex items-center mb-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isCurrentUser ? 'text-indigo-300' : 'text-indigo-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071a1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243a1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828a1 1 0 010-1.415z" clipRule="evenodd" />
+                                  </svg>
+                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700'}`}>{decodedFileName}</span>
+                                </div>
+                                <audio 
+                                  src={fileUrl} 
+                                  controls 
+                                  className="w-full"
+                                />
+                              </div>
+                            );
+                          } else {
+                            // Pour les autres types de fichiers
+                            return (
+                              <div className={`flex items-center p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-lg`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-gray-300' : 'text-gray-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a3 3 0 006 0V7a1 1 0 112 0v4a5 5 0 01-10 0V7a5 5 0 0110 0v1.5a2.5 2.5 0 01-5 0V7a1 1 0 012 0v1.5a.5.5 0 001 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+                                </svg>
+                                <div className="flex flex-col">
+                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700'}`}>{decodedFileName}</span>
+                                  <a 
+                                    href={fileUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className={`${isCurrentUser ? 'text-indigo-200' : 'text-indigo-600'} hover:underline text-xs`}
+                                  >
+                                    Télécharger
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              <div className="max-w-xs md:max-w-md lg:max-w-lg">
-                <div
-                  className={`p-3 rounded-lg shadow-md ${
-                    isCurrentUser
-                      ? 'bg-indigo-600 text-white rounded-tr-none'
-                      : 'bg-white text-gray-800 rounded-tl-none'
-                  }`}
-                >
-                  {/* Affichage du nom de l'expéditeur en haut du message */}
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-semibold text-black">
-                      {isCurrentUser ? 'Vous' : msg.sender}
-                    </span>
-                    <span className={`ms-2 text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
-                      {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                  <p className={`text-sm ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
-                    {msg.content}
-                  </p>
-                  {msg.attachment && (
-                    <div className="mt-2">
-                      <a href={msg.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                        View attachment
-                      </a>
+                  {/* Indicateur de statut de lecture (optionnel) */}
+                  {isCurrentUser && (
+                    <div className="flex items-center mt-1 text-xs text-gray-500 justify-end">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">
+              Aucun message à afficher
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <span className="block text-xs mt-2 text-red-500">
+                  Messages data: {JSON.stringify(messages).substring(0, 100)}...
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}

@@ -32,21 +32,17 @@ export default function UserProfilePage() {
       try {
         const { data } = await api.get<UserProfile>(`/api/chat/users/${userId}`);
         setUser(data);
-      } catch (err) {
+      } catch {
         setError('Failed to load user profile');
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (userId) {
-      fetchUserProfile();
-    }
+    if (userId) fetchUserProfile();
   }, [userId]);
 
-  const handleBack = () => {
-    router.back();
-  };
+  const handleBack = () => router.back();
 
   if (isLoading) {
     return (
@@ -81,30 +77,31 @@ export default function UserProfilePage() {
 
   return (
     <div className="fixed inset-0 bg-white overflow-auto">
+      {/* Bouton Retour */}
       <button
         onClick={handleBack}
-        className="fixed top-4 left-4 z-20 bg-[var(--blue)] hover:bg-[var(--blue-ciel)] text-white p-2 rounded-full shadow-lg transition-colors"
+        className="fixed top-4 left-4 z-20 p-2 bg-[var(--blue)] hover:bg-[var(--blue-ciel)] text-white rounded-full shadow-lg transition-colors"
         aria-label="Retour"
       >
         <ArrowLeftIcon className="h-6 w-6" />
       </button>
 
-      <div className="max-w-5xl mx-auto py-12 px-4 relative z-10 min-h-screen flex flex-col justify-center">
+      {/* Conteneur central */}
+      <div className="max-w-xl mx-auto py-6 px-4 relative z-10 min-h-screen flex flex-col justify-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="bg-[var(--blue)] rounded-3xl shadow-2xl backdrop-blur-xl border border-white/10 overflow-hidden"
         >
-          <div className="relative h-48 bg-[var(--blue-ciel)] overflow-hidden"></div>
+          {/* Cover */}
+          <div className="h-32 bg-[var(--blue-ciel)]" />
 
-          <div className="flex justify-center -mt-16 mb-4">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="relative group"
-            >
+          {/* Avatar */}
+          <div className="flex justify-center -mt-12 mb-4">
+            <motion.div whileHover={{ scale: 1.05 }} className="relative group">
               <div className="absolute inset-0 rounded-full bg-[var(--jaune)] blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/30 shadow-2xl relative z-10">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/30 shadow-lg relative z-10">
                 <img
                   src={user.profile.image || '/default-avatar.png'}
                   alt={user.username}
@@ -117,28 +114,34 @@ export default function UserProfilePage() {
             </motion.div>
           </div>
 
-          <div className="pb-8 px-12 space-y-6">
+          {/* Contenu */}
+          <div className="pb-8 px-6 space-y-6">
+            {/* Nom & Badges */}
             <div className="text-center">
               <motion.h1
-                className="text-4xl font-bold text-[var(--light)]"
+                className="text-2xl font-bold text-[var(--light)]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
                 {user.username}
               </motion.h1>
-
-              <div className="mt-4 flex flex-wrap justify-center gap-4">
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Badge icon="✉️" value={user.email} />
+                {user.first_name && <Badge icon="👤" value={user.first_name} />}
+                {user.last_name && <Badge icon="👥" value={user.last_name} />}
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            {/* Grille responsive des cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ProfileCard
                 title="Informations personnelles"
                 icon="📌"
-                items={[
+              items={[
                   { label: 'Lieu', value: user.profile.lieu || undefined },
                   { label: 'Date de naissance', value: user.profile.date_naiv ? new Date(user.profile.date_naiv).toLocaleDateString('fr-FR') : undefined },
+                  { label: 'Genre', value: user.profile.gender || undefined },
+                  { label: 'Numéro de téléphone', value: user.profile.phone_number || undefined },
                   { label: 'Statut', value: user.profile.status || undefined }
                 ]}
               />
@@ -146,13 +149,31 @@ export default function UserProfilePage() {
               <ProfileCard
                 title="À propos"
                 icon="📝"
-                items={[
-                  { label: 'Passions', value: user.profile.passion || undefined }
+                 items={[
+                  { label: 'Passions', value: user.profile.passion || undefined },
+                  { label: 'Profession', value: user.profile.profession || undefined },
+                  { label: 'Site web', value: user.profile.website || undefined }
+                ]}
+              />
+
+              <ProfileCard
+                title="Autres informations"
+                icon="ℹ️"
+             items={[
+                  { label: 'Bio', value: user.profile.bio || undefined },
+                  { label: 'Dernière connexion', value: user.profile.last_seen ? new Date(user.profile.last_seen).toLocaleString('fr-FR') : undefined },
+                  { label: 'Compte vérifié', value: user.profile.is_verified ? 'Oui' : 'Non' },
+                  { label: 'Préférence de thème', value: user.profile.theme_preference || undefined },
+                  { label: 'Préférence de langue', value: user.profile.language_preference || undefined },
+                  { label: 'Âge', value: user.profile.age ? `${user.profile.age} ans` : undefined },
+                  { label: 'Date de création', value: user.profile.created_at ? new Date(user.profile.created_at).toLocaleString('fr-FR') : undefined },
+                  { label: 'Date de mise à jour', value: user.profile.updated_at ? new Date(user.profile.updated_at).toLocaleString('fr-FR') : undefined }
                 ]}
               />
             </div>
 
-            <div className="mt-8 flex justify-center gap-4">
+            {/* CTA */}
+            <div className="mt-8 flex justify-center">
               <button className="px-6 py-3 bg-blue text-white rounded-lg hover:bg-blue-ciel transition-colors">
                 Envoyer un message
               </button>
@@ -164,15 +185,23 @@ export default function UserProfilePage() {
   );
 }
 
-const ProfileCard = ({ title, icon, items }: { title: string; icon: string; items: { label: string; value?: string }[] }) => (
+const ProfileCard = ({
+  title,
+  icon,
+  items
+}: {
+  title: string;
+  icon: string;
+  items: { label: string; value?: string }[];
+}) => (
   <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-[var(--blue-ciel)]/30 transition-all">
     <div className="flex items-center gap-3 mb-4 text-[var(--blue-ciel)]">
       <span className="text-2xl">{icon}</span>
       <h3 className="text-xl font-semibold text-white">{title}</h3>
     </div>
     <div className="space-y-3">
-      {items.map((item, index) => (
-        <div key={index} className="flex gap-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-2">
           <span className="text-white/60 flex-[0_0_120px]">{item.label}</span>
           <span className="text-white/90 flex-1 font-medium">
             {item.value || 'Non spécifié'}

@@ -1,38 +1,26 @@
-# 1) Build
-FROM node:18-alpine AS builder
+# Utiliser une image de base officielle Node.js
+FROM node:18-alpine
+
+# Définir le répertoire de travail dans le conteneur
 WORKDIR /app
 
-# Désactiver la télémétrie Next
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Copier les seuls fichiers de dépendances
+# Copier package.json et package-lock.json
 COPY package*.json ./
 
-# Installer les dépendances (incluant devDependencies pour TS)
+# Installer toutes les dépendances (y compris dev pour le build)
 RUN npm ci
 
-# Copier l'ensemble du code source (y compris le fichier .env.local)
+# Copier le reste de l'application
 COPY . .
 
-# Build Next.js (génère .next)
+# Construire l'application Next.js
 RUN npm run build
 
-# 2) Runner
-FROM node:18-alpine AS runner
-WORKDIR /app
+# Pour la production, on peut maintenant installer uniquement les dépendances de production
+RUN npm ci --only=production
 
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Copier uniquement le nécessaire depuis le builder
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.env.local ./.env.local  # Copier le fichier .env.local
-
-# Exposer le port par défaut
+# Exposer le port sur lequel l'application va tourner
 EXPOSE 3000
 
-# Lancer Next.js en production
-CMD ["npm", "run", "start"]
+# Commande pour démarrer l'application
+CMD ["npm", "start"]

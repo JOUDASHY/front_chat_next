@@ -26,10 +26,15 @@ export default function ProfilePage() {
     email: '',
     first_name: '',
     last_name: '',
+    bio: '',
     lieu: '',
     date_naiv: '',
+    gender: '',
+    phone_number: '',
     status: '',
-    passion: ''
+    passion: '',
+    profession: '',
+    website: ''
   });
 
   useEffect(() => {
@@ -42,10 +47,15 @@ export default function ProfilePage() {
           email: data.email,
           first_name: data.first_name || '',
           last_name: data.last_name || '',
+          bio: data.profile.bio || '',
           lieu: data.profile.lieu || '',
           date_naiv: data.profile.date_naiv || '',
+          gender: data.profile.gender || '',
+          phone_number: data.profile.phone_number || '',
           status: data.profile.status || '',
-          passion: data.profile.passion || ''
+          passion: data.profile.passion || '',
+          profession: data.profile.profession || '',
+          website: data.profile.website || ''
         });
       } catch (err) {
         setError('Failed to load profile');
@@ -64,10 +74,15 @@ export default function ProfilePage() {
         email: user.email,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
+        bio: user.profile.bio || '',
         lieu: user.profile.lieu || '',
         date_naiv: user.profile.date_naiv || '',
+        gender: user.profile.gender || '',
+        phone_number: user.profile.phone_number || '',
         status: user.profile.status || '',
-        passion: user.profile.passion || ''
+        passion: user.profile.passion || '',
+        profession: user.profile.profession || '',
+        website: user.profile.website || ''
       });
     }
     setPreviewImage(null);
@@ -78,7 +93,7 @@ export default function ProfilePage() {
     setError('');
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -97,10 +112,24 @@ export default function ProfilePage() {
     }
   };
 
+  const GENDER_OPTIONS = [
+    { value: 'M', label: 'Masculin' },
+    { value: 'F', label: 'Féminin' },
+    { value: 'O', label: 'Autre' }
+  ];
+
+  const STATUS_OPTIONS = [
+    { value: 'online', label: 'En ligne' },
+    { value: 'offline', label: 'Hors ligne' },
+    { value: 'away', label: 'Absent' },
+    { value: 'busy', label: 'Occupé' },
+    { value: 'invisible', label: 'Invisible' }
+  ];
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    
+
     setIsSaving(true);
     setError('');
 
@@ -110,11 +139,24 @@ export default function ProfilePage() {
       formDataToSend.append('email', formData.email);
       formDataToSend.append('first_name', formData.first_name);
       formDataToSend.append('last_name', formData.last_name);
+      formDataToSend.append('profile.bio', formData.bio);
       formDataToSend.append('profile.lieu', formData.lieu);
       formDataToSend.append('profile.date_naiv', formData.date_naiv);
-      formDataToSend.append('profile.status', formData.status);
+
+      if (formData.gender) {
+        formDataToSend.append('profile.gender', formData.gender);
+      }
+
+      formDataToSend.append('profile.phone_number', formData.phone_number);
+
+      if (formData.status) {
+        formDataToSend.append('profile.status', formData.status);
+      }
+
       formDataToSend.append('profile.passion', formData.passion);
-      
+      formDataToSend.append('profile.profession', formData.profession);
+      formDataToSend.append('profile.website', formData.website);
+
       if (fileInputRef.current?.files?.[0]) {
         formDataToSend.append('profile.image', fileInputRef.current.files[0]);
       }
@@ -129,6 +171,7 @@ export default function ProfilePage() {
       setShowEditModal(false);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to update profile');
+      console.error('Update error details:', err.response?.data);
     } finally {
       setIsSaving(false);
     }
@@ -156,8 +199,7 @@ export default function ProfilePage() {
 
   return (
     <div className="fixed inset-0 bg-white overflow-auto">
-      {/* Back button */}
-      <button 
+      <button
         onClick={handleBack}
         className="fixed top-4 left-4 z-20 bg-[var(--blue)] hover:bg-[var(--blue-ciel)] text-white p-2 rounded-full shadow-lg transition-colors"
         aria-label="Retour"
@@ -165,34 +207,27 @@ export default function ProfilePage() {
         <ArrowLeftIcon className="h-6 w-6" />
       </button>
 
-      {/* Fond étoilé animé - removed for white background */}
-
-      <div className="max-w-5xl mx-auto py-12 px-4 relative z-10 min-h-screen flex flex-col justify-center">
-        <motion.div 
+      <div className="max-w-xl mx-auto py-6 px-4 relative z-10 min-h-screen flex flex-col justify-center">
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="bg-[var(--blue)] rounded-3xl shadow-2xl backdrop-blur-xl border border-white/10 overflow-hidden"
         >
-          {/* En-tête avec couleur solide */}
-          <div className="relative h-48 bg-[var(--blue-ciel)] overflow-hidden">
-            {/* Removed the positioning that was causing the half-circle effect */}
-          </div>
+          <div className="relative h-32 bg-[var(--blue-ciel)] overflow-hidden"></div>
 
-          {/* Profile image - now positioned to be fully visible */}
-          <div className="flex justify-center -mt-16 mb-4">
+          <div className="flex justify-center -mt-12 mb-4">
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="relative group"
             >
               <div className="absolute inset-0 rounded-full bg-[var(--jaune)] blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/30 shadow-2xl relative z-10">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/30 shadow-2xl relative z-10">
                 <img
                   src={user.profile?.image || '/default-avatar.png'}
                   alt={user.username}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    // Fallback if image fails to load
                     (e.target as HTMLImageElement).src = '/default-avatar.png';
                   }}
                 />
@@ -200,41 +235,58 @@ export default function ProfilePage() {
             </motion.div>
           </div>
 
-          {/* Contenu principal */}
-          <div className="pb-8 px-12 space-y-6">
+          <div className="pb-8 px-6 space-y-6">
             <div className="text-center">
-              <motion.h1 
-                className="text-4xl font-bold text-[var(--light)]"
+              <motion.h1
+                className="text-2xl font-bold text-[var(--light)]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
                 {user.username}
               </motion.h1>
-              
-              <div className="mt-4 flex flex-wrap justify-center gap-4">
+
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Badge icon="✉️" value={user.email} />
                 {user.first_name && <Badge icon="👤" value={user.first_name} />}
                 {user.last_name && <Badge icon="👥" value={user.last_name} />}
               </div>
             </div>
 
-            {/* Grille d'informations */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <ProfileCard 
+            <div className="space-y-4">
+              <ProfileCard
                 title="Informations personnelles"
                 icon="📌"
                 items={[
                   { label: 'Lieu', value: user.profile?.lieu || undefined },
                   { label: 'Date de naissance', value: user.profile?.date_naiv ? new Date(user.profile.date_naiv).toLocaleDateString('fr-FR') : undefined },
+                  { label: 'Genre', value: user.profile?.gender || undefined },
+                  { label: 'Numéro de téléphone', value: user.profile?.phone_number || undefined },
                   { label: 'Statut', value: user.profile?.status || undefined }
                 ]}
               />
-              
-              <ProfileCard 
+
+              <ProfileCard
                 title="À propos"
                 icon="📝"
                 items={[
-                  { label: 'Passions', value: user.profile?.passion || undefined }
+                  { label: 'Passions', value: user.profile?.passion || undefined },
+                  { label: 'Profession', value: user.profile?.profession || undefined },
+                  { label: 'Site web', value: user.profile?.website || undefined }
+                ]}
+              />
+
+              <ProfileCard
+                title="Autres informations"
+                icon="ℹ️"
+                items={[
+                  { label: 'Bio', value: user.profile?.bio || undefined },
+                  { label: 'Dernière connexion', value: user.profile?.last_seen ? new Date(user.profile.last_seen).toLocaleString('fr-FR') : undefined },
+                  { label: 'Compte vérifié', value: user.profile?.is_verified ? 'Oui' : 'Non' },
+                  { label: 'Préférence de thème', value: user.profile?.theme_preference || undefined },
+                  { label: 'Préférence de langue', value: user.profile?.language_preference || undefined },
+                  { label: 'Âge', value: user.profile?.age ? `${user.profile.age} ans` : undefined },
+                  { label: 'Date de création', value: user.profile?.created_at ? new Date(user.profile.created_at).toLocaleString('fr-FR') : undefined },
+                  { label: 'Date de mise à jour', value: user.profile?.updated_at ? new Date(user.profile.updated_at).toLocaleString('fr-FR') : undefined }
                 ]}
               />
             </div>
@@ -253,7 +305,6 @@ export default function ProfilePage() {
         </motion.div>
       </div>
 
-      {/* Modal d'édition */}
       <AnimatePresence>
         {showEditModal && (
           <motion.div
@@ -271,18 +322,18 @@ export default function ProfilePage() {
                 <h3 className="text-xl font-bold text-[var(--jaune)]">
                   Éditer le profil
                 </h3>
-                <button 
+                <button
                   onClick={handleCloseEditModal}
                   className="p-2 hover:bg-white/5 rounded-full transition-colors"
                 >
                   <XMarkIcon className="h-6 w-6 text-white/80" />
                 </button>
               </div>
-              
+
               <form onSubmit={handleSave} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
                 <div className="flex flex-col items-center space-y-3">
                   <div className="relative group">
-                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/30 shadow-lg">
+                    <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white/30 shadow-lg">
                       <img
                         src={previewImage || user.profile?.image || '/default-avatar.png'}
                         alt="Profile"
@@ -323,20 +374,52 @@ export default function ProfilePage() {
                     { label: '👩 Nom', name: 'last_name' },
                     { label: '📍 Lieu', name: 'lieu' },
                     { label: '🎂 Date de naissance', name: 'date_naiv', type: 'date' },
+                    { label: '♂♀ Genre', name: 'gender' },
+                    { label: '📞 Numéro de téléphone', name: 'phone_number' },
                     { label: '💼 Statut', name: 'status' },
                   ].map((field) => (
                     <div key={field.name}>
                       <label className="block text-white/80 mb-1.5">
                         {field.label}
                       </label>
-                      <input
-                        type={field.type || 'text'}
-                        name={field.name}
-                        value={formData[field.name as keyof typeof formData]}
-                        onChange={handleInputChange}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
-                        required={field.required}
-                      />
+                      {field.name === 'gender' ? (
+                        <select
+                          name={field.name}
+                          value={formData[field.name as keyof typeof formData]}
+                          onChange={handleInputChange}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
+                        >
+                          <option value="">Sélectionner un genre</option>
+                          {GENDER_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.name === 'status' ? (
+                        <select
+                          name={field.name}
+                          value={formData[field.name as keyof typeof formData]}
+                          onChange={handleInputChange}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
+                        >
+                          <option value="">Sélectionner un statut</option>
+                          {STATUS_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type || 'text'}
+                          name={field.name}
+                          value={formData[field.name as keyof typeof formData]}
+                          onChange={handleInputChange}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
+                          required={field.required}
+                        />
+                      )}
                     </div>
                   ))}
 
@@ -345,10 +428,48 @@ export default function ProfilePage() {
                       📝 Bio
                     </label>
                     <textarea
+                      name="bio"
+                      value={formData.bio}
+                      onChange={handleInputChange}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] h-32 resize-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white/80 mb-1.5">
+                      🎨 Passions
+                    </label>
+                    <textarea
                       name="passion"
                       value={formData.passion}
                       onChange={handleInputChange}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] h-32 resize-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white/80 mb-1.5">
+                      🏢 Profession
+                    </label>
+                    <input
+                      type="text"
+                      name="profession"
+                      value={formData.profession}
+                      onChange={handleInputChange}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white/80 mb-1.5">
+                      🌐 Site web
+                    </label>
+                    <input
+                      type="text"
+                      name="website"
+                      value={formData.website}
+                      onChange={handleInputChange}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)] transition-all"
                     />
                   </div>
                 </div>
@@ -394,7 +515,6 @@ export default function ProfilePage() {
   );
 }
 
-// Composants supplémentaires
 const ProfileCard = ({ title, icon, items }: { title: string; icon: string; items: { label: string; value?: string }[] }) => (
   <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-[var(--blue-ciel)]/30 transition-all">
     <div className="flex items-center gap-3 mb-4 text-[var(--blue-ciel)]">
@@ -415,7 +535,7 @@ const ProfileCard = ({ title, icon, items }: { title: string; icon: string; item
 );
 
 const Badge = ({ icon, value }: { icon: string; value: string }) => (
-  <motion.div 
+  <motion.div
     className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10"
     whileHover={{ y: -2 }}
   >

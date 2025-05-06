@@ -5,65 +5,67 @@ import Image from "next/image";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { LockClosedIcon, UserIcon } from "@heroicons/react/24/outline";
+import { LockClosedIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
-const LoginPage = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+interface PasswordResetPageProps {
+  params: Promise<{ uid: string; token: string }>;
+}
+
+const PasswordResetPage = ({ params }: PasswordResetPageProps) => {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isClient, setIsClient] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [uid, setUid] = useState("");
+  const [token, setToken] = useState("");
   const router = useRouter();
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    const fetchParams = async () => {
+      const { uid, token } = await params;
+      setUid(uid);
+      setToken(token);
+    };
+
+    fetchParams();
+  }, [params]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (newPassword !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { data } = await api.post("/api/token/", {
-        username,
-        password
+      await api.post("/api/password-reset/confirm/", {
+        uid,
+        token,
+        new_password: newPassword
       });
 
-      if (!data.access || !data.refresh || !data.user) {
-        throw new Error("Réponse du serveur invalide");
-      }
-
-      localStorage.setItem("accessToken", data.access);
-      localStorage.setItem("refreshToken", data.refresh);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
       setIsSuccess(true);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      router.push("/chat");
+      setTimeout(() => router.push("/login"), 2000);
 
     } catch (err: any) {
       setError(
         err.response?.data?.detail ||
-        "Échec de la connexion. Vérifiez vos identifiants."
+        "Échec de la réinitialisation. Le lien a peut-être expiré."
       );
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
     } finally {
       setIsLoading(false);
     }
   };
-  
-  const handleForgotPassword = () => {
-    router.push("/emailreset");
-  };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue)]/90 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Arrière-plan animé */}
+      {/* Arrière-plan animé identique */}
       <motion.div
         className="absolute inset-0 opacity-10"
         animate={{
@@ -98,9 +100,12 @@ const LoginPage = () => {
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="text-[var(--blue-ciel)] text-4xl"
+                className="text-center space-y-4"
               >
-                ✓
+                <CheckCircleIcon className="h-16 w-16 text-[var(--blue-ciel)] mx-auto" />
+                <p className="text-xl font-semibold text-[var(--blue-ciel)]">
+                  Mot de passe réinitialisé !
+                </p>
               </motion.div>
             </motion.div>
           )}
@@ -111,55 +116,30 @@ const LoginPage = () => {
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-gradient-to-r from-[var(--jaune)] to-[var(--blue-ciel)] w-[80px] h-[80px] flex items-center justify-center"
+            className="inline-block p-4 rounded-full bg-gradient-to-r from-[var(--jaune)] to-[var(--blue-ciel)]"
           >
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={40}
-              height={40}
-              priority
-              unoptimized
-              style={{
-                maxWidth: '100%',
-                height: 'auto'
-              }}
-            />
+            <LockClosedIcon className="h-8 w-8 text-white" />
           </motion.div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--blue-ciel)] to-[var(--jaune)] bg-clip-text text-transparent">
-            Welcome Back
+            Nouveau mot de passe
           </h1>
-          <p className="text-[var(--blue)]/80">Votre univers personnel vous attend</p>
+          <p className="text-[var(--blue)]/80">Choisissez un mot de passe sécurisé</p>
         </div>
 
         {/* Formulaire */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Champ utilisateur */}
+          {/* Nouveau mot de passe */}
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
-            <div className="group relative">
-              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
-                placeholder="Nom d'utilisateur"
-                required
-              />
-            </div>
-          </motion.div>
-
-          {/* Champ mot de passe */}
-          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.3 }}>
             <div className="group relative">
               <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
               <input
                 type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full pl-12 pr-12 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
-                placeholder="••••••••"
+                placeholder="Nouveau mot de passe"
                 required
+                minLength={8}
               />
               <button
                 type="button"
@@ -168,6 +148,21 @@ const LoginPage = () => {
               >
                 {showPassword ? "🙈" : "👁️"}
               </button>
+            </div>
+          </motion.div>
+
+          {/* Confirmation mot de passe */}
+          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.3 }}>
+            <div className="group relative">
+              <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full pl-12 pr-12 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                placeholder="Confirmer le mot de passe"
+                required
+              />
             </div>
           </motion.div>
 
@@ -186,7 +181,7 @@ const LoginPage = () => {
             )}
           </AnimatePresence>
 
-          {/* Bouton de connexion */}
+          {/* Bouton de validation */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -200,70 +195,49 @@ const LoginPage = () => {
                 transition={{ repeat: Infinity, duration: 1 }}
                 className="flex items-center justify-center"
               >
-                <Image 
-                  src="/logo.png"
-                  alt="Loading" 
-                  width={20} 
-                  height={20} 
-                  priority
-                  unoptimized
-                  style={{
-                    maxWidth: '100%',
-                    height: 'auto'
-                  }}
-                />
+                <Image src="/logo.png" alt="Loading" width={20} height={20} className="animate-spin" />
               </motion.div>
             ) : (
               <span className="relative z-10 flex items-center justify-center space-x-2">
-                <span>Se connecter</span>
-                <span className="opacity-70">→</span>
+                <span>Réinitialiser</span>
+                <span className="opacity-70">🔑</span>
               </span>
             )}
-            <div className="absolute inset-0 opacity-0 hover:opacity-30 transition-opacity bg-gradient-to-r from-white/30 to-transparent" />
           </motion.button>
         </form>
 
-        {/* Liens footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-8 text-center space-y-4 text-[var(--blue)]/80">
+        {/* Lien retour */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-8 text-center text-[var(--blue)]/80"
+        >
           <a
-            href="/emailreset"
-            onClick={(e) => {
-              e.preventDefault();
-              handleForgotPassword();
-            }}
-            className="hovforgot-passworder:text-[var(--blue-ciel)] transition-colors inline-block hover:underline hover:underline-offset-4"
+            href="/login"
+            className="hover:text-[var(--blue-ciel)] transition-colors inline-block hover:underline hover:underline-offset-4"
           >
-            Mot de passe oublié ?
+            ← Retour à la connexion
           </a>
-          <p>
-            Nouveau membre ?{" "}
-            <a
-              href="/register"
-              className="text-[var(--jaune)] hover:text-[var(--blue-ciel)] font-medium"
-            >
-              Créer un compte
-            </a>
-          </p>
         </motion.div>
       </motion.div>
 
-      {/* Particules flottantes - only render on client side */}
-      {isClient && [...Array(6)].map((_, i) => (
+      {/* Particules flottantes identiques */}
+      {[...Array(6)].map((_, i) => (
         <motion.div
           key={i}
           className="absolute w-2 h-2 bg-[var(--blue-ciel)]/20 rounded-full"
           initial={{
             scale: 0,
-            x: `${Math.floor(i * 60)}%`,  // Use deterministic values based on index
-            y: `${Math.floor(i * 40)}%`
+            x: Math.random() * 100 - 50,
+            y: Math.random() * 100 - 50
           }}
           animate={{
             scale: [0, 1, 0],
-            x: ["0%", "100%"],
+            x: "100vw",
             rotate: 360
           }}
           transition={{
-            duration: 10 + i * 2, // Use index for different durations
+            duration: 10 + Math.random() * 10,
             repeat: Infinity,
             ease: "linear"
           }}
@@ -273,4 +247,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default PasswordResetPage;
