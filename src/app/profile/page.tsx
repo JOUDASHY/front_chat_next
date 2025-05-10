@@ -238,7 +238,10 @@ export default function ProfilePage() {
               alt="Cover"
               className="w-full h-full object-cover"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = "https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg";
+                const img = e.target as HTMLImageElement;
+                if (!img.src.includes('Antsiranana-Diego-Suarez-Madagascar-Cities.jpg')) {
+                  img.src = "https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg";
+                }
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/30" />
@@ -272,7 +275,10 @@ export default function ProfilePage() {
                   alt={user.username}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/default-avatar.png';
+                    const img = e.target as HTMLImageElement;
+                    if (!img.src.includes('/default-avatar.png')) {
+                      img.src = '/default-avatar.png';
+                    }
                   }}
                 />
               </div>
@@ -384,7 +390,10 @@ export default function ProfilePage() {
                         alt="Profile"
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/default-avatar.png';
+                          const img = e.target as HTMLImageElement;
+                          if (!img.src.includes('/default-avatar.png')) {
+                            img.src = '/default-avatar.png';
+                          }
                         }}
                       />
                     </div>

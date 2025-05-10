@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  trailingSlash: true
+  // Remove exportPathMap completely
 };
 
-export default nextConfig;
+module.exports = nextConfig;
