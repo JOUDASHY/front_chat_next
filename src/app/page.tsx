@@ -19,6 +19,14 @@ const LoginPage = () => {
 
   useEffect(() => {
     setIsClient(true);
+    // Check for Google auth code only on client side
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      if (code) {
+        handleGoogleLogin(code);
+      }
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,10 +65,59 @@ const LoginPage = () => {
     }
   };
   
+  const handleGoogleLogin = async (code?: string) => {
+    setError('');
+    setIsLoading(true);
+    
+    if (!code) {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/google/`
+        );
+        if (!response.ok) throw new Error("Erreur de connexion au serveur");
+        const { authorization_url } = await response.json();
+        if (typeof window !== 'undefined') {
+          window.location.href = authorization_url;
+        }
+      } catch (error) {
+        console.error("Erreur lors de la redirection vers Google :", error);
+        setError("Impossible de se connecter à Google. Veuillez réessayer.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/google/callback/?code=${code}`
+        );
+        if (!response.ok) throw new Error("Erreur d'authentification");
+        const data = await response.json();
+
+        if (!data.access_token || !data.user) {
+          throw new Error("Réponse du serveur invalide");
+        }
+
+        localStorage.setItem("accessToken", data.access_token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        setIsSuccess(true);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        router.push("/chat");
+      } catch (err: any) {
+        console.error("Google login échoué :", err);
+        setError("La connexion avec Google a échoué. Veuillez réessayer.");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const handleForgotPassword = () => {
     router.push("/emailreset");
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue)]/90 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Arrière-plan animé */}
@@ -221,6 +278,25 @@ const LoginPage = () => {
             )}
             <div className="absolute inset-0 opacity-0 hover:opacity-30 transition-opacity bg-gradient-to-r from-white/30 to-transparent" />
           </motion.button>
+
+          {/* Bouton Google */}
+          <motion.button
+            onClick={() => handleGoogleLogin()}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="button"
+            className="w-full mt-4 py-4 bg-white text-gray-600 rounded-xl relative overflow-hidden flex items-center justify-center space-x-2 hover:bg-gray-50 transition-colors"
+          >
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"
+              alt="Google"
+              width={20}
+              height={20}
+              className="w-5 h-5"
+            />
+            <span>Se connecter avec Google</span>
+          </motion.button>
+
         </form>
 
         {/* Liens footer */}

@@ -25,4 +25,5 @@ export interface Profile {
   age: number | null;
   created_at: string;
   updated_at: string;
+  cover_image?: string;
 }

@@ -1,11 +1,11 @@
-// next.config.js
-// Ce fichier doit être en JS pour être pris en compte par Render
-/** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Générer un site 100% statique (remplace next export)
-  output: 'export',
-  // (Optionnel) Modifier le dossier de sortie si besoin
-  // distDir: 'build',  
+  output: 'export', // Active l'export statique
+  images: {
+    domains: ['images.unsplash.com'],
+    unoptimized: true, // Nécessaire pour l'export statique
+  },
+  // ⚠️ La section 'experimental' avec optimizeFonts a été supprimée car :
+  // 1. optimizeFonts est maintenant activé par défaut
+  // 2. L'option n'existe plus dans les versions récentes
+  // 3. Le comportement par défaut est déjà optimal
 };
-
-module.exports = nextConfig;

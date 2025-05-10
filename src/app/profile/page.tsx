@@ -20,7 +20,9 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverImageRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewCoverImage, setPreviewCoverImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -112,6 +114,17 @@ export default function ProfilePage() {
     }
   };
 
+  const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewCoverImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const GENDER_OPTIONS = [
     { value: 'M', label: 'Masculin' },
     { value: 'F', label: 'Féminin' },
@@ -157,6 +170,10 @@ export default function ProfilePage() {
       formDataToSend.append('profile.profession', formData.profession);
       formDataToSend.append('profile.website', formData.website);
 
+      if (coverImageRef.current?.files?.[0]) {
+        formDataToSend.append('profile.cover_image', coverImageRef.current.files[0]);
+      }
+
       if (fileInputRef.current?.files?.[0]) {
         formDataToSend.append('profile.image', fileInputRef.current.files[0]);
       }
@@ -169,6 +186,7 @@ export default function ProfilePage() {
 
       setUser(data);
       setShowEditModal(false);
+      setPreviewCoverImage(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to update profile');
       console.error('Update error details:', err.response?.data);
@@ -198,31 +216,57 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-white overflow-auto">
-      <button
-        onClick={handleBack}
-        className="fixed top-4 left-4 z-20 bg-[var(--blue)] hover:bg-[var(--blue-ciel)] text-white p-2 rounded-full shadow-lg transition-colors"
-        aria-label="Retour"
-      >
-        <ArrowLeftIcon className="h-6 w-6" />
-      </button>
-
-      <div className="max-w-xl mx-auto py-6 px-4 relative z-10 min-h-screen flex flex-col justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="bg-[var(--blue)] rounded-3xl shadow-2xl backdrop-blur-xl border border-white/10 overflow-hidden"
+    <div className="min-h-screen bg-gray-100">
+      {/* Header fixe */}
+      <div className="fixed top-0 left-0 right-0 bg-[var(--blue)] shadow-sm z-30 h-14 flex items-center px-4">
+        <button
+          onClick={handleBack}
+          className="p-2 hover:bg-[var(--blue-ciel)]/20 rounded-full transition-colors"
+          aria-label="Retour"
         >
-          <div className="relative h-32 bg-[var(--blue-ciel)] overflow-hidden"></div>
+          <ArrowLeftIcon className="h-6 w-6 text-white" />
+        </button>
+      </div>
 
-          <div className="flex justify-center -mt-12 mb-4">
+      {/* Container principal avec marge pour le header */}
+      <div className="pt-14">
+        {/* Bannière et photo de profil */}
+        <div className="relative">
+          <div className="h-[350px] w-full relative overflow-hidden">
+            <img
+              src={previewCoverImage || user.profile?.cover_image || "https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg"}
+              alt="Cover"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg";
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/30" />
+            
+            {/* Bouton pour modifier l'image de couverture */}
+            <button
+              type="button"
+              onClick={() => coverImageRef.current?.click()}
+              className="absolute bottom-4 right-4 bg-[var(--blue)]/90 hover:bg-[var(--blue)] text-white px-4 py-2 rounded-lg shadow-lg transition-colors backdrop-blur-sm"
+            >
+              📸 Modifier la couverture
+            </button>
+            <input
+              ref={coverImageRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleCoverImageUpload}
+            />
+          </div>
+          
+          {/* Photo de profil */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-16 lg:-bottom-8 lg:left-[max(calc(50%-400px),2rem)]">
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="relative group"
             >
-              <div className="absolute inset-0 rounded-full bg-[var(--jaune)] blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/30 shadow-2xl relative z-10">
+              <div className="w-32 h-32 lg:w-40 lg:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
                 <img
                   src={user.profile?.image || '/default-avatar.png'}
                   alt={user.username}
@@ -234,25 +278,32 @@ export default function ProfilePage() {
               </div>
             </motion.div>
           </div>
+        </div>
 
-          <div className="pb-8 px-6 space-y-6">
-            <div className="text-center">
-              <motion.h1
-                className="text-2xl font-bold text-[var(--light)]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                {user.username}
-              </motion.h1>
-
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Badge icon="✉️" value={user.email} />
-                {user.first_name && <Badge icon="👤" value={user.first_name} />}
-                {user.last_name && <Badge icon="👥" value={user.last_name} />}
-              </div>
+        {/* Contenu principal */}
+        <div className="max-w-[1200px] mx-auto px-4 mt-20 lg:mt-8">
+          {/* En-tête avec nom et badges */}
+          <div className="lg:ml-[200px] mb-8">
+            <h1 className="text-3xl font-bold text-[var(--blue)]">{user.username}</h1>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge icon="✉️" value={user.email} />
+              {user.first_name && <Badge icon="👤" value={user.first_name} />}
+              {user.last_name && <Badge icon="👥" value={user.last_name} />}
             </div>
+            
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleOpenEditModal}
+              className="mt-4 px-4 py-2 bg-[var(--blue)] text-white rounded-lg hover:bg-[var(--blue-ciel)] transition-colors"
+            >
+              ✨ Modifier le profil
+            </motion.button>
+          </div>
 
-            <div className="space-y-4">
+          {/* Grid pour les cartes d'information */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 space-y-6">
               <ProfileCard
                 title="Informations personnelles"
                 icon="📌"
@@ -260,15 +311,25 @@ export default function ProfilePage() {
                   { label: 'Lieu', value: user.profile?.lieu || undefined },
                   { label: 'Date de naissance', value: user.profile?.date_naiv ? new Date(user.profile.date_naiv).toLocaleDateString('fr-FR') : undefined },
                   { label: 'Genre', value: user.profile?.gender || undefined },
-                  { label: 'Numéro de téléphone', value: user.profile?.phone_number || undefined },
-                  { label: 'Statut', value: user.profile?.status || undefined }
+                  { label: 'Téléphone', value: user.profile?.phone_number || undefined }
                 ]}
               />
+              
+              <ProfileCard
+                title="Statut"
+                icon="💫"
+                items={[
+                  { label: 'Statut actuel', value: user.profile?.status || undefined }
+                ]}
+              />
+            </div>
 
+            <div className="lg:col-span-2 space-y-6">
               <ProfileCard
                 title="À propos"
                 icon="📝"
                 items={[
+                  { label: 'Bio', value: user.profile?.bio || undefined },
                   { label: 'Passions', value: user.profile?.passion || undefined },
                   { label: 'Profession', value: user.profile?.profession || undefined },
                   { label: 'Site web', value: user.profile?.website || undefined }
@@ -279,32 +340,16 @@ export default function ProfilePage() {
                 title="Autres informations"
                 icon="ℹ️"
                 items={[
-                  { label: 'Bio', value: user.profile?.bio || undefined },
-                  { label: 'Dernière connexion', value: user.profile?.last_seen ? new Date(user.profile.last_seen).toLocaleString('fr-FR') : undefined },
                   { label: 'Compte vérifié', value: user.profile?.is_verified ? 'Oui' : 'Non' },
-                  { label: 'Préférence de thème', value: user.profile?.theme_preference || undefined },
-                  { label: 'Préférence de langue', value: user.profile?.language_preference || undefined },
-                  { label: 'Âge', value: user.profile?.age ? `${user.profile.age} ans` : undefined },
-                  { label: 'Date de création', value: user.profile?.created_at ? new Date(user.profile.created_at).toLocaleString('fr-FR') : undefined },
-                  { label: 'Date de mise à jour', value: user.profile?.updated_at ? new Date(user.profile.updated_at).toLocaleString('fr-FR') : undefined }
+                  { label: 'Dernière connexion', value: user.profile?.last_seen ? new Date(user.profile.last_seen).toLocaleString('fr-FR') : undefined }
                 ]}
               />
             </div>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleOpenEditModal}
-              className="w-full bg-[var(--blue-ciel)] p-[2px] rounded-xl shadow-lg"
-            >
-              <div className="bg-[var(--blue)] hover:bg-[var(--blue)]/90 text-white py-3 rounded-[11px] transition-all">
-                ✨ Modifier le profil
-              </div>
-            </motion.button>
           </div>
-        </motion.div>
+        </div>
       </div>
 
+      {/* Modal d'édition (inchangé) */}
       <AnimatePresence>
         {showEditModal && (
           <motion.div
@@ -516,16 +561,16 @@ export default function ProfilePage() {
 }
 
 const ProfileCard = ({ title, icon, items }: { title: string; icon: string; items: { label: string; value?: string }[] }) => (
-  <div className="bg-white/5 p-6 rounded-xl border border-white/10 hover:border-[var(--blue-ciel)]/30 transition-all">
-    <div className="flex items-center gap-3 mb-4 text-[var(--blue-ciel)]">
+  <div className="bg-[var(--blue)] p-6 rounded-xl border border-[var(--blue-ciel)]/30 hover:border-[var(--blue-ciel)] transition-all">
+    <div className="flex items-center gap-3 mb-4">
       <span className="text-2xl">{icon}</span>
       <h3 className="text-xl font-semibold text-white">{title}</h3>
     </div>
     <div className="space-y-3">
       {items.map((item, index) => (
         <div key={index} className="flex gap-2">
-          <span className="text-white/60 flex-[0_0_120px]">{item.label}</span>
-          <span className="text-white/90 flex-1 font-medium">
+          <span className="text-gray-300 flex-[0_0_120px]">{item.label}</span>
+          <span className="text-white flex-1 font-medium">
             {item.value || 'Non spécifié'}
           </span>
         </div>
@@ -536,10 +581,10 @@ const ProfileCard = ({ title, icon, items }: { title: string; icon: string; item
 
 const Badge = ({ icon, value }: { icon: string; value: string }) => (
   <motion.div
-    className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10"
+    className="flex items-center gap-2 px-4 py-2 bg-[var(--blue)] text-white rounded-full border border-[var(--blue-ciel)]/30"
     whileHover={{ y: -2 }}
   >
     <span>{icon}</span>
-    <span className="text-white/90">{value}</span>
+    <span className="text-white">{value}</span>
   </motion.div>
 );
