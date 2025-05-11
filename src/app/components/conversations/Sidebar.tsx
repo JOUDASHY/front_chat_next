@@ -82,6 +82,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
   const [user, setUser] = useState<User | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<number, boolean>>(new Map());  // Changed from Map<string | number, boolean>
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
@@ -138,6 +139,19 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
     };
 
     fetchUserFromLocalStorage();
+  }, []);
+
+  // Charger tous les utilisateurs
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      try {
+        const { data } = await api.get<User[]>('/api/chat/users/');
+        setAllUsers(data);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+      }
+    };
+    fetchAllUsers();
   }, []);
 
   // S'abonner aux canaux Pusher pour les mises à jour des conversations
@@ -366,6 +380,40 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-jaune focus:bg-white transition-all color-blue placeholder-blue/60"
           />
+        </div>
+      </div>
+
+      {/* Online users horizontal list */}
+      <div className="px-4 py-2.5 border-b border-blue/20">
+        <h3 className="text-xs font-semibold color-blue mb-2.5">En ligne</h3>
+        <div className="flex space-x-4 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
+          {Array.from(onlineUsers).map(([userId]) => {
+            const onlineUser = allUsers.find(u => u.id === userId) ||
+                             searchResults.find(u => u.id === userId) || 
+                             conversations.find(c => c.userId === userId)?.user as User;
+            
+            if (!onlineUser || userId === user?.id) return null;
+
+            return (
+              <div 
+                key={userId}
+                onClick={() => handleStartConversation(Number(userId))}
+                className="flex flex-col items-center min-w-[52px] cursor-pointer group"
+              >
+                <div className="relative">
+                  <Avatar
+                    src={onlineUser.profile?.image}
+                    alt={onlineUser.username || ''}
+                    className="h-10 w-10 border-2 border-blue hover:border-jaune transition-colors"
+                    isOnline={true}
+                  />
+                </div>
+                <span className="text-[11px] color-blue mt-1 text-center truncate w-full group-hover:text-jaune transition-colors">
+                  {onlineUser.username}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
