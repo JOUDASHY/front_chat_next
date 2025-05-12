@@ -32,6 +32,13 @@ interface Message {
   };
 }
 
+interface PendingMessage extends Omit<Message, 'id'> {
+  id: string; // Temporary ID for pending messages
+  isPending: boolean;
+  isError?: boolean;
+  file?: File;
+}
+
 interface User {
   id: number;
   name: string;
@@ -69,6 +76,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [recipientId, setRecipientId] = useState<number | null>(null);
   const [recipient, setRecipient] = useState<any>(null);
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<Pusher | null>(null);
@@ -77,6 +85,35 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     if (conversation && !conversation.isGroup && recipientId) {
       router.push(`/profile/${recipientId}`);
     }
+  };
+
+  // Ajoutez ces fonctions utilitaires au début du composant
+  const [imageLoadError, setImageLoadError] = useState<{[key: string]: boolean}>({});
+
+  const handleImageError = (imageUrl: string) => {
+    setImageLoadError(prev => ({...prev, [imageUrl]: true}));
+  };
+
+  const ImageWithFallback = ({ src, alt, className }: { src?: string, alt: string, className: string }) => {
+    if (!src || imageLoadError[src]) {
+      return (
+        <div className={`${className} bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center`}>
+          <UserCircleIcon className="w-2/3 h-2/3 text-indigo-600" />
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        onError={() => handleImageError(src)}
+        loading="lazy"
+        decoding="async"
+        style={{ objectFit: 'cover' }}
+      />
+    );
   };
 
   // Chargement des données utilisateur
@@ -232,51 +269,64 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   };
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom();file
   }, [messages]);
 
   // Envoi de message
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !file) || !conversation?.id || isSending || userId == null) return;
-    setIsSending(true);
-  
+    if ((!newMessage.trim() && !file) || !conversation?.id || userId == null) return;
+    
+    // Créer un message temporaire
+    const tempMessage: PendingMessage = {
+      id: `pending-${Date.now()}`,
+      content: newMessage.trim(),
+      sender: user?.username || '',
+      timestamp: new Date().toISOString(),
+      isPending: true,
+      file: file || undefined
+    };
+
+    // Ajouter le message à l'état pending et réinitialiser l'input
+    setPendingMessages(prev => [...prev, tempMessage]);
+    setNewMessage('');
+    setFile(null);
+
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL!;
       const endpoint = conversation.isGroup
         ? `${API_URL}/api/chat/group/${conversation.id}/`
         : `${API_URL}/api/chat/private/${userId}/`;
-  
+
       const formData = new FormData();
-      formData.append('content', newMessage.trim() || ' ');
+      formData.append('content', tempMessage.content || ' ');
       
-      // Pour les conversations privées, ajouter explicitement l'ID du destinataire
       if (!conversation.isGroup && recipientId) {
         formData.append('recipient', String(recipientId));
       }
       
-      if (file) {
-        formData.append('attachment', file);
+      if (tempMessage.file) {
+        formData.append('attachment', tempMessage.file);
       }
-  
-      console.log('🛠️ POST to', endpoint);
-      
+
       const { data } = await api.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-  
-      console.log('✅ Sent:', data);
-      setNewMessage('');
-      setFile(null);
+
+      // Retirer le message des pending après succès
+      setPendingMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      
     } catch (err) {
+      // Marquer le message comme erreur
+      setPendingMessages(prev => 
+        prev.map(msg => 
+          msg.id === tempMessage.id 
+            ? { ...msg, isPending: false, isError: true }
+            : msg
+        )
+      );
       console.error('❌ Error sending message:', err);
-      if (axios.isAxiosError(err) && err.response) {
-        console.error('Response data:', err.response.data);
-        console.error('Status:', err.response.status);
-      }
-    } finally {
-      setIsSending(false);
     }
   };
 
@@ -313,10 +363,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50">
-
-      {/* Header */}
+      {/* Header fixe */}
       <div
-        className="p-4 bg-white border-b flex items-center gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
+        className="sticky top-0 z-10 p-4 bg-white border-b flex items-center gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
         onClick={handleProfileClick}
       >
         {/* Bouton de retour - visible uniquement sur mobile */}
@@ -331,17 +380,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         )}
         
         <div className="h-12 w-12 rounded-full overflow-hidden border border-indigo-100 shadow-sm">
-          {recipient?.profile?.image ? (
-            <img
-              src={recipient.profile.image}
-              alt={conversation.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
-              <UserCircleIcon className="h-8 w-8 text-indigo-600" />
-            </div>
-          )}
+          <ImageWithFallback
+            src={recipient?.profile?.image}
+            alt={conversation.name}
+            className="h-full w-full"
+          />
         </div>
         <div className="flex-1">
           <h2 className="font-bold text-xl text-gray-900">{conversation.name}</h2>
@@ -364,8 +407,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+      {/* Ajuster le conteneur des messages pour tenir compte du header fixe */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4 mt-[1px]">
         {Array.isArray(messages) && messages.length > 0 ? (
           messages.map(msg => {
             const isCurrentUser = msg.sender === user?.username;
@@ -375,17 +418,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 {!isCurrentUser && (
                   <div className="mr-2 mt-1">
                     <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
-                      {recipient?.profile?.image ? (
-                        <img
-                          src={recipient.profile.image}
-                          alt={recipient.username}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
-                          <UserCircleIcon className="h-6 w-6 text-indigo-600" />
-                        </div>
-                      )}
+                      <ImageWithFallback
+                        src={recipient?.profile?.image}
+                        alt={recipient?.username || ''}
+                        className="h-full w-full"
+                      />
                     </div>
                   </div>
                 )}
@@ -436,11 +473,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                           if (isImage) {
                             return (
                               <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-1`}>
-                                <img 
-                                  src={fileUrl} 
+                                <ImageWithFallback
+                                  src={fileUrl}
                                   alt={decodedFileName}
                                   className="max-w-full h-auto rounded-lg max-h-60 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() => window.open(fileUrl, '_blank')}
                                 />
                                 <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
                                   {decodedFileName}
@@ -550,35 +586,85 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </p>
           </div>
         )}
+
+        {/* Messages en attente */}
+        {pendingMessages.map(msg => (
+          <div key={msg.id} className="flex justify-end animate-fadeIn">
+            <div className="max-w-xs md:max-w-md lg:max-w-lg items-end flex flex-col">
+              <div className="p-3 rounded-lg shadow-sm bg-gradient-to-br from-indigo-500/80 to-indigo-600/80 text-white rounded-tr-none">
+                <div className="flex justify-between mb-2 items-center">
+                  <span className="text-sm font-semibold text-white/90">Vous</span>
+                  <span className="ms-2 text-xs text-white/70">
+                    {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                
+                <p className="text-sm text-white">{msg.content}</p>
+
+                {msg.file && (
+                  <div className="mt-2 p-2 bg-indigo-700/30 rounded-lg">
+                    <p className="text-xs text-white/70">{msg.file.name}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Indicateur d'état */}
+              <div className="flex items-center mt-1 text-xs text-gray-500 justify-end">
+                {msg.isPending ? (
+                  <svg className="animate-spin h-3 w-3 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : msg.isError ? (
+                  <svg className="h-3 w-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg className="h-3 w-3 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-4 bg-white border-t flex gap-2 shadow-md">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          placeholder="Écrivez un message..."
-          className="flex-1 px-4 py-3 border rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-ciel focus:border-blue-ciel text-gray-800 placeholder-gray-400"
-          disabled={isSending}
-        />
-        <label className="cursor-pointer">
+      {/* Input fixe */}
+      <div className="sticky bottom-0 left-0 right-0 z-10 bg-white border-t shadow-lg">
+        <div className="max-w-[100%] mx-auto p-4 flex items-center gap-3">
+          <label className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+            <input
+              type="file"
+              onChange={e => setFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
+            <PaperClipIcon className="h-5 w-5 text-gray-500" />
+          </label>
+          
           <input
-            type="file"
-            onChange={e => setFile(e.target.files?.[0] || null)}
-            className="hidden"
+            type="text"
+            value={newMessage}
+            onChange={e => setNewMessage(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+            placeholder="Écrivez un message..."
+            className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400"
+            disabled={isSending}
           />
-          <PaperClipIcon className="h-6 w-6 text-gray-500" />
-        </label>
-        <button
-          onClick={sendMessage}
-          disabled={isSending}
-          className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition"
-        >
-          <PaperAirplaneIcon className="h-6 w-6" />
-        </button>
+          
+          <button
+            onClick={sendMessage}
+            disabled={isSending}
+            className="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <PaperAirplaneIcon className="h-5 w-5" />
+          </button>
+        </div>
       </div>
     </div>
   );

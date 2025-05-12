@@ -1,59 +1,23 @@
-name: CI/CD Next.js Docker App
+name: Deploy React App to Render
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]  # Déclenchement du workflow sur push vers main
+  pull_request:
+    branches: [ main ]  # Déclenchement sur PR vers main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2  # Récupère le code depuis GitHub
 
-    - name: Create .env.local file
-      env:
-        ENV_LOCAL_CONTENT: ${{ secrets.ENV_LOCAL_CONTENT }}
-      run: echo "$ENV_LOCAL_CONTENT" > .env.local
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: unitfianar/chat-next-app:latest
-
-    - name: Create directory and copy .env.local to VPS
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      run: |
-        eval "$(ssh-agent -s)"
-        ssh-add - <<< "$SSH_PRIVATE_KEY"
-        ssh -o StrictHostKeyChecking=no root@89.116.111.200 << 'EOF'
-          mkdir -p /var/www/chat
-        EOF
-        scp .env.local root@89.116.111.200:/var/www/chat/.env.local
-
-    - name: SSH and deploy on VPS
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      run: |
-        eval "$(ssh-agent -s)"
-        ssh-add - <<< "$SSH_PRIVATE_KEY"
-        ssh -o StrictHostKeyChecking=no root@89.116.111.200 << 'EOF'
-          docker pull unitfianar/chat-next-app:latest
-          docker stop chat-next-app || true
-          docker rm chat-next-app || true
-          docker run -d --name chat-next-app -p 7895:3000 --env-file /var/www/chat/.env.local unitfianar/chat-next-app:latest
-        EOF
+      - name: Trigger Render Deployment
+        run: |
+          curl -X POST "https://api.render.com/v1/services/${{ secrets.MY_RENDER_SERVICE_ID }}/deploys" \
+          -H "Authorization: Bearer ${{ secrets.MY_RENDER_API_KEY }}" \
+          -H "Accept: application/json" \
+          -H "Content-Type: application/json" \
+          -d '{}'
