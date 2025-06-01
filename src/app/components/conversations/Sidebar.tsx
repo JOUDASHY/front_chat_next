@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
 import Pusher from 'pusher-js';
+import Image from 'next/image';
 import {
   UserGroupIcon,
   ClockIcon,
@@ -52,11 +53,24 @@ const Avatar = ({ src, alt = '', className = '', isOnline = false }: { src?: str
   return (
     <div className="relative">
       {src ? (
-        <img
-          src={src}
-          alt={alt}
-          className={`rounded-full object-cover ${className}`}
-        />
+        <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: '50%' }}>
+          <Image
+            src={src}
+            alt={alt}
+            width={40}
+            height={40}
+            className="object-cover w-full h-full"
+            priority
+            quality={75}
+            style={{
+              width: '100%',
+              height: '100%'
+            }}
+            onError={(e: any) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(alt)}&background=random`;
+            }}
+          />
+        </div>
       ) : (
         <div className={`rounded-full bg-blue/20 flex items-center justify-center ${className}`}>
           <span className="text-blue font-medium text-sm">
