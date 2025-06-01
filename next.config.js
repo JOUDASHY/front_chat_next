@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  output: 'standalone',
   trailingSlash: true,
   images: {
     domains: ['votre-domaine.com'], // Ajoutez ici le domaine de vos images
