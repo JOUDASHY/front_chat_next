@@ -183,7 +183,7 @@ const LoginPage = () => {
               }}
             />
           </motion.div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--blue-ciel)] to-[var(--jaune)] bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold ">
             Welcome Back
           </h1>
           <p className="text-[var(--blue)]/80">Votre univers personnel vous attend</p>

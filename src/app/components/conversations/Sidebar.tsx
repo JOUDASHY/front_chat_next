@@ -21,6 +21,8 @@ export interface Conversation {
   timestamp: string;
   isGroup: boolean;
   userId?: number;
+  unreadCount: number;
+  lastMessageSeen: boolean;
   user: {
     profile?: {
       image?: string;
@@ -516,14 +518,21 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-black font-semibold truncate">
+                      <p className={`text-sm truncate ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
                         {conversation.lastMessage || 'Nouvelle conversation'}
                       </p>
-                      {conversation.isGroup && (
-                        <span className="px-2 py-0.5 bg-blue-ciel/20 color-blue text-xs font-medium rounded-full">
-                          Groupe
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {conversation.unreadCount > 0 && (
+                          <span className="px-2 py-0.5 bg-jaune text-white text-xs font-medium rounded-full">
+                            {conversation.unreadCount}
+                          </span>
+                        )}
+                        {conversation.isGroup && (
+                          <span className="px-2 py-0.5 bg-blue-ciel/20 color-blue text-xs font-medium rounded-full">
+                            Groupe
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
