@@ -25,7 +25,7 @@ const EmailResetPage = () => {
       });
 
       setIsSuccess(true);
-      setTimeout(() => router.push("/login"), 2000);
+      setTimeout(() => router.push("/"), 2000);
     } catch (err: any) {
       setError(
         err.response?.data?.detail ||
@@ -37,29 +37,14 @@ const EmailResetPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue)]/90 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Arrière-plan animé */}
-      <motion.div
-        className="absolute inset-0 opacity-10"
-        animate={{
-          scale: [1, 1.2, 1],
-          rotate: [0, 180, 360],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-      >
-        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/dark-stripes.png')]" />
-      </motion.div>
+    <div className="min-h-screen bg-blue flex items-center justify-center p-4 relative overflow-hidden">
 
       {/* Carte principale */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100 }}
-        className="w-full max-w-md bg-[var(--light)]/20 backdrop-blur-xl rounded-3xl shadow-2xl p-8 relative border border-[var(--blue-ciel)]/20"
+        className="w-full max-w-md bg-light rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20"
       >
         {/* Overlay de succès */}
         <AnimatePresence>
@@ -68,15 +53,15 @@ const EmailResetPage = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
-              className="absolute inset-0 bg-[var(--blue-ciel)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
+              className="absolute inset-0 bg-[var(--jaune)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className="text-center space-y-4"
               >
-                <CheckCircleIcon className="h-16 w-16 text-[var(--blue-ciel)] mx-auto" />
-                <p className="text-xl font-semibold text-[var(--blue-ciel)]">
+                <CheckCircleIcon className="h-16 w-16 text-[var(--jaune)] mx-auto" />
+                <p className="text-xl font-semibold text-[var(--jaune)]">
                   Email envoyé !
                 </p>
               </motion.div>
@@ -89,11 +74,11 @@ const EmailResetPage = () => {
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-gradient-to-r from-[var(--jaune)] to-[var(--blue-ciel)]"
+            className="inline-block p-4 rounded-full bg-jaune"
           >
             <EnvelopeIcon className="h-8 w-8 text-white" />
           </motion.div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--blue-ciel)] to-[var(--jaune)] bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-[var(--blue)]">
             Réinitialisation du mot de passe
           </h1>
           <p className="text-[var(--blue)]/80">Entrez votre adresse email pour recevoir un lien de réinitialisation</p>
@@ -104,12 +89,12 @@ const EmailResetPage = () => {
           {/* Champ email */}
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
             <div className="group relative">
-              <EnvelopeIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <EnvelopeIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="Adresse email"
                 required
               />
@@ -163,36 +148,14 @@ const EmailResetPage = () => {
           className="mt-8 text-center text-[var(--blue)]/80"
         >
           <a
-            href="/login"
-            className="hover:text-[var(--blue-ciel)] transition-colors inline-block hover:underline hover:underline-offset-4"
+            href="/"
+            className="hover:color-jaune transition-colors inline-block hover:underline hover:underline-offset-4"
           >
             ← Retour à la connexion
           </a>
         </motion.div>
       </motion.div>
-
-      {/* Particules flottantes */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-[var(--blue-ciel)]/20 rounded-full"
-          initial={{
-            scale: 0,
-            x: Math.random() * 100 - 50,
-            y: Math.random() * 100 - 50
-          }}
-          animate={{
-            scale: [0, 1, 0],
-            x: "100vw",
-            rotate: 360
-          }}
-          transition={{
-            duration: 10 + Math.random() * 10,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-      ))}
+      {/* Décor retiré pour un design plus sobre */}
     </div>
   );
 };

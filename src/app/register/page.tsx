@@ -20,13 +20,8 @@ const RegisterPage = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const particleData = Array(6).fill(0).map((_, i) => ({
-      id: i,
-      initialX: Math.random() * 100 - 50,
-      initialY: Math.random() * 100 - 50,
-      duration: 10 + Math.random() * 10
-    }));
-    setParticles(particleData);
+    // Décor animé supprimé pour un design épuré
+    setParticles([]);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +34,7 @@ const RegisterPage = () => {
       const res = await api.post("/api/register/", { username, email, password, gender });
       setMessage(res.data.message);
       setIsSuccess(true);
-      setTimeout(() => router.push("/login"), 2000);
+      setTimeout(() => router.push("/"), 2000);
     } catch (err) {
       setError("Une erreur est survenue lors de l'inscription.");
     } finally {
@@ -72,27 +67,13 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue)]/90 flex items-center justify-center p-4 relative overflow-hidden">
-      <motion.div
-        className="absolute inset-0 opacity-10"
-        animate={{
-          scale: [1, 1.2, 1],
-          rotate: [0, 180, 360],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-      >
-        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/dark-stripes.png')]" />
-      </motion.div>
+    <div className="min-h-screen bg-blue flex items-center justify-center p-4 relative overflow-hidden">
 
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100 }}
-        className="w-full max-w-md bg-[var(--light)]/20 backdrop-blur-xl rounded-3xl shadow-2xl p-8 relative border border-[var(--blue-ciel)]/20"
+        className="w-full max-w-md bg-light rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20"
       >
         <AnimatePresence>
           {isSuccess && (
@@ -100,12 +81,12 @@ const RegisterPage = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
-              className="absolute inset-0 bg-[var(--blue-ciel)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
+              className="absolute inset-0 bg-[var(--jaune)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="text-[var(--blue-ciel)] text-4xl"
+                className="text-[var(--jaune)] text-4xl"
               >
                 ✓
               </motion.div>
@@ -117,7 +98,7 @@ const RegisterPage = () => {
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-gradient-to-r from-[var(--jaune)] to-[var(--blue-ciel)]"
+            className="inline-block p-4 rounded-full bg-jaune"
           >
             <Image
               src="/logo.png"
@@ -127,7 +108,7 @@ const RegisterPage = () => {
               className="object-contain"
             />
           </motion.div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--blue-ciel)] to-[var(--jaune)] bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-[var(--blue)]">
             Bienvenue Parmi Nous
           </h1>
           <p className="text-[var(--blue)]/80">Commencez votre aventure dès maintenant</p>
@@ -136,12 +117,12 @@ const RegisterPage = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
             <div className="group relative">
-              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="Nom d'utilisateur"
                 required
               />
@@ -150,12 +131,12 @@ const RegisterPage = () => {
 
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.3 }}>
             <div className="group relative">
-              <AtSymbolIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <AtSymbolIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="Adresse email"
                 required
               />
@@ -164,12 +145,12 @@ const RegisterPage = () => {
 
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.4 }}>
             <div className="group relative">
-              <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -182,7 +163,7 @@ const RegisterPage = () => {
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="w-full pl-4 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 text-[var(--blue)] transition-all"
+                className="w-full pl-4 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 text-[var(--blue)] transition-all"
                 required
               >
                 <option value="" disabled>Sélectionnez votre sexe</option>
@@ -211,7 +192,7 @@ const RegisterPage = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-jaune hover:bg-blue-ciel text-blue font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.01] flex items-center justify-center space-x-2 relative overflow-hidden shadow-lg hover:shadow-jaune/20"
+              className="w-full bg-jaune hover:opacity-90 text-blue font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.01] flex items-center justify-center space-x-2 relative overflow-hidden shadow-lg hover:shadow-jaune/20"
             >
               {isSubmitting ? (
                 <>
@@ -242,8 +223,8 @@ const RegisterPage = () => {
           <p>
             Déjà membre ?{" "}
             <a
-              href="/login"
-              className="text-[var(--jaune)] hover:text-[var(--blue-ciel)] font-medium"
+              href="/"
+              className="text-[var(--jaune)] hover:text-[var(--blue)] font-medium"
             >
               Connectez-vous
             </a>
@@ -251,27 +232,7 @@ const RegisterPage = () => {
         </motion.div>
       </motion.div>
 
-      {particles.map((particle) => (
-        <motion.div
-          key={particle.id}
-          className="absolute w-2 h-2 bg-[var(--blue-ciel)]/20 rounded-full"
-          initial={{
-            scale: 0,
-            x: particle.initialX,
-            y: particle.initialY
-          }}
-          animate={{
-            scale: [0, 1, 0],
-            x: "100vw",
-            rotate: 360
-          }}
-          transition={{
-            duration: particle.duration,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-      ))}
+      {/* Décor retiré pour un design plus sobre */}
     </div>
   );
 };

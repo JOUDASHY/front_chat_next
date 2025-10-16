@@ -41,7 +41,7 @@ export default function PasswordResetForm({ uid, token }: PasswordResetFormProps
       });
 
       setIsSuccess(true);
-      setTimeout(() => router.push("/login"), 2000);
+      setTimeout(() => router.push("/"), 2000);
     } catch (err: any) {
       setError(
         err.response?.data?.detail ||
@@ -202,7 +202,7 @@ export default function PasswordResetForm({ uid, token }: PasswordResetFormProps
         className="mt-8 text-center text-[var(--blue)]/80"
       >
         <a
-          href="/login"
+          href="/"
           className="hover:text-[var(--blue-ciel)] transition-colors inline-block hover:underline hover:underline-offset-4"
         >
           ← Retour à la connexion

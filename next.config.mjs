@@ -1,10 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
   images: {
     unoptimized: true,
   },
-  trailingSlash: true
+  trailingSlash: true,
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://back.brine.pro/api/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

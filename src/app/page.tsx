@@ -33,9 +33,10 @@ const LoginPage = () => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-
+    console.log('API_URL', process.env.NEXT_PUBLIC_API_URL);
+    console.log('axios baseURL', api.defaults.baseURL);
     try {
-      const { data } = await api.post("/api/token/", {
+      const { data } = await api.post(`/api/token/`, {
         username,
         password
       });
@@ -119,29 +120,14 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue)]/90 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Arrière-plan animé */}
-      <motion.div
-        className="absolute inset-0 opacity-10"
-        animate={{
-          scale: [1, 1.2, 1],
-          rotate: [0, 180, 360],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-      >
-        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/dark-stripes.png')]" />
-      </motion.div>
+    <div className="min-h-screen bg-blue flex items-center justify-center p-4 relative overflow-hidden">
 
       {/* Carte principale */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100 }}
-        className="w-full max-w-md bg-[var(--light)]/20 backdrop-blur-xl rounded-3xl shadow-2xl p-8 relative border border-[var(--blue-ciel)]/20"
+        className="w-full max-w-md bg-light rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20"
       >
         {/* Overlay de succès */}
         <AnimatePresence>
@@ -150,12 +136,12 @@ const LoginPage = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
-              className="absolute inset-0 bg-[var(--blue-ciel)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
+              className="absolute inset-0 bg-[var(--jaune)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="text-[var(--blue-ciel)] text-4xl"
+                className="text-[var(--jaune)] text-4xl"
               >
                 ✓
               </motion.div>
@@ -168,7 +154,7 @@ const LoginPage = () => {
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-gradient-to-r from-[var(--jaune)] to-[var(--blue-ciel)] w-[80px] h-[80px] flex items-center justify-center"
+            className="inline-block p-4 rounded-full bg-jaune w-[80px] h-[80px] flex items-center justify-center"
           >
             <Image
               src="/logo.png"
@@ -183,7 +169,7 @@ const LoginPage = () => {
               }}
             />
           </motion.div>
-          <h1 className="text-4xl font-bold ">
+          <h1 className="text-4xl font-bold text-[var(--blue)]">
             Welcome Back
           </h1>
           <p className="text-[var(--blue)]/80">Votre univers personnel vous attend</p>
@@ -194,12 +180,12 @@ const LoginPage = () => {
           {/* Champ utilisateur */}
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
             <div className="group relative">
-              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="Nom d'utilisateur"
                 required
               />
@@ -209,19 +195,19 @@ const LoginPage = () => {
           {/* Champ mot de passe */}
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.3 }}>
             <div className="group relative">
-              <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--blue-ciel)] transition-all" />
+              <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--blue-ciel)]/50 focus:border-[var(--blue-ciel)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-12 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="••••••••"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 hover:text-[var(--blue-ciel)] transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 hover:text-[var(--jaune)] transition-colors"
               >
                 {showPassword ? "🙈" : "👁️"}
               </button>
@@ -285,7 +271,7 @@ const LoginPage = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="button"
-            className="w-full mt-4 py-4 bg-white text-gray-600 rounded-xl relative overflow-hidden flex items-center justify-center space-x-2 hover:bg-gray-50 transition-colors"
+            className="w-full mt-4 py-4 btn-blue rounded-xl relative overflow-hidden flex items-center justify-center space-x-2"
           >
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path
@@ -318,7 +304,7 @@ const LoginPage = () => {
               e.preventDefault();
               handleForgotPassword();
             }}
-            className="hovforgot-passworder:text-[var(--blue-ciel)] transition-colors inline-block hover:underline hover:underline-offset-4"
+            className="hover:color-jaune transition-colors inline-block hover:underline hover:underline-offset-4"
           >
             Mot de passe oublié ?
           </a>
@@ -326,7 +312,7 @@ const LoginPage = () => {
             Nouveau membre ?{" "}
             <a
               href="/register"
-              className="text-[var(--jaune)] hover:text-[var(--blue-ciel)] font-medium"
+              className="text-[var(--jaune)] hover:text-[var(--blue)] font-medium"
             >
               Créer un compte
             </a>
@@ -334,28 +320,7 @@ const LoginPage = () => {
         </motion.div>
       </motion.div>
 
-      {/* Particules flottantes - only render on client side */}
-      {isClient && [...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-[var(--blue-ciel)]/20 rounded-full"
-          initial={{
-            scale: 0,
-            x: `${Math.floor(i * 60)}%`,  // Use deterministic values based on index
-            y: `${Math.floor(i * 40)}%`
-          }}
-          animate={{
-            scale: [0, 1, 0],
-            x: ["0%", "100%"],
-            rotate: 360
-          }}
-          transition={{
-            duration: 10 + i * 2, // Use index for different durations
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-      ))}
+      {/* Décor retiré pour un design plus simple et sobre */}
     </div>
   );
 };

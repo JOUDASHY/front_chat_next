@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
   trailingSlash: true,
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://back.brine.pro/api/:path*',
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
