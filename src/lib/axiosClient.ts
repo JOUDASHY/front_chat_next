@@ -8,8 +8,12 @@ import axios, {
   AxiosHeaders
 } from 'axios';
 
+const isBrowser = typeof window !== 'undefined';
+const isDev = process.env.NODE_ENV !== 'production';
+const envBase = process.env.NEXT_PUBLIC_API_URL;
+
 const axiosClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: envBase || (isBrowser && isDev ? '' : undefined),
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
@@ -45,16 +49,12 @@ axiosClient.interceptors.response.use(
           const refreshToken = localStorage.getItem('refreshToken');
 
           if (refreshToken) {
-            const { data } = await axios.post<{
+            const { data } = await axiosClient.post<{
               access: string;
               refresh?: string;
             }>(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/token/refresh/`,
-              { refresh: refreshToken },
-              {
-                headers: { 'Content-Type': 'application/json' },
-                withCredentials: true
-              }
+              '/api/token/refresh/',
+              { refresh: refreshToken }
             );
 
             localStorage.setItem('accessToken', data.access);

@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-// En navigateur, on laisse l'URL relative pour passer par le proxy Next (rewrites)
-// En environnement non-navigateur (SSR/Node), on utilise l'URL d'API explicite
+// Utiliser PRIORITAIREMENT la variable d'env, même en dev
 const isBrowser = typeof window !== 'undefined';
+const isDev = process.env.NODE_ENV !== 'production';
+const envBase = process.env.NEXT_PUBLIC_API_URL;
 
 const instance = axios.create({
-  baseURL: isBrowser ? '' : process.env.NEXT_PUBLIC_API_URL,
+  baseURL: envBase || (isBrowser && isDev ? '' : undefined),
   headers: {
     'Content-Type': 'application/json',
   },

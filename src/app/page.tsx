@@ -36,7 +36,9 @@ const LoginPage = () => {
     console.log('API_URL', process.env.NEXT_PUBLIC_API_URL);
     console.log('axios baseURL', api.defaults.baseURL);
     try {
-      const { data } = await api.post(`/api/token/`, {
+      const base = process.env.NEXT_PUBLIC_API_URL;
+      const url = base ? `${base}/api/token/` : `/api/token/`;
+      const { data } = await api.post(url, {
         username,
         password
       });
@@ -54,8 +56,14 @@ const LoginPage = () => {
       router.push("/chat");
 
     } catch (err: any) {
+      console.error('Login error', {
+        status: err?.response?.status,
+        data: err?.response?.data,
+        url: err?.config?.url,
+        method: err?.config?.method,
+      });
       setError(
-        err.response?.data?.detail ||
+        err?.response?.data?.detail ||
         "Échec de la connexion. Vérifiez vos identifiants."
       );
       localStorage.removeItem("accessToken");
