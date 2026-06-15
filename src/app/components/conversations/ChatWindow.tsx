@@ -10,7 +10,6 @@ import {
   PaperClipIcon,
   ArrowLeftIcon // Add this import
 } from '@heroicons/react/24/outline';
-import Pusher from 'pusher-js';
 import { useRouter } from 'next/navigation';
 
 interface Message {
@@ -19,6 +18,8 @@ interface Message {
   sender: string;
   timestamp: string;
   attachment?: string;
+  is_read?: boolean;
+  read_at?: string;
   recipient?: {
     id: number;
     username: string;
@@ -79,7 +80,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   
   // Référence pour stocker l'instance Pusher
-  const pusherRef = useRef<Pusher | null>(null);
+  const pusherRef = useRef<any>(null);
   
   const handleProfileClick = () => {
     if (conversation && !conversation.isGroup && recipientId) {
@@ -139,6 +140,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   useEffect(() => {
     if (!conversation?.id || userId == null) return;
 
+    // Reset immédiat pour éviter d'afficher les anciens messages d'une autre conversation
+    setMessages([]);
+    setPendingMessages([]);
+
     const loadMessages = async () => {
       try {
         const endpoint = conversation.isGroup
@@ -174,81 +179,134 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     };
     
     loadMessages();
+
+    // Marquer les messages comme lus (pour les conversations privées)
+    if (!conversation.isGroup && userId) {
+      api.post(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/read/`)
+        .then(() => console.log('✅ Messages marked as read'))
+        .catch((err: unknown) => console.error('Error marking messages as read:', err));
+    }
   }, [conversation?.id, userId]);
 
   // Initialisation de Pusher et abonnement aux canaux
   useEffect(() => {
     if (!userId || !conversation?.id) return;
     
-    // Initialiser Pusher une seule fois
-    if (!pusherRef.current) {
-      console.log('Initializing Pusher client');
-      // @ts-ignore
-      Pusher.logToConsole = true;
-      pusherRef.current = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-        forceTLS: true,
-        authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
-        auth: {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-        },
+    let isMounted = true;
+    let subscribedChannelName = '';  // Stocké ici pour être accessible au cleanup
+    
+    const initPusher = async () => {
+      const PusherModule = await import('pusher-js');
+      const Pusher = PusherModule.default;
+      
+      if (!isMounted) return;
+
+      // Initialiser Pusher une seule fois
+      if (!pusherRef.current) {
+        console.log('Initializing Pusher client');
+        // @ts-ignore
+        Pusher.logToConsole = true;
+        pusherRef.current = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+          cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+          forceTLS: true,
+          authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
+          auth: {
+            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+          },
+        });
+      }
+      
+      // Déterminer le nom du canal pour les messages
+      if (conversation.isGroup) {
+        subscribedChannelName = `group-chat-${conversation.id}`;
+      } else {
+        // Pour les conversations privées
+        const otherUserId = conversation.userId || recipientId || conversation.id;
+        const a = Math.min(Number(currentUser ?? 0), Number(otherUserId));
+        const b = Math.max(Number(currentUser ?? 0), Number(otherUserId));
+        subscribedChannelName = `private-chat-${a}-${b}`;
+      }
+      
+      console.log(`✅ Subscribing to channel: ${subscribedChannelName}`);
+      
+      // S'abonner au canal de messages
+      const channel = pusherRef.current.subscribe(subscribedChannelName);
+      
+      // Écouter les nouveaux messages avec filtrage et déduplication
+      const handleNewMessage = (data: Message) => {
+        console.log('New message received on channel:', subscribedChannelName, data);
+        if (!isMounted) return;  // Ignorer si le composant est démonté
+        
+        setMessages(prev => {
+          // Éviter les doublons (le message peut déjà être dans la liste via la réponse POST)
+          const isDuplicate = prev.some(msg => msg.id === data.id);
+          if (isDuplicate) {
+            console.log('⚠️ Duplicate message ignored:', data.id);
+            return prev;
+          }
+          return [...prev, data];
+        });
+      };
+      
+      channel.bind('new-message', handleNewMessage);
+      
+      // S'abonner au canal de présence pour le statut en ligne
+      const presenceChannel = pusherRef.current.subscribe('presence-channel');
+      
+      presenceChannel.bind('pusher:subscription_succeeded', (data: any) => {
+        if (recipientId && data && data.members) {
+          const isOnline = Object.keys(data.members).includes(String(recipientId));
+          setRecipientOnline(isOnline);
+        }
       });
-    }
-    
-    // Déterminer le nom du canal pour les messages
-    let channelName: string;
-    if (conversation.isGroup) {
-      channelName = `group-chat-${conversation.id}`;
-    } else {
-      // Pour les conversations privées
-      const otherUserId = conversation.userId || recipientId || conversation.id;
-      const a = Math.min(Number(currentUser ?? 0), Number(otherUserId));
-      const b = Math.max(Number(currentUser ?? 0), Number(otherUserId));
-      channelName = `private-chat-${a}-${b}`;
-    }
-    
-    console.log(`Subscribing to channel: ${channelName}`);
-    
-    // S'abonner au canal de messages
-    const channel = pusherRef.current.subscribe(channelName);
-    
-    // Écouter les nouveaux messages
-    const handleNewMessage = (data: Message) => {
-      console.log('New message received:', data);
-      setMessages(prev => [...prev, data]);
+      
+      presenceChannel.bind('pusher:member_added', (member: any) => {
+        if (recipientId && member.id == recipientId) {
+          setRecipientOnline(true);
+        }
+      });
+      
+      presenceChannel.bind('pusher:member_removed', (member: any) => {
+        if (recipientId && member.id == recipientId) {
+          setRecipientOnline(false);
+        }
+      });
+      
+      // Écouter l'événement "messages lus" pour mettre à jour les check marks
+      channel.bind('messages-read', (data: { reader_id: number; read_at: string }) => {
+        console.log('🟢 Messages marked as read by:', data.reader_id);
+        if (!isMounted) return;
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.sender === user?.username && !msg.is_read
+              ? { ...msg, is_read: true, read_at: data.read_at }
+              : msg
+          )
+        );
+      });
     };
     
-    channel.bind('new-message', handleNewMessage);
-    
-    // S'abonner au canal de présence pour le statut en ligne
-    const presenceChannel = pusherRef.current.subscribe('presence-channel');
-    
-    presenceChannel.bind('pusher:subscription_succeeded', (data: any) => {
-      if (recipientId && data && data.members) {
-        const isOnline = Object.keys(data.members).includes(String(recipientId));
-        setRecipientOnline(isOnline);
-      }
-    });
-    
-    presenceChannel.bind('pusher:member_added', (member: any) => {
-      if (recipientId && member.id == recipientId) {
-        setRecipientOnline(true);
-      }
-    });
-    
-    presenceChannel.bind('pusher:member_removed', (member: any) => {
-      if (recipientId && member.id == recipientId) {
-        setRecipientOnline(false);
-      }
-    });
-    
-    // Nettoyage lors du démontage du composant
+    initPusher();
+
+    // Cleanup : désabonner et débinder les canaux lors du changement de conversation
     return () => {
-      console.log(`Unsubscribing from channels`);
-      channel.unbind('new-message', handleNewMessage);
-      pusherRef.current?.unsubscribe(channelName);
-      presenceChannel.unbind_all();
-      pusherRef.current?.unsubscribe('presence-channel');
+      isMounted = false;
+      if (pusherRef.current) {
+        if (subscribedChannelName) {
+          console.log(`🔴 Unsubscribing from channel: ${subscribedChannelName}`);
+          const channel = pusherRef.current.channel(subscribedChannelName);
+          if (channel) {
+            channel.unbind_all();  // Retirer tous les handlers de ce canal
+          }
+          pusherRef.current.unsubscribe(subscribedChannelName);  // Désabonner du canal
+        }
+        // Aussi nettoyer le canal de présence pour éviter les handlers dupliqués
+        const presenceChannel = pusherRef.current.channel('presence-channel');
+        if (presenceChannel) {
+          presenceChannel.unbind_all();
+        }
+        pusherRef.current.unsubscribe('presence-channel');
+      }
     };
   }, [userId, conversation?.id, recipientId, conversation?.userId]);
   
@@ -269,7 +327,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   };
 
   useEffect(() => {
-    scrollToBottom();file
+    scrollToBottom();
   }, [messages]);
 
   // Envoi de message
@@ -316,6 +374,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
       // Retirer le message des pending après succès
       setPendingMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      
+      // Notifier la sidebar pour mettre à jour le dernier message (côté sender)
+      window.dispatchEvent(new CustomEvent('chat-message-sent', {
+        detail: {
+          conversationId: conversation.id,
+          lastMessage: tempMessage.content,
+          timestamp: tempMessage.timestamp,
+        }
+      }));
       
     } catch (err) {
       // Marquer le message comme erreur
@@ -561,12 +628,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       </div>
                     )}
                   </div>
-                  {/* Indicateur de statut de lecture (optionnel) */}
+                  {/* Indicateur de statut de lecture */}
                   {isCurrentUser && (
-                    <div className="flex items-center mt-1 text-xs text-gray-500 justify-end">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                    <div className="flex items-center mt-1 text-xs justify-end">
+                      {msg.is_read ? (
+                        /* Double check BLEU = Lu */
+                        <svg className="h-4 w-5" viewBox="0 0 24 12" fill="none" stroke="#3B82F6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 6l3.5 3.5L11 3" />
+                          <path d="M7.5 6l3.5 3.5L16.5 3" />
+                        </svg>
+                      ) : (
+                        /* Double check GRIS = Envoyé mais pas lu */
+                        <svg className="h-4 w-5" viewBox="0 0 24 12" fill="none" stroke="#9CA3AF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 6l3.5 3.5L11 3" />
+                          <path d="M7.5 6l3.5 3.5L16.5 3" />
+                        </svg>
+                      )}
                     </div>
                   )}
                 </div>

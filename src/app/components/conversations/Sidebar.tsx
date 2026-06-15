@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
-import Pusher from 'pusher-js';
 import Image from 'next/image';
 import {
   UserGroupIcon,
@@ -51,17 +50,30 @@ interface SidebarProps {
   activeConversationId?: number;
 }
 
-const Avatar = ({ src, alt = '', className = '', isOnline = false }: { src?: string; alt?: string; className?: string; isOnline?: boolean }) => {
+const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false }: { src?: string; alt?: string; className?: string; isOnline?: boolean; dark?: boolean }) => {
   const [hasError, setHasError] = useState(false);
   const initials = alt ? alt.split(' ').map((n) => n[0]).join('').toUpperCase() : '';
   const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(alt || 'User')}&background=random`;
   const displaySrc = !src ? fallback : src;
 
+  // Couleurs adaptées selon le fond (clair ou sombre)
+  const fallbackBg = dark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 11, 49, 0.15)';
+  const fallbackColor = dark ? '#ffffff' : 'var(--blue)';
+
   return (
     <div className="relative">
       {hasError ? (
-        <div className={`rounded-full bg-blue/20 flex items-center justify-center ${className}`}>
-          <span className="text-blue font-medium text-sm">{initials || '👤'}</span>
+        <div
+          className={`rounded-full flex items-center justify-center ${className}`}
+          style={{ backgroundColor: fallbackBg }}
+        >
+          {initials ? (
+            <span className="font-semibold text-sm" style={{ color: fallbackColor }}>{initials}</span>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5" style={{ color: fallbackColor }}>
+              <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+            </svg>
+          )}
         </div>
       ) : (
         <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: '50%' }}>
@@ -99,26 +111,38 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
-  const pusherRef = useRef<Pusher | null>(null);
+  const pusherRef = useRef<any>(null);
 
   // Initialiser Pusher
   useEffect(() => {
-    if (!pusherRef.current) {
-      // @ts-ignore
-      Pusher.logToConsole = true;
-      const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-        forceTLS: true,
-        authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
-        auth: {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-        },
-      });
+    let isMounted = true;
+    
+    const initPusher = async () => {
+      if (!pusherRef.current) {
+        const PusherModule = await import('pusher-js');
+        const Pusher = PusherModule.default;
+        
+        if (!isMounted) return;
+        
+        // @ts-ignore
+        Pusher.logToConsole = true;
+        const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+          cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+          forceTLS: true,
+          authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
+          auth: {
+            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+          },
+        });
 
-      pusherRef.current = pusher;
-    }
+        pusherRef.current = pusher;
+      }
+    };
+    
+    initPusher();
 
     return () => {
+      isMounted = false;
       pusherRef.current?.disconnect();
     };
   }, []);
@@ -245,6 +269,31 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
     };
   }, [user]);
 
+  // Écouter les messages envoyés par le sender (ChatWindow) pour mettre à jour la sidebar localement
+  useEffect(() => {
+    const handleMessageSent = (event: Event) => {
+      const { conversationId, lastMessage, timestamp } = (event as CustomEvent).detail;
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === conversationId);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            lastMessage,
+            timestamp,
+          };
+          return updated.sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('chat-message-sent', handleMessageSent);
+    return () => window.removeEventListener('chat-message-sent', handleMessageSent);
+  }, []);
+
   // Recherche d'utilisateurs
   useEffect(() => {
     const searchUsers = async () => {
@@ -367,6 +416,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
                 src={user.profile?.image}
                 alt={user.username}
                 className="h-8 w-8 border-2 border-jaune/20"
+                dark={true}
               />
             </div>
           )}
