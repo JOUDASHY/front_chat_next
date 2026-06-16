@@ -8,14 +8,18 @@ import {
   PaperAirplaneIcon,
   EllipsisVerticalIcon,
   PaperClipIcon,
-  ArrowLeftIcon // Add this import
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
+import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 
 interface Message {
   id: number;
   content: string;
   sender: string;
+  sender_profile?: {
+    image: string | null;
+  };
   timestamp: string;
   attachment?: string;
   is_read?: boolean;
@@ -78,6 +82,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [recipientId, setRecipientId] = useState<number | null>(null);
   const [recipient, setRecipient] = useState<any>(null);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+  const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
+  // Typing indicator
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
   
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<any>(null);
@@ -95,10 +104,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     setImageLoadError(prev => ({...prev, [imageUrl]: true}));
   };
 
-  const ImageWithFallback = ({ src, alt, className }: { src?: string, alt: string, className: string }) => {
+  const ImageWithFallback = ({ src, alt, className, onClick }: { src?: string, alt: string, className: string, onClick?: () => void }) => {
     if (!src || imageLoadError[src]) {
       return (
-        <div className={`${className} bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center`}>
+        <div className={`${className} bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center`} onClick={onClick}>
           <UserCircleIcon className="w-2/3 h-2/3 text-indigo-600" />
         </div>
       );
@@ -110,6 +119,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         alt={alt}
         className={className}
         onError={() => handleImageError(src)}
+        onClick={onClick}
         loading="lazy"
         decoding="async"
         style={{ objectFit: 'cover' }}
@@ -143,6 +153,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     // Reset immédiat pour éviter d'afficher les anciens messages d'une autre conversation
     setMessages([]);
     setPendingMessages([]);
+    setTypingUsers([]);
 
     const loadMessages = async () => {
       try {
@@ -271,6 +282,19 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       
       channel.bind('new-message', handleNewMessage);
       
+      // Écouter les events de frappe
+      channel.bind('typing', (data: { userId: number; username: string; isTyping: boolean }) => {
+        if (!isMounted) return;
+        if (data.userId === user?.id) return; // ignorer ses propres events
+        setTypingUsers(prev => {
+          if (data.isTyping) {
+            return prev.includes(data.username) ? prev : [...prev, data.username];
+          } else {
+            return prev.filter(u => u !== data.username);
+          }
+        });
+      });
+      
       // S'abonner au canal de présence pour le statut en ligne
       const presenceChannel = pusherRef.current.subscribe('presence-channel');
       
@@ -360,11 +384,55 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     return () => clearTimeout(timer);
   }, [messages, pendingMessages]);
 
+  // ── Typing indicator ──────────────────────────────────────────────
+  const getTypingChannel = () => {
+    if (!conversation) return null;
+    if (conversation.isGroup) return `group-chat-${conversation.id}`;
+    const a = Math.min(Number(user?.id ?? 0), Number(userId));
+    const b = Math.max(Number(user?.id ?? 0), Number(userId));
+    return `private-chat-${a}-${b}`;
+  };
+
+  const sendTypingEvent = (typing: boolean) => {
+    const channel = getTypingChannel();
+    if (!channel) return;
+    api.post('/api/chat/typing/', { isTyping: typing, channel }).catch(() => {});
+  };
+
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      sendTypingEvent(true);
+    }
+    // Auto-stop après 2.5s sans frappe
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      sendTypingEvent(false);
+    }, 2500);
+  };
+
+  // Stop typing quand message envoyé
+  const stopTyping = () => {
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      sendTypingEvent(false);
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => { if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
+  }, []);
+
   // Envoi de message
   const sendMessage = async () => {
     if ((!newMessage.trim() && !file) || !conversation?.id || userId == null || isSending) return;
     
     setIsSending(true);
+    stopTyping();
     
     // Créer un message temporaire
     const tempMessage: PendingMessage = {
@@ -397,7 +465,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         : `${API_URL}/api/chat/private/${userId}/`;
 
       const formData = new FormData();
-      formData.append('content', tempMessage.content || ' ');
+      formData.append('content', tempMessage.content);  // peut être vide, le backend l'accepte si attachment présent
       
       if (!conversation.isGroup && recipientId) {
         formData.append('recipient', String(recipientId));
@@ -487,12 +555,21 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </button>
         )}
         
-        <div className="h-12 w-12 rounded-full overflow-hidden border border-indigo-100 shadow-sm">
-          <ImageWithFallback
-            src={recipient?.profile?.image}
-            alt={conversation.name}
-            className="h-full w-full"
-          />
+        <div className="h-12 w-12 rounded-full overflow-hidden border border-indigo-100 shadow-sm shrink-0 flex items-center justify-center">
+          {conversation.isGroup ? (
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[var(--blue)] to-[var(--blue-ciel)] flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+          ) : (
+            <ImageWithFallback
+              src={recipient?.profile?.image}
+              alt={conversation.name}
+              className="h-full w-full"
+            />
+          )}
         </div>
         <div className="flex-1">
           <h2 className="font-bold text-xl text-gray-900">{conversation.name}</h2>
@@ -530,11 +607,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
                 {/* Avatar pour les messages reçus */}
                 {!isCurrentUser && (
-                  <div className="mr-2 mt-1">
+                  <div className="mr-2 mt-1 shrink-0">
                     <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
                       <ImageWithFallback
-                        src={recipient?.profile?.image}
-                        alt={recipient?.username || ''}
+                        src={msg.sender_profile?.image ?? recipient?.profile?.image ?? undefined}
+                        alt={msg.sender}
                         className="h-full w-full"
                       />
                     </div>
@@ -590,7 +667,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 <ImageWithFallback
                                   src={fileUrl}
                                   alt={decodedFileName}
-                                  className="max-w-full h-auto rounded-lg max-h-60 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                  className="max-w-full h-auto rounded-lg max-h-60 object-contain cursor-zoom-in hover:opacity-90 transition-opacity"
+                                  onClick={() => setLightbox({ url: fileUrl, type: 'image', name: decodedFileName })}
                                 />
                                 <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
                                   {decodedFileName}
@@ -600,11 +678,25 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                           } else if (isVideo) {
                             return (
                               <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-2`}>
-                                <video 
-                                  src={fileUrl} 
-                                  controls 
-                                  className="max-w-full max-h-60 rounded-lg"
-                                />
+                                {/* Thumbnail cliquable */}
+                                <div
+                                  className="relative cursor-pointer group"
+                                  onClick={() => setLightbox({ url: fileUrl, type: 'video', name: decodedFileName })}
+                                >
+                                  <video
+                                    src={fileUrl}
+                                    className="max-w-full max-h-60 rounded-lg pointer-events-none"
+                                    preload="metadata"
+                                  />
+                                  {/* Play overlay */}
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors rounded-lg">
+                                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                                      <svg className="w-5 h-5 text-gray-800 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
                                 <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
                                   {decodedFileName}
                                 </div>
@@ -734,8 +826,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 <p className="text-sm text-white">{msg.content}</p>
 
                 {msg.file && (
-                  <div className="mt-2 p-2 bg-indigo-700/30 rounded-lg">
-                    <p className="text-xs text-white/70">{msg.file.name}</p>
+                  <div className="mt-2 p-2 bg-indigo-700/30 rounded-lg flex items-center gap-2">
+                    <PaperClipIcon className="h-4 w-4 text-white/70 shrink-0" />
+                    <p className="text-xs text-white/80 truncate">{msg.file.name}</p>
                   </div>
                 )}
               </div>
@@ -764,6 +857,27 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Indicateur de frappe */}
+        {typingUsers.length > 0 && (
+          <div className="px-4 pb-1 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 shadow-sm">
+              {/* Trois points animés */}
+              <div className="flex items-center gap-[3px]">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+              <span className="text-xs text-gray-500">
+                {typingUsers.length === 1
+                  ? `${typingUsers[0]} est en train d'écrire...`
+                  : typingUsers.length === 2
+                  ? `${typingUsers[0]} et ${typingUsers[1]} écrivent...`
+                  : `${typingUsers.length} personnes écrivent...`}
+              </span>
+            </div>
+          </div>
+        )}
+
       {/* Input fixe */}
       <div className="sticky bottom-0 left-0 right-0 z-10 bg-white border-t shadow-lg">
         <div className="max-w-[100%] mx-auto p-4 flex items-center gap-3">
@@ -779,7 +893,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           <input
             type="text"
             value={newMessage}
-            onChange={e => setNewMessage(e.target.value)}
+            onChange={handleTyping}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder="Écrivez un message..."
             className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400"
@@ -795,6 +909,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </button>
         </div>
       </div>
+      {/* Lightbox plein écran image / vidéo */}
+      <MediaLightbox media={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }

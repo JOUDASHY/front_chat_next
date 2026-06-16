@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Fond dégradé -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#000b31"/>
+      <stop offset="100%" stop-color="#001566"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00d9ff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#00d9ff" stop-opacity="0.10"/>
+    </linearGradient>
+    <clipPath id="circle">
+      <circle cx="100" cy="100" r="100"/>
+    </clipPath>
+  </defs>
+
+  <!-- Fond -->
+  <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+
+  <!-- Corps silhouette -->
+  <ellipse cx="100" cy="160" rx="52" ry="38" fill="url(#body)"/>
+  <ellipse cx="100" cy="162" rx="52" ry="38" fill="white" fill-opacity="0.08"/>
+
+  <!-- Tête silhouette -->
+  <circle cx="100" cy="80" r="32" fill="white" fill-opacity="0.15"/>
+  <circle cx="100" cy="80" r="32" fill="url(#body)"/>
+
+  <!-- Icône user contour blanc subtil -->
+  <circle cx="100" cy="80" r="28" fill="white" fill-opacity="0.12"/>
+  <!-- Tête intérieure -->
+  <circle cx="100" cy="78" r="20" fill="white" fill-opacity="0.20"/>
+  <!-- Corps intérieur -->
+  <path d="M60 155 Q60 125 100 125 Q140 125 140 155" fill="white" fill-opacity="0.20"/>
+
+  <!-- Anneau décoratif -->
+  <circle cx="100" cy="100" r="97" stroke="#00d9ff" stroke-width="1.5" stroke-opacity="0.25" fill="none"/>
+</svg>

@@ -26,11 +26,8 @@ export interface Conversation {
   lastMessageSeen: boolean;
   lastMessageSenderId?: number;
   lastMessageIsRead?: boolean;
-  user: {
-    profile?: {
-      image?: string;
-    }
-  };
+  user: { profile?: { image?: string } } | null;
+  participants?: { id: number; username: string; profile?: { image?: string } }[];
 }
 
 interface User {
@@ -53,6 +50,50 @@ interface SidebarProps {
   onSelectConversation: (conv: Conversation, userId: number) => void;
   activeConversationId?: number;
 }
+
+const GroupAvatar = ({
+  participants,
+  name,
+}: {
+  participants?: { id: number; username: string; profile?: { image?: string } }[];
+  name: string;
+}) => {
+  // Show up to 2 participant avatars overlapping, or a generic group icon
+  const shown = (participants || []).slice(0, 2);
+  if (shown.length === 0) {
+    // Generic group icon
+    return (
+      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--blue)] to-[var(--blue-ciel)] flex items-center justify-center shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className="relative h-10 w-10 shrink-0">
+      {shown.length === 1 ? (
+        <Avatar
+          src={shown[0].profile?.image}
+          alt={shown[0].username}
+          className="h-10 w-10 bg-blue/20"
+        />
+      ) : (
+        <>
+          {/* bottom-right: second participant */}
+          <div className="absolute bottom-0 right-0 h-6 w-6 rounded-full overflow-hidden border-2 border-white z-10">
+            <Avatar src={shown[1].profile?.image} alt={shown[1].username} className="h-full w-full bg-blue/20" />
+          </div>
+          {/* top-left: first participant */}
+          <div className="absolute top-0 left-0 h-6 w-6 rounded-full overflow-hidden border-2 border-white z-20">
+            <Avatar src={shown[0].profile?.image} alt={shown[0].username} className="h-full w-full bg-blue/20" />
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false }: { src?: string; alt?: string; className?: string; isOnline?: boolean; dark?: boolean }) => {
   const [hasError, setHasError] = useState(false);
@@ -620,12 +661,19 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
                       ? 'bg-blue-ciel/20 border border-blue shadow-sm'
                       : 'hover:bg-gray-100 border border-transparent'}`}
                 >
-                  <Avatar
-                    src={conversation.user?.profile?.image}
-                    alt={conversation.name || 'Utilisateur'}
-                    className={`h-10 w-10 ${conversation.isGroup ? 'bg-blue-ciel/20' : 'bg-blue/20'}`}
-                    isOnline={!conversation.isGroup && onlineUsers.get(conversation.userId ?? 0) === true}
-                  />
+                  {conversation.isGroup ? (
+                    <GroupAvatar
+                      participants={conversation.participants}
+                      name={conversation.name}
+                    />
+                  ) : (
+                    <Avatar
+                      src={conversation.user?.profile?.image}
+                      alt={conversation.name || 'Utilisateur'}
+                      className="h-10 w-10 bg-blue/20"
+                      isOnline={onlineUsers.get(conversation.userId ?? 0) === true}
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <h3 className="text-sm font-semibold color-blue truncate">

@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/app/components/conversations/Sidebar';
 import ChatWindow from '@/app/components/conversations/ChatWindow';
 import DefaultView from '@/app/components/conversations/DefaultView';
-import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { useRouter, useSearchParams } from 'next/navigation';
+import api from '@/lib/axiosClient';
 
 export interface Conversation {
   id: number;
@@ -19,7 +19,7 @@ export interface Conversation {
     profile?: {
       image?: string;
     }
-  };
+  } | null;
 }
 
 export default function ChatPage() {
@@ -28,72 +28,89 @@ export default function ChatPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Détecter si l'appareil est mobile
+  // Détecter mobile
   useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768); // 768px est généralement le breakpoint pour les tablettes
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // Lire les query params et ouvrir directement la conversation
+  useEffect(() => {
+    const convId = searchParams.get('conversation');
+    const uId = searchParams.get('userId');
+
+    if (!uId) return;
+
+    const userIdNum = parseInt(uId, 10);
+    if (isNaN(userIdNum)) return;
+
+    // Créer/récupérer la conversation via l'API puis l'ouvrir
+    const openConversation = async () => {
+      try {
+        const { data } = await api.post('/api/chat/conversations/create/', {
+          user_id: userIdNum,
+        });
+
+        setSelectedConversation(data);
+        setSelectedUserId(userIdNum);
+        if (isMobile) setShowChat(true);
+
+        // Nettoyer les query params sans recharger la page
+        router.replace('/chat', { scroll: false });
+      } catch (err) {
+        console.error('Failed to open conversation from query params:', err);
+      }
     };
 
-    // Vérifier au chargement initial
-    checkIfMobile();
-
-    // Ajouter un écouteur pour les changements de taille d'écran
-    window.addEventListener('resize', checkIfMobile);
-
-    // Nettoyer l'écouteur lors du démontage du composant
-    return () => window.removeEventListener('resize', checkIfMobile);
-  }, []);
+    openConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleSelectConversation = (conversation: Conversation, userId: number) => {
     setSelectedConversation(conversation);
     setSelectedUserId(userId);
-    
-    // Sur mobile, afficher uniquement la fenêtre de chat
-    if (isMobile) {
-      setShowChat(true);
-    }
+    if (isMobile) setShowChat(true);
   };
 
   const handleBackToList = () => {
-    if (isMobile) {
-      setShowChat(false);
-    }
+    if (isMobile) setShowChat(false);
   };
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* Sidebar - toujours visible sur desktop, visible uniquement quand showChat est false sur mobile */}
-      <div 
+      {/* Sidebar */}
+      <div
         className={`
-          ${isMobile ? 'w-full' : 'w-[384px]'} 
+          ${isMobile ? 'w-full' : 'w-[384px]'}
           ${isMobile && showChat ? 'hidden' : 'block'}
           absolute top-0 bottom-0 left-0 z-10
         `}
       >
-        <Sidebar 
-          onSelectConversation={handleSelectConversation} 
-          activeConversationId={selectedConversation?.id} 
+        <Sidebar
+          onSelectConversation={handleSelectConversation}
+          activeConversationId={selectedConversation?.id}
         />
       </div>
-      
-      {/* ChatWindow ou DefaultView - visible sur desktop, ou sur mobile quand showChat est true */}
-      <div 
+
+      {/* ChatWindow ou DefaultView */}
+      <div
         className={`
-          ${isMobile ? 'left-0 w-full' : 'left-[384px]'} 
+          ${isMobile ? 'left-0 w-full' : 'left-[384px]'}
           ${isMobile && !showChat ? 'hidden' : 'block'}
           absolute top-0 bottom-0 right-0 z-0
         `}
       >
         {selectedUserId !== null ? (
-         // Dans la partie mobile du rendu
-<ChatWindow 
-  conversation={selectedConversation} 
-  userId={selectedUserId} 
-  onBackClick={handleBackToList} // Fonction qui change showChat à false
-  isMobile={true}
-/>
-
+          <ChatWindow
+            conversation={selectedConversation}
+            userId={selectedUserId}
+            onBackClick={handleBackToList}
+            isMobile={isMobile}
+          />
         ) : (
           <DefaultView />
         )}

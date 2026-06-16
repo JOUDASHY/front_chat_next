@@ -1,12 +1,12 @@
-import UserProfileView from '@/components/UserProfileView';
+import UnifiedProfileView from '@/components/UnifiedProfileView';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: Promise<{ userId: string }>;  // Next.js attend une Promise ici
+  params: Promise<{ userId: string }>;
 }
 
 export default async function Page({ params }: PageProps) {
-  const resolvedParams = await params;  // On attend la résolution de la Promise
-  return <UserProfileView userId={resolvedParams.userId} />;
+  const { userId } = await params;
+  return <UnifiedProfileView isSelf={false} userId={userId} />;
 }

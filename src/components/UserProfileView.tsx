@@ -80,11 +80,11 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
             >
               <div className="w-32 h-32 lg:w-40 lg:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
                 <img
-                  src={user.profile?.image || '/default-avatar.png'}
+                  src={user.profile?.image || '/default-avatar.svg'}
                   alt={user.username}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/default-avatar.png';
+                    (e.target as HTMLImageElement).src = '/default-avatar.svg';
                   }}
                 />
               </div>
