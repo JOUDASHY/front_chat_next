@@ -27,6 +27,7 @@ export default function ChatPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showDiscover, setShowDiscover] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -73,11 +74,24 @@ export default function ChatPage() {
   const handleSelectConversation = (conversation: Conversation, userId: number) => {
     setSelectedConversation(conversation);
     setSelectedUserId(userId);
+    setShowDiscover(false);
     if (isMobile) setShowChat(true);
   };
 
   const handleBackToList = () => {
     if (isMobile) setShowChat(false);
+  };
+
+  // Sur mobile, ouvrir la page découverte dans la zone droite
+  const handleDiscover = () => {
+    if (isMobile) {
+      setShowChat(true);        // affiche la zone droite
+      setSelectedUserId(null);  // force DefaultView (pas de chat)
+      setSelectedConversation(null);
+      setShowDiscover(true);
+    } else {
+      setShowDiscover(true);
+    }
   };
 
   return (
@@ -93,6 +107,7 @@ export default function ChatPage() {
         <Sidebar
           onSelectConversation={handleSelectConversation}
           activeConversationId={selectedConversation?.id}
+          onDiscover={handleDiscover}
         />
       </div>
 
@@ -112,7 +127,14 @@ export default function ChatPage() {
             isMobile={isMobile}
           />
         ) : (
-          <DefaultView />
+          <DefaultView
+            onStartConversation={handleSelectConversation}
+            initialShowDiscover={showDiscover}
+            onDiscoverClose={() => {
+              setShowDiscover(false);
+              if (isMobile) setShowChat(false);
+            }}
+          />
         )}
       </div>
     </div>

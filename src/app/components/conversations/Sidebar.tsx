@@ -49,6 +49,7 @@ interface User {
 interface SidebarProps {
   onSelectConversation: (conv: Conversation, userId: number) => void;
   activeConversationId?: number;
+  onDiscover?: () => void;
 }
 
 const GroupAvatar = ({
@@ -143,7 +144,7 @@ const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false 
   );
 };
 
-export default function Sidebar({ onSelectConversation, activeConversationId }: SidebarProps) {
+export default function Sidebar({ onSelectConversation, activeConversationId, onDiscover }: SidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -549,6 +550,19 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-jaune focus:bg-white transition-all color-blue placeholder-blue/60"
           />
         </div>
+        {/* Bouton Découvrir */}
+        {onDiscover && (
+          <button
+            onClick={onDiscover}
+            title="Découvrir des personnes"
+            className="p-2.5 bg-[var(--jaune)] text-white rounded-xl hover:bg-[var(--jaune)]/80 transition-colors flex-shrink-0"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM13 7a1 1 0 11-2 0 1 1 0 012 0z" />
+            </svg>
+          </button>
+        )}
         <button
           onClick={() => setShowCreateGroupModal(true)}
           title="Nouveau groupe"
