@@ -1,7 +1,7 @@
 // src/app/chat/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Sidebar from '@/app/components/conversations/Sidebar';
 import ChatWindow from '@/app/components/conversations/ChatWindow';
 import DefaultView from '@/app/components/conversations/DefaultView';
@@ -23,6 +23,14 @@ export interface Conversation {
 }
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="h-screen w-full bg-[var(--blue)]" />}>
+      <ChatPageContent />
+    </Suspense>
+  );
+}
+
+function ChatPageContent() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);

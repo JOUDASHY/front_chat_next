@@ -46,6 +46,8 @@ interface Conversation {
 
 interface Props {
   onStartConversation: (conv: Conversation, userId: number) => void;
+  initialShowDiscover?: boolean;
+  onDiscoverClose?: () => void;
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -57,8 +59,21 @@ const STATUS_DOT: Record<string, string> = {
 /* ─────────────────────────────────────────────
    Composant principal
 ───────────────────────────────────────────── */
-export default function DefaultView({ onStartConversation }: Props) {
-  const [showDiscover, setShowDiscover] = useState(false);
+export default function DefaultView({
+  onStartConversation,
+  initialShowDiscover = false,
+  onDiscoverClose,
+}: Props) {
+  const [showDiscover, setShowDiscover] = useState(initialShowDiscover);
+
+  useEffect(() => {
+    setShowDiscover(initialShowDiscover);
+  }, [initialShowDiscover]);
+
+  const handleCloseDiscover = () => {
+    setShowDiscover(false);
+    onDiscoverClose?.();
+  };
 
   return (
     <div className="h-full w-full relative overflow-hidden">
@@ -91,7 +106,7 @@ export default function DefaultView({ onStartConversation }: Props) {
           >
             <DiscoverPage
               onStartConversation={onStartConversation}
-              onBack={() => setShowDiscover(false)}
+              onBack={handleCloseDiscover}
             />
           </motion.div>
         )}
