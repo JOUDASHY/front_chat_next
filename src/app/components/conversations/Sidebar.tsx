@@ -22,6 +22,8 @@ export interface Conversation {
   userId?: number;
   unreadCount: number;
   lastMessageSeen: boolean;
+  lastMessageSenderId?: number;
+  lastMessageIsRead?: boolean;
   user: {
     profile?: {
       image?: string;
@@ -108,6 +110,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<number, boolean>>(new Map());  // Changed from Map<string | number, boolean>
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [isPusherReady, setIsPusherReady] = useState(false);
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
@@ -136,6 +139,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
         });
 
         pusherRef.current = pusher;
+        setIsPusherReady(true);
       }
     };
     
@@ -193,13 +197,13 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
 
   // S'abonner aux canaux Pusher pour les mises à jour des conversations
   useEffect(() => {
-    if (!pusherRef.current || !user) return;
+    if (!isPusherReady || !pusherRef.current || !user) return;
 
     // S'abonner au canal de l'utilisateur pour les mises à jour de conversations
     const channel = pusherRef.current.subscribe(`user-${user.id}-conversations`);
 
     // Écouter les nouveaux messages
-    channel.bind('new-message', (data: { conversation: Conversation }) => {
+    channel.bind('new-message', (data: { conversation: Conversation & { incrementUnread?: boolean } }) => {
       setConversations(prev => {
         // Trouver si la conversation existe déjà
         const existingIndex = prev.findIndex(conv => conv.id === data.conversation.id);
@@ -207,10 +211,38 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
         if (existingIndex >= 0) {
           // Mettre à jour la conversation existante
           const updated = [...prev];
+          
+          const newUnreadCount = data.conversation.incrementUnread 
+            ? (updated[existingIndex].unreadCount || 0) + 1 
+            : updated[existingIndex].unreadCount;
+            
+          const newLastMessageSeen = data.conversation.lastMessageSeen !== undefined 
+            ? data.conversation.lastMessageSeen 
+            : updated[existingIndex].lastMessageSeen;
+            
+          const newLastMessageSenderId = data.conversation.lastMessageSenderId !== undefined 
+            ? data.conversation.lastMessageSenderId 
+            : updated[existingIndex].lastMessageSenderId;
+            
+          // Protection contre les events Pusher reçus dans le désordre
+          const isOlderOrSame = new Date(data.conversation.timestamp).getTime() <= new Date(updated[existingIndex].timestamp).getTime();
+          
+          let newLastMessageIsRead = data.conversation.lastMessageIsRead !== undefined 
+            ? data.conversation.lastMessageIsRead 
+            : updated[existingIndex].lastMessageIsRead;
+            
+          if (isOlderOrSame && updated[existingIndex].lastMessageIsRead === true) {
+             newLastMessageIsRead = true; // On garde true si le message n'est pas plus récent
+          }
+
           updated[existingIndex] = {
             ...updated[existingIndex],
             lastMessage: data.conversation.lastMessage,
-            timestamp: data.conversation.timestamp
+            timestamp: data.conversation.timestamp,
+            unreadCount: newUnreadCount,
+            lastMessageSeen: newLastMessageSeen,
+            lastMessageSenderId: newLastMessageSenderId,
+            lastMessageIsRead: newLastMessageIsRead
           };
 
           // Trier les conversations par timestamp (plus récent en premier)
@@ -219,7 +251,10 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
           );
         } else {
           // Ajouter la nouvelle conversation au début
-          return [data.conversation, ...prev];
+          return [{
+            ...data.conversation,
+            unreadCount: data.conversation.incrementUnread ? 1 : 0
+          }, ...prev];
         }
       });
     });
@@ -232,6 +267,24 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
         if (!exists) {
           // Ajouter la nouvelle conversation au début
           return [data.conversation, ...prev];
+        }
+        return prev;
+      });
+    });
+
+    // Écouter le signal que les messages ont été lus
+    channel.bind('messages-read-sidebar', (data: { conversation_id: number; reset_unread: boolean; lastMessageIsRead?: boolean }) => {
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === data.conversation_id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            lastMessageSeen: true,
+            unreadCount: data.reset_unread ? 0 : updated[idx].unreadCount,
+            lastMessageIsRead: data.lastMessageIsRead !== undefined ? data.lastMessageIsRead : updated[idx].lastMessageIsRead
+          };
+          return updated;
         }
         return prev;
       });
@@ -267,7 +320,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
       presenceChannel.unbind_all();
       pusherRef.current?.unsubscribe('presence-channel');
     };
-  }, [user]);
+  }, [user, isPusherReady]);
 
   // Écouter les messages envoyés par le sender (ChatWindow) pour mettre à jour la sidebar localement
   useEffect(() => {
@@ -277,10 +330,18 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
         const idx = prev.findIndex(c => c.id === conversationId);
         if (idx >= 0) {
           const updated = [...prev];
+          
+          // Protection contre une race condition si Pusher (messages-read-sidebar) est déjà passé
+          const isOlderOrSame = new Date(timestamp).getTime() <= new Date(updated[idx].timestamp).getTime();
+          const currentIsRead = updated[idx].lastMessageIsRead;
+          
           updated[idx] = {
             ...updated[idx],
             lastMessage,
             timestamp,
+            lastMessageSeen: true, // Since we sent it, we don't bold it
+            lastMessageSenderId: user?.id,
+            lastMessageIsRead: (isOlderOrSame && currentIsRead) ? true : false
           };
           return updated.sort(
             (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -550,8 +611,8 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
                       : 'hover:bg-gray-100 border border-transparent'}`}
                 >
                   <Avatar
-                    src={conversation.user.profile?.image}
-                    alt={conversation.name}
+                    src={conversation.user?.profile?.image}
+                    alt={conversation.name || 'Utilisateur'}
                     className={`h-10 w-10 ${conversation.isGroup ? 'bg-blue-ciel/20' : 'bg-blue/20'}`}
                     isOnline={!conversation.isGroup && onlineUsers.get(conversation.userId ?? 0) === true}
                   />
@@ -565,10 +626,10 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className={`text-sm truncate ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
+                      <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
                         {conversation.lastMessage || 'Nouvelle conversation'}
                       </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         {conversation.unreadCount > 0 && (
                           <span className="px-2 py-0.5 bg-jaune text-white text-xs font-medium rounded-full">
                             {conversation.unreadCount}
@@ -578,6 +639,21 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
                           <span className="px-2 py-0.5 bg-blue-ciel/20 color-blue text-xs font-medium rounded-full">
                             Groupe
                           </span>
+                        )}
+                        {!conversation.isGroup && conversation.lastMessageSenderId === user?.id && (
+                          conversation.lastMessageIsRead ? (
+                            <Avatar
+                              src={conversation.user?.profile?.image}
+                              alt={conversation.name || ''}
+                              className="h-4 w-4 rounded-full border border-gray-200 opacity-80"
+                            />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full border border-gray-400 flex items-center justify-center opacity-70">
+                              <svg className="h-2.5 w-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )
                         )}
                       </div>
                     </div>

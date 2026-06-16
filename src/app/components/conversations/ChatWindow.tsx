@@ -237,6 +237,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         console.log('New message received on channel:', subscribedChannelName, data);
         if (!isMounted) return;  // Ignorer si le composant est démonté
         
+        // Si c'est un message reçu, on indique au backend qu'on l'a lu instantanément !
+        if (data.sender !== user?.username && !conversation.isGroup && userId) {
+          api.post(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/read/`)
+            .catch(console.error);
+        }
+        
         setMessages(prev => {
           // Éviter les doublons (le message peut déjà être dans la liste via la réponse POST)
           const isDuplicate = prev.some(msg => msg.id === data.id);
@@ -246,6 +252,21 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           }
           return [...prev, data];
         });
+
+        // Si c'est notre propre message qui nous revient via Pusher, 
+        // on le retire des "pendingMessages" pour éviter la duplication visuelle (fantôme)
+        if (data.sender === user?.username) {
+           setPendingMessages(prev => {
+             // On cherche le pending message qui a le même contenu
+             const idx = prev.findIndex(p => p.content.trim() === data.content.trim());
+             if (idx !== -1) {
+                const newPending = [...prev];
+                newPending.splice(idx, 1);
+                return newPending;
+             }
+             return prev;
+           });
+        }
       };
       
       channel.bind('new-message', handleNewMessage);
@@ -322,13 +343,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   }, []);
 
   // Défilement automatique
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const prevMessagesLengthRef = useRef(0);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // Déterminer s'il s'agit d'un chargement initial (grand saut de messages)
+    const isNewLoad = Math.abs(messages.length - prevMessagesLengthRef.current) > 1;
+    prevMessagesLengthRef.current = messages.length;
+
+    // Petit délai pour laisser le temps au DOM (HTML) de s'agrandir avec le nouveau message
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: isNewLoad ? 'auto' : 'smooth' 
+      });
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [messages, pendingMessages]);
 
   // Envoi de message
   const sendMessage = async () => {
@@ -348,6 +378,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     setPendingMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
     setFile(null);
+    
+    // Notifier la sidebar IMMÉDIATEMENT (optimistic UI) pour éviter une race condition avec Pusher
+    window.dispatchEvent(new CustomEvent('chat-message-sent', {
+      detail: {
+        conversationId: conversation.id,
+        lastMessage: tempMessage.content,
+        timestamp: tempMessage.timestamp,
+      }
+    }));
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -372,17 +411,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         },
       });
 
+      // Ajouter le vrai message si Pusher est en retard
+      setMessages(prev => {
+        const isDuplicate = prev.some(msg => msg.id === data.id);
+        if (isDuplicate) return prev;
+        return [...prev, data];
+      });
+
       // Retirer le message des pending après succès
       setPendingMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-      
-      // Notifier la sidebar pour mettre à jour le dernier message (côté sender)
-      window.dispatchEvent(new CustomEvent('chat-message-sent', {
-        detail: {
-          conversationId: conversation.id,
-          lastMessage: tempMessage.content,
-          timestamp: tempMessage.timestamp,
-        }
-      }));
       
     } catch (err) {
       // Marquer le message comme erreur
@@ -477,10 +514,16 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       {/* Ajuster le conteneur des messages pour tenir compte du header fixe */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4 mt-[1px]">
         {Array.isArray(messages) && messages.length > 0 ? (
-          messages.map(msg => {
-            const isCurrentUser = msg.sender === user?.username;
-            return (
-              <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+          (() => {
+            // Trouver l'ID du tout dernier message envoyé par l'utilisateur (pour l'avatar de lecture)
+            const lastUserMessageId = [...messages].reverse().find(m => m.sender === user?.username)?.id;
+            
+            return messages.map(msg => {
+              const isCurrentUser = msg.sender === user?.username;
+              const isLastUserMessage = msg.id === lastUserMessageId;
+              
+              return (
+                <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
                 {/* Avatar pour les messages reçus */}
                 {!isCurrentUser && (
                   <div className="mr-2 mt-1">
@@ -629,20 +672,24 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     )}
                   </div>
                   {/* Indicateur de statut de lecture */}
-                  {isCurrentUser && (
-                    <div className="flex items-center mt-1 text-xs justify-end">
+                  {isCurrentUser && isLastUserMessage && (
+                    <div className="flex items-center mt-1 text-xs justify-end h-4">
                       {msg.is_read ? (
-                        /* Double check BLEU = Lu */
-                        <svg className="h-4 w-5" viewBox="0 0 24 12" fill="none" stroke="#3B82F6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M2 6l3.5 3.5L11 3" />
-                          <path d="M7.5 6l3.5 3.5L16.5 3" />
-                        </svg>
+                        /* Mini avatar de l'interlocuteur */
+                        <div className="h-4 w-4 rounded-full overflow-hidden border border-gray-200 opacity-80">
+                          <ImageWithFallback
+                            src={recipient?.profile?.image}
+                            alt={recipient?.username || ''}
+                            className="h-full w-full"
+                          />
+                        </div>
                       ) : (
-                        /* Double check GRIS = Envoyé mais pas lu */
-                        <svg className="h-4 w-5" viewBox="0 0 24 12" fill="none" stroke="#9CA3AF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M2 6l3.5 3.5L11 3" />
-                          <path d="M7.5 6l3.5 3.5L16.5 3" />
-                        </svg>
+                        /* Check gris (envoyé) */
+                        <div className="h-4 w-4 rounded-full border border-gray-400 flex items-center justify-center opacity-70">
+                          <svg className="h-2.5 w-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
                       )}
                     </div>
                   )}
@@ -650,6 +697,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               </div>
             );
           })
+        })()
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">
