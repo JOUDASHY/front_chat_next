@@ -190,7 +190,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   // Initialisation de Pusher et abonnement aux canaux
   useEffect(() => {
-    if (!userId || !conversation?.id) return;
+    if (userId == null || !conversation?.id) return;
     
     let isMounted = true;
     let subscribedChannelName = '';  // Stocké ici pour être accessible au cleanup
@@ -329,7 +329,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         pusherRef.current.unsubscribe('presence-channel');
       }
     };
-  }, [userId, conversation?.id, recipientId, conversation?.userId]);
+  }, [userId, conversation?.id, recipientId, conversation?.userId, user]);
   
   // Nettoyage de Pusher lors du démontage complet
   useEffect(() => {
@@ -362,7 +362,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   // Envoi de message
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !file) || !conversation?.id || userId == null) return;
+    if ((!newMessage.trim() && !file) || !conversation?.id || userId == null || isSending) return;
+    
+    setIsSending(true);
     
     // Créer un message temporaire
     const tempMessage: PendingMessage = {
@@ -431,6 +433,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         )
       );
       console.error('❌ Error sending message:', err);
+    } finally {
+      setIsSending(false);
     }
   };
 

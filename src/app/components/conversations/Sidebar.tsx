@@ -10,8 +10,10 @@ import {
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
   ArrowLeftOnRectangleIcon,
-  XMarkIcon
+  XMarkIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
+import CreateGroupModal from './CreateGroupModal';
 
 export interface Conversation {
   id: number;
@@ -108,6 +110,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<number, boolean>>(new Map());  // Changed from Map<string | number, boolean>
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isPusherReady, setIsPusherReady] = useState(false);
@@ -491,9 +494,9 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="p-4 border-b border-blue/20">
-        <div className="relative">
+      {/* Search bar and Create Group button */}
+      <div className="p-4 border-b border-blue/20 flex gap-2 items-center">
+        <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <MagnifyingGlassIcon className="h-5 w-5 color-blue" />
           </div>
@@ -505,6 +508,13 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-jaune focus:bg-white transition-all color-blue placeholder-blue/60"
           />
         </div>
+        <button
+          onClick={() => setShowCreateGroupModal(true)}
+          title="Nouveau groupe"
+          className="p-2.5 bg-blue text-white rounded-xl hover:bg-blue-ciel transition-colors flex-shrink-0"
+        >
+          <UserGroupIcon className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Online users horizontal list */}
@@ -698,6 +708,14 @@ export default function Sidebar({ onSelectConversation, activeConversationId }: 
           </div>
         </div>
       )}
+
+      {/* Modale de création de groupe */}
+      <CreateGroupModal
+        isOpen={showCreateGroupModal}
+        onClose={() => setShowCreateGroupModal(false)}
+        allUsers={allUsers}
+        currentUserId={user?.id}
+      />
     </div>
   );
 }
