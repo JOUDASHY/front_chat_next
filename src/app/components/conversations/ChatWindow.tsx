@@ -547,7 +547,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         {/* Bouton de retour - visible uniquement sur mobile */}
         {isMobile && onBackClick && (
           <button
-            onClick={onBackClick}
+            onClick={(e) => {
+              e.stopPropagation();
+              onBackClick();
+            }}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Retour"
           >
@@ -587,7 +590,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             )}
           </p>
         </div>
-        <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+        >
           <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
         </button>
       </div>
