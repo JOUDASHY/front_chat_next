@@ -53,6 +53,8 @@ interface SidebarProps {
   onSelectConversation: (conv: Conversation, userId: number) => void;
   activeConversationId?: number;
   onDiscover?: () => void;
+  sidebarView?: 'chats' | 'calls';
+  onSidebarViewChange?: (view: 'chats' | 'calls') => void;
 }
 
 const GroupAvatar = ({
@@ -190,7 +192,13 @@ interface CallHistoryItem {
   };
 }
 
-export default function Sidebar({ onSelectConversation, activeConversationId, onDiscover }: SidebarProps) {
+export default function Sidebar({
+  onSelectConversation,
+  activeConversationId,
+  onDiscover,
+  sidebarView: sidebarViewProp,
+  onSidebarViewChange,
+}: SidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -203,7 +211,15 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const allUsersRef = useRef<User[]>([]);
   const [isPusherReady, setIsPusherReady] = useState(false);
-  const [sidebarView, setSidebarView] = useState<'chats' | 'calls'>('chats');
+  const [sidebarViewInternal, setSidebarViewInternal] = useState<'chats' | 'calls'>('chats');
+  const sidebarView = sidebarViewProp ?? sidebarViewInternal;
+  const setSidebarView = (view: 'chats' | 'calls') => {
+    if (onSidebarViewChange) {
+      onSidebarViewChange(view);
+    } else {
+      setSidebarViewInternal(view);
+    }
+  };
   const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
   const [callsLoading, setCallsLoading] = useState(false);
   const [callsError, setCallsError] = useState<string | null>(null);
@@ -716,7 +732,9 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
       onSelectConversation(data, userId);
       setSearchQuery('');
       setSearchResults([]);
-      setSidebarView('chats');
+      if (!onSidebarViewChange) {
+        setSidebarViewInternal('chats');
+      }
     } catch (error) {
       console.error('Error starting conversation:', error);
       setError('Échec de la création de la conversation');

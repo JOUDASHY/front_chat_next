@@ -42,7 +42,7 @@ interface CallContextValue {
   callType: CallType | null;
   peer: CallPeer | null;
   error: string | null;
-  startCall: (recipientId: number, callType: CallType) => Promise<void>;
+  startCall: (recipientId: number, callType: CallType, peerHint?: Partial<CallPeer>) => Promise<void>;
   acceptCall: () => Promise<void>;
   rejectCall: () => Promise<void>;
   endCall: () => Promise<void>;
@@ -292,8 +292,23 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setPhase('incoming');
       });
 
-      channel.bind('call-accepted', (data: { room_name: string }) => {
+      channel.bind('call-accepted', (data: {
+        room_name: string;
+        user?: { display_name?: string; username?: string; image?: string | null };
+      }) => {
         if (sessionRef.current?.roomName === data.room_name) {
+          if (data.user) {
+            setPeer((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    display_name: data.user?.display_name || prev.display_name,
+                    username: data.user?.username ?? prev.username,
+                    image: data.user?.image ?? prev.image,
+                  }
+                : prev
+            );
+          }
           setPhase('active');
           void syncRoomTracks();
         }
@@ -333,30 +348,44 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [phase, callType, syncRoomTracks]);
 
   const startCall = useCallback(
-    async (recipientId: number, type: CallType) => {
+    async (recipientId: number, type: CallType, peerHint?: Partial<CallPeer>) => {
       setError(null);
+
+      const hintedPeer: CallPeer = {
+        id: recipientId,
+        display_name: peerHint?.display_name || 'Utilisateur',
+        image: peerHint?.image ?? null,
+        username: peerHint?.username,
+      };
+      setPeer(hintedPeer);
+      setCallType(type);
+      setPhase('outgoing');
+
       try {
         const { data } = await api.post('/api/chat/calls/start/', {
           recipient_id: recipientId,
           call_type: type,
         });
 
+        const peer: CallPeer = {
+          id: data.recipient?.id ?? recipientId,
+          display_name: data.recipient?.display_name || hintedPeer.display_name,
+          image: data.recipient?.image ?? hintedPeer.image ?? null,
+          username: data.recipient?.username ?? hintedPeer.username,
+        };
+
         const nextSession: ActiveCallSession = {
           roomName: data.room_name,
           callType: type,
           token: data.token,
           livekitUrl: data.livekit_url,
-          peer: {
-            id: recipientId,
-            display_name: data.recipient?.display_name || 'Utilisateur',
-          },
+          peer,
           isOutgoing: true,
         };
 
         setSession(nextSession);
         endedRoomsRef.current.delete(data.room_name);
-        setCallType(type);
-        setPeer(nextSession.peer);
+        setPeer(peer);
         setPhase('outgoing');
         await connectRoom(data.livekit_url, data.token, type, false);
       } catch (err: unknown) {

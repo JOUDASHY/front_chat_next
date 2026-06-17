@@ -679,7 +679,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
-              onClick={() => void startCall(recipientId, 'audio')}
+              onClick={() =>
+                void startCall(recipientId, 'audio', {
+                  display_name: getDisplayName(recipient) || conversation.name,
+                  image: recipient?.profile?.image ?? null,
+                  username: recipient?.username,
+                })
+              }
               className="p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors"
               title="Appel vocal"
               aria-label="Appel vocal"
@@ -688,7 +694,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </button>
             <button
               type="button"
-              onClick={() => void startCall(recipientId, 'video')}
+              onClick={() =>
+                void startCall(recipientId, 'video', {
+                  display_name: getDisplayName(recipient) || conversation.name,
+                  image: recipient?.profile?.image ?? null,
+                  username: recipient?.username,
+                })
+              }
               className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors"
               title="Appel vidéo"
               aria-label="Appel vidéo"

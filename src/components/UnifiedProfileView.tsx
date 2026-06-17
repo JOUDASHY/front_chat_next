@@ -86,6 +86,8 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const [activeTab, setActiveTab] = useState<'about' | 'info'>('about');
   const [imgLoaded, setImgLoaded] = useState(false);
 
+  const goToChat = () => router.replace('/chat');
+
   useEffect(() => {
     const url = isSelf ? '/api/chat/me' : `/api/chat/users/${userId}`;
     api.get(url)
@@ -96,8 +98,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
 
   const handleStartConversation = async () => {
     if (!user) return;
-    // Naviguer vers /chat avec userId — la page chat créera/ouvrira la conversation
-    router.push(`/chat?userId=${user.id}`);
+    router.replace(`/chat?userId=${user.id}`);
   };
 
   if (isLoading) return <Skeleton />;
@@ -107,7 +108,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
       <div className="fixed inset-0 flex items-center justify-center bg-[#f0f2f5]">
         <div className="bg-white p-8 rounded-2xl shadow-xl text-center space-y-3">
           <p className="text-red-500 font-medium">{error || 'Utilisateur introuvable'}</p>
-          <button onClick={() => router.back()} className="text-[var(--blue)] underline text-sm">Retour</button>
+          <button onClick={goToChat} className="text-[var(--blue)] underline text-sm">Retour</button>
         </div>
       </div>
     );
@@ -125,7 +126,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
       {/* Topbar */}
       <div className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-4
                       bg-[var(--blue)]/95 backdrop-blur-md shadow-lg">
-        <button onClick={() => router.back()}
+        <button onClick={goToChat}
           className="flex items-center gap-2 text-white/80 hover:text-white transition-colors group">
           <span className="p-1.5 rounded-full group-hover:bg-white/10 transition-colors">
             <ArrowLeftIcon className="h-5 w-5" />

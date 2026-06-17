@@ -8,8 +8,43 @@ import {
   MicrophoneIcon,
   NoSymbolIcon,
 } from '@heroicons/react/24/solid';
-import { useCall } from '@/context/CallContext';
+import { useCall, type CallPeer } from '@/context/CallContext';
 import { formatCallTimer } from '@/lib/callUtils';
+
+function CallPeerAvatar({
+  peer,
+  size = 'lg',
+}: {
+  peer: CallPeer | null;
+  size?: 'md' | 'lg';
+}) {
+  const sizeClasses =
+    size === 'lg'
+      ? 'h-28 w-28 text-4xl border-4'
+      : 'h-24 w-24 text-3xl border-4';
+
+  if (peer?.image) {
+    return (
+      <div
+        className={`${sizeClasses} rounded-full overflow-hidden border-[var(--jaune)] bg-gray-700 shrink-0`}
+      >
+        <img
+          src={peer.image}
+          alt={peer.display_name}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClasses} rounded-full border-[var(--jaune)] bg-[var(--blue)] flex items-center justify-center font-bold text-white shrink-0`}
+    >
+      {peer?.display_name?.charAt(0).toUpperCase() || '?'}
+    </div>
+  );
+}
 
 export default function CallOverlay() {
   const {
@@ -50,6 +85,7 @@ export default function CallOverlay() {
   const isVideo = callType === 'video';
   const showActive = phase === 'active' || phase === 'outgoing';
   const timerLabel = formatCallTimer(elapsedSeconds);
+  const showAvatarPlaceholder = !isVideo || phase === 'outgoing';
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
@@ -62,14 +98,8 @@ export default function CallOverlay() {
 
         {phase === 'incoming' && peer && (
           <div className="text-center text-white space-y-6">
-            <div className="mx-auto h-24 w-24 rounded-full overflow-hidden border-4 border-[var(--jaune)] bg-gray-700">
-              {peer.image ? (
-                <img src={peer.image} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-3xl font-bold">
-                  {peer.display_name.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <div className="mx-auto">
+              <CallPeerAvatar peer={peer} size="md" />
             </div>
             <div>
               <p className="text-sm text-white/60">
@@ -109,34 +139,35 @@ export default function CallOverlay() {
                 </div>
               )}
 
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className={`absolute inset-0 h-full w-full object-cover bg-gray-900 ${isVideo ? 'block' : 'hidden'}`}
-              />
-              {!isVideo && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                  <div className="h-28 w-28 rounded-full bg-[var(--blue)] flex items-center justify-center text-4xl font-bold mb-4">
-                    {peer?.display_name?.charAt(0).toUpperCase() || '?'}
-                  </div>
-                  <p className="text-xl font-semibold">{peer?.display_name}</p>
-                  <p className="text-white/60 text-sm mt-2">
+              {showAvatarPlaceholder && (
+                <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center text-white px-6">
+                  <CallPeerAvatar peer={peer} size="lg" />
+                  <p className="text-xl font-semibold mt-4 text-center">{peer?.display_name}</p>
+                  <p className="text-white/60 text-sm mt-2 text-center">
                     {phase === 'outgoing' ? (
                       'Sonnerie…'
                     ) : (
-                      <span className="font-mono tabular-nums text-base text-white/90">{timerLabel}</span>
+                      <span className="font-mono tabular-nums text-base text-white/90">
+                        {timerLabel}
+                      </span>
                     )}
                   </p>
                 </div>
               )}
+
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className={`absolute inset-0 h-full w-full object-cover bg-gray-900 z-[6] ${isVideo && phase === 'active' ? 'block' : 'hidden'}`}
+              />
               {isVideo && (
                 <video
                   ref={localVideoRef}
                   autoPlay
                   playsInline
                   muted
-                  className="absolute bottom-4 right-4 h-28 w-20 rounded-xl object-cover border-2 border-white/30 shadow-lg"
+                  className="absolute bottom-4 right-4 h-28 w-20 rounded-xl object-cover border-2 border-white/30 shadow-lg z-[7]"
                 />
               )}
             </div>

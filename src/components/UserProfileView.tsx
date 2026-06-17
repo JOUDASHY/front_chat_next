@@ -16,7 +16,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
   const [error, setError] = useState('');
 
   const router = useRouter();
-  const handleBack = () => router.back();
+  const handleBack = () => router.replace('/chat');
 
   useEffect(() => {
     const fetchUser = async () => {

@@ -19,8 +19,13 @@ const LoginPage = () => {
 
   useEffect(() => {
     setIsClient(true);
-    // Check for Google auth code only on client side
     if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        router.replace('/chat');
+        return;
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       if (code) {
@@ -53,7 +58,7 @@ const LoginPage = () => {
 
       setIsSuccess(true);
       await new Promise(resolve => setTimeout(resolve, 2000));
-      router.push("/chat");
+      router.replace("/chat");
 
     } catch (err: any) {
       console.error('Login error', {
@@ -111,7 +116,7 @@ const LoginPage = () => {
 
         setIsSuccess(true);
         await new Promise(resolve => setTimeout(resolve, 2000));
-        router.push("/chat");
+        router.replace("/chat");
       } catch (err: any) {
         console.error("Google login échoué :", err);
         setError("La connexion avec Google a échoué. Veuillez réessayer.");
