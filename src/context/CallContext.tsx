@@ -80,6 +80,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const phaseRef = useRef<CallPhase>('idle');
   const sessionRef = useRef<ActiveCallSession | null>(null);
   const incomingRef = useRef<IncomingCallPayload | null>(null);
+  const endedRoomsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -119,6 +120,29 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setIsMuted(false);
     setIsCameraOff(false);
   }, [detachRoom]);
+
+  const notifyCallHistoryChanged = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('call-history-changed'));
+    }
+  }, []);
+
+  const notifyBackendCallEnd = useCallback(
+    async (roomName: string, peerId: number) => {
+      if (endedRoomsRef.current.has(roomName)) return;
+      endedRoomsRef.current.add(roomName);
+      try {
+        await api.post('/api/chat/calls/end/', {
+          room_name: roomName,
+          peer_id: peerId,
+        });
+        notifyCallHistoryChanged();
+      } catch {
+        endedRoomsRef.current.delete(roomName);
+      }
+    },
+    [notifyCallHistoryChanged]
+  );
 
   const attachTrack = useCallback(
     (track: import('livekit-client').RemoteTrack | import('livekit-client').LocalTrack, target: 'local' | 'remote') => {
@@ -196,6 +220,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
 
       room.on(RoomEvent.Disconnected, () => {
+        const current = sessionRef.current;
+        if (current) {
+          void notifyBackendCallEnd(current.roomName, current.peer.id);
+        }
         void resetCall();
       });
 
@@ -215,23 +243,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
       await waitForVideoElements();
       await syncRoomTracks();
     },
-    [attachTrack, detachRoom, resetCall, syncRoomTracks]
+    [attachTrack, detachRoom, notifyBackendCallEnd, resetCall, syncRoomTracks]
   );
 
   const endCall = useCallback(async () => {
-    const current = session;
+    const current = sessionRef.current;
     if (current) {
-      try {
-        await api.post('/api/chat/calls/end/', {
-          room_name: current.roomName,
-          peer_id: current.peer.id,
-        });
-      } catch {
-        /* ignore */
-      }
+      await notifyBackendCallEnd(current.roomName, current.peer.id);
     }
     await resetCall();
-  }, [resetCall, session]);
+  }, [notifyBackendCallEnd, resetCall]);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -281,6 +302,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       channel.bind('call-rejected', async (data: { room_name: string }) => {
         if (sessionRef.current?.roomName === data.room_name) {
           setError('Appel refusé');
+          notifyCallHistoryChanged();
           await resetCall();
         }
       });
@@ -288,6 +310,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       channel.bind('call-ended', async (data: { room_name: string }) => {
         const currentRoom = sessionRef.current?.roomName || incomingRef.current?.room_name;
         if (currentRoom === data.room_name) {
+          notifyCallHistoryChanged();
           await resetCall();
         }
       });
@@ -331,6 +354,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         };
 
         setSession(nextSession);
+        endedRoomsRef.current.delete(data.room_name);
         setCallType(type);
         setPeer(nextSession.peer);
         setPhase('outgoing');
@@ -395,11 +419,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         action: 'reject',
         caller_id: incoming.caller.id,
       });
+      notifyCallHistoryChanged();
     } catch {
       /* ignore */
     }
     await resetCall();
-  }, [incoming, resetCall]);
+  }, [incoming, notifyCallHistoryChanged, resetCall]);
 
   const toggleMute = useCallback(async () => {
     const room = roomRef.current;

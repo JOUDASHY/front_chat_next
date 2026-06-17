@@ -179,6 +179,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
   const [sidebarView, setSidebarView] = useState<'chats' | 'calls'>('chats');
   const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
   const [callsLoading, setCallsLoading] = useState(false);
+  const [callsError, setCallsError] = useState<string | null>(null);
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
@@ -239,11 +240,21 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
 
   const fetchCallHistory = async () => {
     setCallsLoading(true);
+    setCallsError(null);
     try {
       const { data } = await api.get<CallHistoryItem[]>('/api/chat/calls/history/');
-      setCallHistory(data);
-    } catch (err) {
+      setCallHistory(Array.isArray(data) ? data : []);
+    } catch (err: unknown) {
       console.error('Failed to fetch call history:', err);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        setCallsError('Historique non disponible — mettez à jour le serveur backend.');
+      } else if (status === 500) {
+        setCallsError('Erreur serveur — exécutez la migration : python manage.py migrate');
+      } else {
+        setCallsError('Impossible de charger l\'historique des appels.');
+      }
+      setCallHistory([]);
     } finally {
       setCallsLoading(false);
     }
@@ -253,6 +264,16 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
     if (sidebarView === 'calls') {
       void fetchCallHistory();
     }
+  }, [sidebarView]);
+
+  useEffect(() => {
+    const onHistoryChanged = () => {
+      if (sidebarView === 'calls') {
+        void fetchCallHistory();
+      }
+    };
+    window.addEventListener('call-history-changed', onHistoryChanged);
+    return () => window.removeEventListener('call-history-changed', onHistoryChanged);
   }, [sidebarView]);
 
   // Charger l'utilisateur depuis localStorage
@@ -738,6 +759,18 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
             <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
               <ClockIcon className="h-8 w-8 color-blue animate-spin" />
               <p className="color-blue/80 text-sm">Chargement des appels…</p>
+            </div>
+          ) : callsError ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 py-10 px-4 text-center">
+              <PhoneIcon className="h-10 w-10 text-red-400 opacity-60" />
+              <p className="text-red-500 text-sm">{callsError}</p>
+              <button
+                type="button"
+                onClick={() => void fetchCallHistory()}
+                className="text-xs text-[var(--blue)] underline"
+              >
+                Réessayer
+              </button>
             </div>
           ) : callHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-10 px-4 text-center">
