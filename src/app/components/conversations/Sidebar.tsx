@@ -12,7 +12,8 @@ import {
   MagnifyingGlassIcon,
   ArrowLeftOnRectangleIcon,
   XMarkIcon,
-  PlusIcon
+  PlusIcon,
+  PhoneIcon,
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
 
@@ -146,6 +147,22 @@ const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false 
   );
 };
 
+interface CallHistoryItem {
+  id: number;
+  preview: string;
+  call_type: 'audio' | 'video';
+  status: string;
+  direction: 'incoming' | 'outgoing';
+  duration_seconds: number;
+  started_at: string;
+  peer: {
+    id: number;
+    display_name: string;
+    username: string;
+    image?: string | null;
+  };
+}
+
 export default function Sidebar({ onSelectConversation, activeConversationId, onDiscover }: SidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,6 +176,9 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const allUsersRef = useRef<User[]>([]);
   const [isPusherReady, setIsPusherReady] = useState(false);
+  const [sidebarView, setSidebarView] = useState<'chats' | 'calls'>('chats');
+  const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
+  const [callsLoading, setCallsLoading] = useState(false);
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
@@ -216,6 +236,24 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
 
     fetchConversations();
   }, []);
+
+  const fetchCallHistory = async () => {
+    setCallsLoading(true);
+    try {
+      const { data } = await api.get<CallHistoryItem[]>('/api/chat/calls/history/');
+      setCallHistory(data);
+    } catch (err) {
+      console.error('Failed to fetch call history:', err);
+    } finally {
+      setCallsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (sidebarView === 'calls') {
+      void fetchCallHistory();
+    }
+  }, [sidebarView]);
 
   // Charger l'utilisateur depuis localStorage
   useEffect(() => {
@@ -482,6 +520,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
       onSelectConversation(data, userId);
       setSearchQuery('');
       setSearchResults([]);
+      setSidebarView('chats');
     } catch (error) {
       console.error('Error starting conversation:', error);
       setError('Échec de la création de la conversation');
@@ -552,9 +591,21 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
           <div className="p-2 bg-white/10 rounded-lg">
             <ChatBubbleLeftRightIcon className="h-6 w-6 text-jaune" />
           </div>
-          <h1 className="text-xl font-bold text-white font-[Inter]">Messagerie</h1>
+          <h1 className="text-xl font-bold text-white font-[Inter]">
+            {sidebarView === 'calls' ? 'Appels' : 'Messagerie'}
+          </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSidebarView(sidebarView === 'chats' ? 'calls' : 'chats')}
+            className={`p-1.5 rounded-full transition-colors ${
+              sidebarView === 'calls' ? 'bg-jaune/30' : 'hover:bg-blue-ciel/10'
+            }`}
+            title={sidebarView === 'chats' ? 'Historique des appels' : 'Retour aux conversations'}
+            aria-label="Historique des appels"
+          >
+            <PhoneIcon className="h-6 w-6 text-jaune" />
+          </button>
           {user && (
             <div
               className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -580,6 +631,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
       </div>
 
       {/* Search bar and Create Group button */}
+      {sidebarView === 'chats' && (
       <div className="p-4 border-b border-blue/20 flex gap-2 items-center">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -614,8 +666,10 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
           <UserGroupIcon className="h-5 w-5" />
         </button>
       </div>
+      )}
 
       {/* Online users horizontal list */}
+      {sidebarView === 'chats' && (
       <div className="px-4 py-2.5 border-b border-blue/20">
         <h3 className="text-xs font-semibold color-blue mb-2.5">En ligne</h3>
         <div className="flex space-x-4 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
@@ -648,9 +702,10 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
           })}
         </div>
       </div>
+      )}
 
       {/* Search results */}
-      {searchResults.length > 0 && (
+      {sidebarView === 'chats' && searchResults.length > 0 && (
         <div className="flex-1 overflow-y-auto px-2">
           <div className="space-y-1 p-2">
             <h3 className="text-xs font-semibold color-blue px-2 py-1">Résultats de recherche</h3>
@@ -676,8 +731,57 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
         </div>
       )}
 
+      {/* Call history */}
+      {sidebarView === 'calls' && (
+        <div className="flex-1 overflow-y-auto p-2">
+          {callsLoading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
+              <ClockIcon className="h-8 w-8 color-blue animate-spin" />
+              <p className="color-blue/80 text-sm">Chargement des appels…</p>
+            </div>
+          ) : callHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 py-10 px-4 text-center">
+              <PhoneIcon className="h-10 w-10 color-blue opacity-40" />
+              <p className="color-blue/80 text-sm">Aucun appel pour le moment</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {callHistory.map((call) => (
+                <div
+                  key={call.id}
+                  onClick={() => handleStartConversation(call.peer.id)}
+                  className="flex items-center gap-3 p-3 cursor-pointer rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  <Avatar
+                    src={call.peer.image || undefined}
+                    alt={call.peer.display_name}
+                    className="h-10 w-10 bg-blue/20"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold color-blue truncate">
+                      {call.peer.display_name}
+                    </p>
+                    <p className={`text-xs truncate ${
+                      call.status === 'missed' && call.direction === 'incoming'
+                        ? 'text-red-500 font-medium'
+                        : 'text-gray-500'
+                    }`}>
+                      {call.direction === 'outgoing' ? '↗ ' : '↙ '}
+                      {call.preview}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    {formatTimestamp(call.started_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Conversations list */}
-      {!searchResults.length && (
+      {sidebarView === 'chats' && !searchResults.length && (
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">

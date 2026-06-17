@@ -16,7 +16,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
+import CallEventBubble from '@/components/CallEventBubble';
 import { getDisplayName } from '@/lib/userUtils';
+import { CallEvent } from '@/lib/callUtils';
 import { useCall } from '@/context/CallContext';
 
 interface Message {
@@ -30,6 +32,7 @@ interface Message {
   attachment?: string;
   is_read?: boolean;
   read_at?: string;
+  call_event?: CallEvent | null;
   recipient?: {
     id: number;
     username: string;
@@ -708,9 +711,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         {Array.isArray(messages) && messages.length > 0 ? (
           (() => {
             // Trouver l'ID du tout dernier message envoyé par l'utilisateur (pour l'avatar de lecture)
-            const lastUserMessageId = [...messages].reverse().find(m => m.sender === user?.username)?.id;
+            const lastUserMessageId = [...messages]
+              .reverse()
+              .find(m => m.sender === user?.username && !m.call_event)?.id;
             
             return messages.map(msg => {
+              if (msg.call_event) {
+                return (
+                  <CallEventBubble
+                    key={msg.id}
+                    callEvent={msg.call_event}
+                    currentUserId={user?.id ?? 0}
+                    timestamp={msg.timestamp}
+                  />
+                );
+              }
+
               const isCurrentUser = msg.sender === user?.username;
               const isLastUserMessage = msg.id === lastUserMessageId;
               
