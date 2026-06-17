@@ -4,6 +4,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
+  display_name?: string;
 }
 
 export interface Profile {
@@ -12,7 +13,6 @@ export interface Profile {
   date_naiv: string | null;
   status: string | null;
   passion: string | null;
-  // New fields
   gender: string | null;
   phone_number: string | null;
   profession: string | null;

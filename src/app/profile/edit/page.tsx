@@ -263,19 +263,9 @@ export default function EditProfilePage() {
           <form onSubmit={handleSave} className="space-y-6 pb-16">
 
             {/* Section identité */}
-            <Section title="Identité" icon="👤">
+            <Section title="Connexion" icon="🔐">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Nom d'utilisateur" required>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    required
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="Email" required>
+                <Field label="Email" required hint="Utilisé pour vous connecter">
                   <input
                     type="email"
                     name="email"
@@ -285,16 +275,30 @@ export default function EditProfilePage() {
                     className={inputCls}
                   />
                 </Field>
-                <Field label="Prénom">
+                <Field label="Identifiant (@pseudo)" required hint="Alternative à l'email pour la connexion">
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    required
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+            </Section>
+
+            <Section title="Profil public" icon="👤">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Prénom" hint="Nom affiché dans le chat">
                   <input type="text" name="first_name" value={formData.first_name} onChange={handleInputChange} className={inputCls} />
                 </Field>
-                <Field label="Nom">
+                <Field label="Nom" hint="Nom affiché dans le chat">
                   <input type="text" name="last_name" value={formData.last_name} onChange={handleInputChange} className={inputCls} />
                 </Field>
               </div>
             </Section>
 
-            {/* Section infos perso */}
             <Section title="Informations personnelles" icon="📌">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Lieu">
@@ -435,10 +439,12 @@ function Section({
 function Field({
   label,
   required,
+  hint,
   children,
 }: {
   label: string;
   required?: boolean;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -447,6 +453,7 @@ function Field({
         {label}
         {required && <span className="text-red-400 ml-1">*</span>}
       </label>
+      {hint && <p className="text-xs text-gray-400">{hint}</p>}
       {children}
     </div>
   );

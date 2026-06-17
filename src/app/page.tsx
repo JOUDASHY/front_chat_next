@@ -5,10 +5,10 @@ import Image from "next/image";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { LockClosedIcon, UserIcon } from "@heroicons/react/24/outline";
+import { LockClosedIcon, AtSymbolIcon } from "@heroicons/react/24/outline";
 
 const LoginPage = () => {
-  const [username, setUsername] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -39,7 +39,7 @@ const LoginPage = () => {
       const base = process.env.NEXT_PUBLIC_API_URL;
       const url = base ? `${base}/api/token/` : `/api/token/`;
       const { data } = await api.post(url, {
-        username,
+        username: loginId,
         password
       });
 
@@ -185,19 +185,23 @@ const LoginPage = () => {
 
         {/* Formulaire */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Champ utilisateur */}
+          {/* Connexion : email ou identifiant */}
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
             <div className="group relative">
-              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
+              <AtSymbolIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
-                placeholder="Nom d'utilisateur"
+                placeholder="Email ou identifiant (@pseudo)"
+                autoComplete="username"
                 required
               />
             </div>
+            <p className="mt-1.5 text-xs text-[var(--blue)]/60 px-1">
+              Utilisez l&apos;email ou l&apos;identifiant choisi à l&apos;inscription
+            </p>
           </motion.div>
 
           {/* Champ mot de passe */}

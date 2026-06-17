@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
+import { getDisplayName } from '@/lib/userUtils';
 import Image from 'next/image';
 import {
   UserGroupIcon,
@@ -27,7 +28,7 @@ export interface Conversation {
   lastMessageSeen: boolean;
   lastMessageSenderId?: number;
   lastMessageIsRead?: boolean;
-  user: { profile?: { image?: string } } | null;
+  user: { id?: number; profile?: { image?: string } } | null;
   participants?: { id: number; username: string; profile?: { image?: string } }[];
 }
 
@@ -156,6 +157,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<number, boolean>>(new Map());  // Changed from Map<string | number, boolean>
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const allUsersRef = useRef<User[]>([]);
   const [isPusherReady, setIsPusherReady] = useState(false);
   const router = useRouter();
 
@@ -241,6 +243,40 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
     fetchAllUsers();
   }, []);
 
+  useEffect(() => {
+    allUsersRef.current = allUsers;
+  }, [allUsers]);
+
+  const enrichConversation = (conv: Conversation): Conversation => {
+    if (conv.isGroup || conv.name) return conv;
+
+    const peerId = conv.userId ?? conv.lastMessageSenderId ?? conv.user?.id;
+    if (!peerId) return conv;
+
+    const peer = allUsersRef.current.find(u => u.id === peerId);
+    if (!peer) return conv;
+
+    return {
+      ...conv,
+      name: conv.name || getDisplayName(peer),
+      userId: conv.userId ?? peer.id,
+      user: conv.user ?? { profile: peer.profile ? { image: peer.profile.image } : undefined },
+    };
+  };
+
+  const refreshConversationFromApi = async (conversationId: number) => {
+    try {
+      const { data } = await api.get<Conversation[]>('/api/chat/conversations/');
+      const full = data.find(c => c.id === conversationId);
+      if (!full) return;
+      setConversations(prev =>
+        prev.map(c => (c.id === conversationId ? { ...c, ...full } : c))
+      );
+    } catch (err) {
+      console.error('Failed to refresh conversation:', err);
+    }
+  };
+
   // S'abonner aux canaux Pusher pour les mises à jour des conversations
   useEffect(() => {
     if (!isPusherReady || !pusherRef.current || !user) return;
@@ -297,10 +333,16 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
           );
         } else {
           // Ajouter la nouvelle conversation au début
-          return [{
+          const incoming = enrichConversation({
             ...data.conversation,
-            unreadCount: data.conversation.incrementUnread ? 1 : 0
-          }, ...prev];
+            unreadCount: data.conversation.incrementUnread ? 1 : 0,
+          });
+
+          if (!incoming.isGroup && !incoming.name) {
+            refreshConversationFromApi(incoming.id);
+          }
+
+          return [incoming, ...prev];
         }
       });
     });
@@ -599,7 +641,7 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
                   />
                 </div>
                 <span className="text-[11px] color-blue mt-1 text-center truncate w-full group-hover:text-jaune transition-colors">
-                  {onlineUser.username}
+                  {getDisplayName(onlineUser)}
                 </span>
               </div>
             );
@@ -625,8 +667,8 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
                   isOnline={onlineUsers.get(user.id) || false}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium color-blue truncate">{user.username}</p>
-                  <p className="text-xs color-blue/80 truncate">{user.email}</p>
+                  <p className="text-sm font-medium color-blue truncate">{getDisplayName(user)}</p>
+                  <p className="text-xs color-blue/80 truncate">@{user.username}</p>
                 </div>
               </div>
             ))}
@@ -657,20 +699,46 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
               </div>
             </div>
           ) : conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
-              <div className="p-4 bg-blue/10 rounded-full">
-                <UserGroupIcon className="h-10 w-10 color-blue" />
+            <div className="flex flex-col items-center justify-center h-full p-6">
+              <div className="w-full max-w-sm text-center rounded-2xl border border-[var(--blue)]/15 bg-gradient-to-b from-[var(--blue)]/5 to-white p-6 shadow-sm">
+                <div className="mx-auto mb-4 p-4 bg-[var(--blue)]/10 rounded-full w-fit">
+                  <ChatBubbleLeftRightIcon className="h-10 w-10 text-[var(--blue)]" />
+                </div>
+                <h3 className="text-lg font-bold text-[var(--blue)] mb-2">
+                  Aucune conversation
+                </h3>
+                <p className="text-[var(--blue)] text-sm font-medium leading-relaxed mb-6">
+                  Commencez une nouvelle conversation en recherchant un utilisateur ci-dessus, ou découvrez des personnes à contacter.
+                </p>
+                {onDiscover && (
+                  <button
+                    type="button"
+                    onClick={onDiscover}
+                    className="w-full flex items-center justify-center gap-2 bg-[var(--jaune)] hover:bg-[var(--jaune)]/90 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-md shadow-[var(--jaune)]/20"
+                  >
+                    <UserGroupIcon className="h-5 w-5" />
+                    Découvrir des personnes
+                  </button>
+                )}
               </div>
-              <p className="color-blue/80 text-center max-w-xs font-medium">
-                Commencez une nouvelle conversation en recherchant un utilisateur
-              </p>
             </div>
           ) : (
             <div className="space-y-1 p-2">
-              {conversations.map((conversation) => (
+              {conversations.map((conversation) => {
+                let peerUserId = conversation.userId ?? conversation.user?.id;
+                if (
+                  !conversation.isGroup &&
+                  !peerUserId &&
+                  conversation.lastMessageSenderId &&
+                  conversation.lastMessageSenderId !== user?.id
+                ) {
+                  peerUserId = conversation.lastMessageSenderId;
+                }
+
+                return (
                 <div
                   key={conversation.id}
-                  onClick={() => onSelectConversation(conversation, Number(conversation.userId ?? 0))}
+                  onClick={() => onSelectConversation(conversation, Number(peerUserId ?? 0))}
                   className={`group flex items-center gap-3 p-3 cursor-pointer rounded-xl transition-all
                     ${activeConversationId === conversation.id
                       ? 'bg-blue-ciel/20 border border-blue shadow-sm'
@@ -732,7 +800,8 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>

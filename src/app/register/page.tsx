@@ -8,7 +8,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 const RegisterPage = () => {
-  const [username, setUsername] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [gender, setGender] = useState(""); // Ajout de l'état pour le sexe
@@ -31,11 +32,26 @@ const RegisterPage = () => {
     setIsSubmitting(true);
 
     try {
-      const res = await api.post("/api/register/", { username, email, password, gender });
+      const res = await api.post("/api/register/", {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: email.trim(),
+        password,
+        gender,
+      });
       setMessage(res.data.message);
       setIsSuccess(true);
       setTimeout(() => router.push("/"), 2000);
-    } catch (err) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: Record<string, string[] | string> } };
+      const data = apiErr.response?.data;
+      if (data && typeof data === 'object') {
+        const first = Object.values(data).flat()[0];
+        if (typeof first === 'string') {
+          setError(first);
+          return;
+        }
+      }
       setError("Une erreur est survenue lors de l'inscription.");
     } finally {
       setIsSubmitting(false);
@@ -118,21 +134,34 @@ const RegisterPage = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
-            <div className="group relative">
-              <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
-                placeholder="Nom d'utilisateur"
-                required
-              />
+          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.15 }}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="group relative">
+                <UserIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                  placeholder="Prénom"
+                  required
+                />
+              </div>
+              <div className="group relative">
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full px-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                  placeholder="Nom"
+                  required
+                />
+              </div>
             </div>
+            <p className="mt-1.5 text-xs text-[var(--blue)]/60 px-1">Nom affiché dans le chat et sur votre profil</p>
           </motion.div>
 
-          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.3 }}>
+          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
             <div className="group relative">
               <AtSymbolIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
@@ -141,12 +170,14 @@ const RegisterPage = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                 placeholder="Adresse email"
+                autoComplete="email"
                 required
               />
             </div>
+            <p className="mt-1.5 text-xs text-[var(--blue)]/60 px-1">Utilisé pour vous connecter</p>
           </motion.div>
 
-          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.4 }}>
+          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.25 }}>
             <div className="group relative">
               <LockClosedIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--blue)]/60 group-focus-within:text-[var(--jaune)] transition-all" />
               <input
@@ -161,7 +192,7 @@ const RegisterPage = () => {
           </motion.div>
 
           {/* Champ pour le sexe */}
-          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.5 }}>
+          <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.3 }}>
             <div className="group relative">
               <select
                 value={gender}

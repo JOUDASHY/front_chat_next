@@ -8,10 +8,13 @@ import {
   PaperAirplaneIcon,
   EllipsisVerticalIcon,
   PaperClipIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  PencilIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
+import { getDisplayName } from '@/lib/userUtils';
 
 interface Message {
   id: number;
@@ -83,6 +86,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [recipient, setRecipient] = useState<any>(null);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
+  const [openMenuMessageId, setOpenMenuMessageId] = useState<number | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
+  const [savingMessageId, setSavingMessageId] = useState<number | null>(null);
   // Typing indicator
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -281,6 +288,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       };
       
       channel.bind('new-message', handleNewMessage);
+
+      channel.bind('message-deleted', (data: { id: number }) => {
+        if (!isMounted) return;
+        setMessages(prev => prev.filter(msg => msg.id !== data.id));
+      });
+
+      channel.bind('message-updated', (data: Message) => {
+        if (!isMounted) return;
+        setMessages(prev =>
+          prev.map(msg => (msg.id === data.id ? { ...msg, ...data } : msg))
+        );
+      });
       
       // Écouter les events de frappe
       channel.bind('typing', (data: { userId: number; username: string; isTyping: boolean }) => {
@@ -354,6 +373,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       }
     };
   }, [userId, conversation?.id, recipientId, conversation?.userId, user]);
+
+  useEffect(() => {
+    if (openMenuMessageId === null) return;
+    const closeMenu = () => setOpenMenuMessageId(null);
+    document.addEventListener('click', closeMenu);
+    return () => document.removeEventListener('click', closeMenu);
+  }, [openMenuMessageId]);
   
   // Nettoyage de Pusher lors du démontage complet
   useEffect(() => {
@@ -506,6 +532,53 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     }
   };
 
+  const handleDeleteMessage = async (messageId: number) => {
+    if (deletingMessageId !== null) return;
+    if (!window.confirm('Supprimer ce message ?')) return;
+
+    setOpenMenuMessageId(null);
+    setDeletingMessageId(messageId);
+    try {
+      await api.delete(`/api/chat/messages/${messageId}/`);
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      if (editingMessage?.id === messageId) setEditingMessage(null);
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
+
+  const startEditMessage = (msg: Message) => {
+    setOpenMenuMessageId(null);
+    setEditingMessage({ id: msg.id, content: msg.content });
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessage(null);
+  };
+
+  const handleSaveEditMessage = async () => {
+    if (!editingMessage || savingMessageId !== null) return;
+    const trimmed = editingMessage.content.trim();
+    if (!trimmed) return;
+
+    setSavingMessageId(editingMessage.id);
+    try {
+      const { data } = await api.patch(`/api/chat/messages/${editingMessage.id}/`, {
+        content: trimmed,
+      });
+      setMessages(prev =>
+        prev.map(msg => (msg.id === data.id ? { ...msg, ...data } : msg))
+      );
+      setEditingMessage(null);
+    } catch (err) {
+      console.error('Error updating message:', err);
+    } finally {
+      setSavingMessageId(null);
+    }
+  };
+
   // Vérifier le statut en ligne du destinataire
   useEffect(() => {
     if (!recipientId) return;
@@ -569,13 +642,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           ) : (
             <ImageWithFallback
               src={recipient?.profile?.image}
-              alt={conversation.name}
+              alt={conversation.name || getDisplayName(recipient) || ''}
               className="h-full w-full"
             />
           )}
         </div>
         <div className="flex-1">
-          <h2 className="font-bold text-xl text-gray-900">{conversation.name}</h2>
+          <h2 className="font-bold text-xl text-gray-900">
+            {conversation.name || getDisplayName(recipient) || 'Utilisateur'}
+          </h2>
+          {!conversation.isGroup && recipient?.username && (
+            <p className="text-xs text-gray-400">@{recipient.username}</p>
+          )}
           <p className="text-sm text-gray-500 flex items-center">
             {conversation.isGroup ? (
               <>
@@ -625,32 +703,114 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   </div>
                 )}
 
-                <div className={`max-w-xs md:max-w-md lg:max-w-lg ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col`}>
+                <div className={`max-w-xs md:max-w-md lg:max-w-lg ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col group`}>
                   <div
-                    className={`p-3 rounded-lg shadow-sm ${
+                    className={`relative p-3 rounded-lg shadow-sm ${
                       isCurrentUser
                         ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none'
                         : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                     }`}
                   >
                     {/* En-tête du message */}
-                    <div className="flex justify-between mb-2 items-center">
+                    <div className="flex justify-between mb-2 items-center gap-2">
                       <span className={`text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800'}`}>
                         {isCurrentUser ? 'Vous' : msg.sender}
                       </span>
-                      <span className={`ms-2 text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
-                        {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isCurrentUser && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuMessageId(openMenuMessageId === msg.id ? null : msg.id);
+                              }}
+                              className={`p-1 rounded-full transition-opacity hover:bg-white/20 ${
+                                isMobile || openMenuMessageId === msg.id
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-70'
+                              }`}
+                              aria-label="Options du message"
+                            >
+                              <EllipsisVerticalIcon className="h-4 w-4" />
+                            </button>
+                            {openMenuMessageId === msg.id && (
+                              <div
+                                className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {msg.content && !msg.attachment && (
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditMessage(msg)}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                  >
+                                    <PencilIcon className="h-4 w-4" />
+                                    Modifier
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMessage(msg.id)}
+                                  disabled={deletingMessageId === msg.id}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                >
+                                  {deletingMessageId === msg.id ? (
+                                    <span className="h-4 w-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+                                  ) : (
+                                    <TrashIcon className="h-4 w-4" />
+                                  )}
+                                  Supprimer
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
+                          {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
                     </div>
                     
                     {/* Contenu du message */}
-                    {msg.content && (
-                      <p className={`text-sm ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
-                        {msg.content}
-                      </p>
+                    {editingMessage?.id === msg.id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editingMessage.content}
+                          onChange={(e) =>
+                            setEditingMessage({ ...editingMessage, content: e.target.value })
+                          }
+                          rows={2}
+                          className="w-full rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 resize-none"
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={cancelEditMessage}
+                            className="rounded-lg px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveEditMessage}
+                            disabled={!editingMessage.content.trim() || savingMessageId === msg.id}
+                            className="rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/30 disabled:opacity-50"
+                          >
+                            {savingMessageId === msg.id ? 'Enregistrement…' : 'Enregistrer'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      msg.content && (
+                        <p className={`text-sm ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
+                          {msg.content}
+                        </p>
+                      )
                     )}
                     
                     {/* Pièce jointe */}
