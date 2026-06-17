@@ -11,10 +11,13 @@ import {
   ArrowLeftIcon,
   PencilIcon,
   TrashIcon,
+  PhoneIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 import { getDisplayName } from '@/lib/userUtils';
+import { useCall } from '@/context/CallContext';
 
 interface Message {
   id: number;
@@ -75,6 +78,7 @@ interface ChatWindowProps {
 
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
+  const { startCall, phase: callPhase } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -668,6 +672,28 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             )}
           </p>
         </div>
+        {!conversation.isGroup && recipientId && callPhase === 'idle' && (
+          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => void startCall(recipientId, 'audio')}
+              className="p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors"
+              title="Appel vocal"
+              aria-label="Appel vocal"
+            >
+              <PhoneIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void startCall(recipientId, 'video')}
+              className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors"
+              title="Appel vidéo"
+              aria-label="Appel vidéo"
+            >
+              <VideoCameraIcon className="h-5 w-5" />
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}

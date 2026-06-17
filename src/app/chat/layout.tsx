@@ -3,7 +3,8 @@
 
 import { ReactNode, useState, useEffect } from 'react';
 import useUserPresence from '../../hooks/useUserPresence';
-
+import { CallProvider } from '@/context/CallContext';
+import CallOverlay from '@/components/CallOverlay';
 
 export default function ChatLayout({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<number | null>(null);
@@ -19,9 +20,11 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
   useUserPresence(userId, setRecipientOnline);
 
   return (
-    <div className="flex h-screen">
-      {children}
-     
-    </div>
+    <CallProvider>
+      <div className="flex h-screen">
+        {children}
+        <CallOverlay />
+      </div>
+    </CallProvider>
   );
 }
