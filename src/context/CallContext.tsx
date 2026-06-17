@@ -123,11 +123,42 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const attachTrack = useCallback(
     (track: import('livekit-client').RemoteTrack | import('livekit-client').LocalTrack, target: 'local' | 'remote') => {
       const el = target === 'local' ? localVideoRef.current : remoteVideoRef.current;
-      if (!el || track.kind !== 'video') return;
+      if (!el || track.kind !== 'video') return false;
       track.attach(el);
+      return true;
     },
     []
   );
+
+  const syncRoomTracks = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return;
+
+    const { Track } = await import('livekit-client');
+
+    room.localParticipant.videoTrackPublications.forEach((publication) => {
+      const track = publication.track;
+      if (track) attachTrack(track, 'local');
+    });
+
+    room.remoteParticipants.forEach((participant) => {
+      participant.trackPublications.forEach((publication) => {
+        const track = publication.track;
+        if (!track || !publication.isSubscribed) return;
+        if (track.kind === Track.Kind.Video) {
+          attachTrack(track, 'remote');
+        } else if (track.kind === Track.Kind.Audio) {
+          const audioEl = track.attach();
+          void room.startAudio().then(() => audioEl.play()).catch(() => {});
+        }
+      });
+    });
+  }, [attachTrack]);
+
+  const waitForVideoElements = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
 
   const connectRoom = useCallback(
     async (livekitUrl: string, token: string, type: CallType, activateImmediately = true) => {
@@ -136,34 +167,55 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
 
-      room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
-        if (participant.isLocal) return;
+      const handleTrack = (
+        track: import('livekit-client').RemoteTrack | import('livekit-client').LocalTrack,
+        participant?: { isLocal: boolean }
+      ) => {
+        if (participant?.isLocal) {
+          if (track.kind === Track.Kind.Video) attachTrack(track, 'local');
+          return;
+        }
         if (track.kind === Track.Kind.Video) attachTrack(track, 'remote');
         if (track.kind === Track.Kind.Audio) {
           const audioEl = track.attach();
-          audioEl.play().catch(() => {});
+          void room.startAudio().then(() => audioEl.play()).catch(() => {});
         }
+      };
+
+      room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
+        handleTrack(track, participant);
       });
 
       room.on(RoomEvent.LocalTrackPublished, (publication) => {
         const track = publication.track;
-        if (track?.kind === Track.Kind.Video) attachTrack(track, 'local');
+        if (track) handleTrack(track, { isLocal: true });
+      });
+
+      room.on(RoomEvent.ParticipantConnected, () => {
+        void syncRoomTracks();
       });
 
       room.on(RoomEvent.Disconnected, () => {
         void resetCall();
       });
 
+      if (activateImmediately) setPhase('active');
+
+      await waitForVideoElements();
       await room.connect(livekitUrl, token);
+      await room.startAudio().catch(() => {});
+
       await room.localParticipant.setMicrophoneEnabled(true);
       if (type === 'video') {
         await room.localParticipant.setCameraEnabled(true);
       } else {
         await room.localParticipant.setCameraEnabled(false);
       }
-      if (activateImmediately) setPhase('active');
+
+      await waitForVideoElements();
+      await syncRoomTracks();
     },
-    [attachTrack, detachRoom, resetCall]
+    [attachTrack, detachRoom, resetCall, syncRoomTracks]
   );
 
   const endCall = useCallback(async () => {
@@ -220,10 +272,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
 
       channel.bind('call-accepted', (data: { room_name: string }) => {
-        setSession((current) => {
-          if (current?.roomName === data.room_name) setPhase('active');
-          return current;
-        });
+        if (sessionRef.current?.roomName === data.room_name) {
+          setPhase('active');
+          void syncRoomTracks();
+        }
       });
 
       channel.bind('call-rejected', async (data: { room_name: string }) => {
@@ -249,7 +301,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
       void detachRoom();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [detachRoom, syncRoomTracks]);
+
+  useEffect(() => {
+    if ((phase === 'active' || phase === 'outgoing') && callType === 'video') {
+      void syncRoomTracks();
+    }
+  }, [phase, callType, syncRoomTracks]);
 
   const startCall = useCallback(
     async (recipientId: number, type: CallType) => {
@@ -314,7 +372,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       setSession(nextSession);
       setIncoming(null);
-      await connectRoom(data.livekit_url, data.token, incoming.call_type);
+      setCallType(incoming.call_type);
+      setPeer(nextSession.peer);
+      // Afficher l'UI vidéo AVANT la connexion LiveKit (sinon les <video> n'existent pas)
+      setPhase('active');
+      await waitForVideoElements();
+      await connectRoom(data.livekit_url, data.token, incoming.call_type, false);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||

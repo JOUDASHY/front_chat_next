@@ -85,7 +85,7 @@ export default function CallOverlay() {
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className={`absolute inset-0 h-full w-full object-cover ${isVideo ? 'block' : 'hidden'}`}
+                className={`absolute inset-0 h-full w-full object-cover bg-gray-900 ${isVideo ? 'block' : 'hidden'}`}
               />
               {!isVideo && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
