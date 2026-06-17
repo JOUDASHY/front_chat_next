@@ -147,6 +147,33 @@ const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false 
   );
 };
 
+interface TypingUser {
+  userId: number;
+  displayName: string;
+}
+
+function getSidebarTypingText(users: TypingUser[], isGroup: boolean): string {
+  if (users.length === 0) return '';
+  if (!isGroup) return 'En train d\'écrire';
+  if (users.length === 1) return `${users[0].displayName} écrit`;
+  if (users.length === 2) return `${users[0].displayName} et ${users[1].displayName} écrivent`;
+  return 'Plusieurs personnes écrivent';
+}
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-0.5 ml-0.5" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="inline-block h-1 w-1 rounded-full bg-[var(--blue)] animate-bounce"
+          style={{ animationDelay: `${i * 150}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
 interface CallHistoryItem {
   id: number;
   preview: string;
@@ -180,10 +207,12 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
   const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
   const [callsLoading, setCallsLoading] = useState(false);
   const [callsError, setCallsError] = useState<string | null>(null);
+  const [typingInConversations, setTypingInConversations] = useState<Map<number, TypingUser[]>>(new Map());
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<any>(null);
+  const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Initialiser Pusher
   useEffect(() => {
@@ -336,6 +365,75 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
     }
   };
 
+  const clearConversationTyping = (conversationId: number) => {
+    setTypingInConversations((prev) => {
+      if (!prev.has(conversationId)) return prev;
+      const next = new Map(prev);
+      next.delete(conversationId);
+      return next;
+    });
+    for (const [key, timeoutId] of typingTimeoutsRef.current.entries()) {
+      if (key.startsWith(`${conversationId}-`)) {
+        clearTimeout(timeoutId);
+        typingTimeoutsRef.current.delete(key);
+      }
+    }
+  };
+
+  const handleSidebarTyping = (data: {
+    conversation_id: number;
+    userId: number;
+    username: string;
+    display_name?: string;
+    isTyping: boolean;
+  }) => {
+    if (data.userId === user?.id) return;
+
+    const convId = data.conversation_id;
+    const key = `${convId}-${data.userId}`;
+    const existingTimeout = typingTimeoutsRef.current.get(key);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      typingTimeoutsRef.current.delete(key);
+    }
+
+    const displayName = data.display_name || data.username;
+
+    setTypingInConversations((prev) => {
+      const next = new Map(prev);
+      const current = next.get(convId) || [];
+
+      if (data.isTyping) {
+        const updated = current.some((u) => u.userId === data.userId)
+          ? current.map((u) =>
+              u.userId === data.userId ? { ...u, displayName } : u
+            )
+          : [...current, { userId: data.userId, displayName }];
+        next.set(convId, updated);
+
+        typingTimeoutsRef.current.set(
+          key,
+          setTimeout(() => {
+            setTypingInConversations((p) => {
+              const n = new Map(p);
+              const list = (n.get(convId) || []).filter((u) => u.userId !== data.userId);
+              if (list.length) n.set(convId, list);
+              else n.delete(convId);
+              return n;
+            });
+            typingTimeoutsRef.current.delete(key);
+          }, 3000)
+        );
+      } else {
+        const updated = current.filter((u) => u.userId !== data.userId);
+        if (updated.length) next.set(convId, updated);
+        else next.delete(convId);
+      }
+
+      return next;
+    });
+  };
+
   // S'abonner aux canaux Pusher pour les mises à jour des conversations
   useEffect(() => {
     if (!isPusherReady || !pusherRef.current || !user) return;
@@ -345,6 +443,8 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
 
     // Écouter les nouveaux messages
     channel.bind('new-message', (data: { conversation: Conversation & { incrementUnread?: boolean } }) => {
+      clearConversationTyping(data.conversation.id);
+
       setConversations(prev => {
         // Trouver si la conversation existe déjà
         const existingIndex = prev.findIndex(conv => conv.id === data.conversation.id);
@@ -404,6 +504,16 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
           return [incoming, ...prev];
         }
       });
+    });
+
+    channel.bind('typing', (data: {
+      conversation_id: number;
+      userId: number;
+      username: string;
+      display_name?: string;
+      isTyping: boolean;
+    }) => {
+      handleSidebarTyping(data);
     });
 
     // Écouter les nouvelles conversations
@@ -466,13 +576,78 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
       pusherRef.current?.unsubscribe(`user-${user.id}-conversations`);
       presenceChannel.unbind_all();
       pusherRef.current?.unsubscribe('presence-channel');
+      typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      typingTimeoutsRef.current.clear();
     };
   }, [user, isPusherReady]);
+
+  // Écouter la frappe sur chaque conversation (temps réel dans la sidebar)
+  useEffect(() => {
+    if (!isPusherReady || !pusherRef.current || !user) return;
+
+    const parseConversationId = (channelName: string): number | null => {
+      if (channelName.startsWith('private-chat-')) {
+        const parts = channelName.replace('private-chat-', '').split('-');
+        if (parts.length !== 2) return null;
+        return parseInt(`${parts[0]}${parts[1]}`, 10);
+      }
+      if (channelName.startsWith('group-chat-')) {
+        return parseInt(channelName.replace('group-chat-', ''), 10);
+      }
+      return null;
+    };
+
+    const channelNames = new Set<string>();
+    conversations.forEach((conv) => {
+      if (conv.isGroup) {
+        channelNames.add(`group-chat-${conv.id}`);
+      } else {
+        const peerId = conv.userId ?? conv.user?.id;
+        if (peerId) {
+          const a = Math.min(user.id, peerId);
+          const b = Math.max(user.id, peerId);
+          channelNames.add(`private-chat-${a}-${b}`);
+        }
+      }
+    });
+
+    const subscribed: { name: string; channel: { unbind: (event: string) => void } }[] = [];
+
+    channelNames.forEach((channelName) => {
+      const convId = parseConversationId(channelName);
+      if (!convId) return;
+
+      const channel = pusherRef.current.subscribe(channelName);
+      channel.bind(
+        'typing',
+        (data: { userId: number; username: string; isTyping: boolean; display_name?: string }) => {
+          const peer = allUsersRef.current.find((u) => u.id === data.userId);
+          handleSidebarTyping({
+            conversation_id: convId,
+            userId: data.userId,
+            username: data.username,
+            display_name: data.display_name || (peer ? getDisplayName(peer) : data.username),
+            isTyping: data.isTyping,
+          });
+        }
+      );
+      subscribed.push({ name: channelName, channel });
+    });
+
+    return () => {
+      subscribed.forEach(({ name, channel }) => {
+        channel.unbind('typing');
+        pusherRef.current?.unsubscribe(name);
+      });
+    };
+  }, [conversations, isPusherReady, user?.id]);
 
   // Écouter les messages envoyés par le sender (ChatWindow) pour mettre à jour la sidebar localement
   useEffect(() => {
     const handleMessageSent = (event: Event) => {
       const { conversationId, lastMessage, timestamp } = (event as CustomEvent).detail;
+      clearConversationTyping(conversationId);
+
       setConversations(prev => {
         const idx = prev.findIndex(c => c.id === conversationId);
         if (idx >= 0) {
@@ -872,6 +1047,10 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
                   peerUserId = conversation.lastMessageSenderId;
                 }
 
+                const typingUsers = typingInConversations.get(conversation.id) || [];
+                const showTyping =
+                  typingUsers.length > 0 && activeConversationId !== conversation.id;
+
                 return (
                 <div
                   key={conversation.id}
@@ -904,9 +1083,16 @@ export default function Sidebar({ onSelectConversation, activeConversationId, on
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
-                        {conversation.lastMessage || 'Nouvelle conversation'}
-                      </p>
+                      {showTyping ? (
+                        <p className="text-sm truncate pr-2 text-[var(--blue)] font-medium italic flex items-center">
+                          <span>{getSidebarTypingText(typingUsers, conversation.isGroup)}</span>
+                          <TypingDots />
+                        </p>
+                      ) : (
+                        <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
+                          {conversation.lastMessage || 'Nouvelle conversation'}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {conversation.unreadCount > 0 && (
                           <span className="px-2 py-0.5 bg-jaune text-white text-xs font-medium rounded-full">

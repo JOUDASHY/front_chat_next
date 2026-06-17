@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   PhoneIcon,
   PhoneXMarkIcon,
@@ -8,6 +9,7 @@ import {
   NoSymbolIcon,
 } from '@heroicons/react/24/solid';
 import { useCall } from '@/context/CallContext';
+import { formatCallTimer } from '@/lib/callUtils';
 
 export default function CallOverlay() {
   const {
@@ -26,10 +28,28 @@ export default function CallOverlay() {
     toggleCamera,
   } = useCall();
 
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (phase !== 'active') {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const tick = () => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    };
+    tick();
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [phase]);
+
   if (phase === 'idle' && !error) return null;
 
   const isVideo = callType === 'video';
   const showActive = phase === 'active' || phase === 'outgoing';
+  const timerLabel = formatCallTimer(elapsedSeconds);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
@@ -81,6 +101,14 @@ export default function CallOverlay() {
         {showActive && (
           <div className="space-y-4">
             <div className="relative aspect-[9/16] max-h-[70vh] mx-auto rounded-2xl overflow-hidden bg-gray-900 border border-white/10">
+              {phase === 'active' && (
+                <div className="absolute top-4 left-0 right-0 z-10 flex justify-center pointer-events-none">
+                  <span className="px-4 py-1.5 rounded-full bg-black/50 text-white text-sm font-mono tabular-nums tracking-wide backdrop-blur-sm">
+                    {timerLabel}
+                  </span>
+                </div>
+              )}
+
               <video
                 ref={remoteVideoRef}
                 autoPlay
@@ -94,7 +122,11 @@ export default function CallOverlay() {
                   </div>
                   <p className="text-xl font-semibold">{peer?.display_name}</p>
                   <p className="text-white/60 text-sm mt-2">
-                    {phase === 'outgoing' ? 'Sonnerie…' : 'En communication'}
+                    {phase === 'outgoing' ? (
+                      'Sonnerie…'
+                    ) : (
+                      <span className="font-mono tabular-nums text-base text-white/90">{timerLabel}</span>
+                    )}
                   </p>
                 </div>
               )}
@@ -109,9 +141,11 @@ export default function CallOverlay() {
               )}
             </div>
 
-            <p className="text-center text-white/80 text-sm">
-              {phase === 'outgoing' ? 'En attente de réponse…' : peer?.display_name}
-            </p>
+            <div className="text-center text-white/80 text-sm">
+              <p>
+                {phase === 'outgoing' ? 'En attente de réponse…' : peer?.display_name}
+              </p>
+            </div>
 
             <div className="flex justify-center items-center gap-4">
               <button
