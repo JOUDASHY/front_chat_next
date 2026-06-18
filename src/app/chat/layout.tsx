@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import useUserPresence from '../../hooks/useUserPresence';
 import { CallProvider } from '@/context/CallContext';
 import CallOverlay from '@/components/CallOverlay';
+import type Pusher from 'pusher-js';
 
 export default function ChatLayout({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<number | null>(null);
@@ -22,7 +23,7 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
 
-    let pusher: { disconnect: () => void } | null = null;
+    let pusher: Pusher | null = null;
 
     const init = async () => {
       const PusherModule = await import('pusher-js');
