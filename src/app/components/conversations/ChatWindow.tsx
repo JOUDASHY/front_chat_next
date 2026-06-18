@@ -839,9 +839,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   </div>
                 )}
 
-                <div className={`max-w-xs md:max-w-md lg:max-w-lg ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col group`}>
+                <div className={`max-w-[85%] md:max-w-[75%] lg:max-w-[65%] ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col group`}>
                   <div
-                    className={`relative shadow-sm ${
+                    className={`relative shadow-sm max-w-full ${
                       imageOnlyMessage
                         ? 'overflow-hidden rounded-md md:rounded-lg p-0'
                         : 'px-2.5 py-2 md:p-3 rounded-md md:rounded-lg'
@@ -990,7 +990,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       </div>
                     ) : (
                       msg.content && (
-                        <p className={`text-xs md:text-sm leading-snug ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
+                        <p className={`text-xs md:text-sm leading-snug break-words break-all whitespace-pre-wrap ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
                           {msg.content}
                         </p>
                       )
@@ -1170,8 +1170,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         {/* Messages en attente */}
         {pendingMessages.map(msg => (
           <div key={msg.id} className="flex justify-end animate-fadeIn">
-            <div className="max-w-xs md:max-w-md lg:max-w-lg items-end flex flex-col">
-              <div className="px-2.5 py-2 md:p-3 rounded-md md:rounded-lg shadow-sm bg-gradient-to-br from-indigo-500/80 to-indigo-600/80 text-white rounded-tr-none">
+            <div className="max-w-[85%] md:max-w-[75%] lg:max-w-[65%] items-end flex flex-col">
+              <div className="px-2.5 py-2 md:p-3 rounded-md md:rounded-lg shadow-sm max-w-full bg-gradient-to-br from-indigo-500/80 to-indigo-600/80 text-white rounded-tr-none">
                 <div className="flex justify-between mb-1 md:mb-2 items-center">
                   <span className="text-xs md:text-sm font-semibold text-white/90">Vous</span>
                   <span className="ms-2 text-xs text-white/70">
@@ -1181,8 +1181,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     })}
                   </span>
                 </div>
-                
-                <p className="text-xs md:text-sm leading-snug text-white">{msg.content}</p>
+                <p className="text-xs md:text-sm leading-snug break-words break-all whitespace-pre-wrap text-white">{msg.content}</p>
 
                 {msg.file && (
                   <PendingFilePreview file={msg.file} />
