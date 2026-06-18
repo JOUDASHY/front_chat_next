@@ -15,6 +15,8 @@ import {
   VideoCameraIcon,
   XMarkIcon,
   DocumentIcon,
+  NoSymbolIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
@@ -136,6 +138,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
   const [savingMessageId, setSavingMessageId] = useState<number | null>(null);
+  // Block state
+  const [iBlockedThem, setIBlockedThem] = useState(false);
+  const [theyBlockedMe, setTheyBlockedMe] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
   // Typing indicator
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -672,6 +680,59 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     checkOnlineStatus();
   }, [recipientId]);
 
+  // Charger le statut de blocage
+  useEffect(() => {
+    if (!recipientId || conversation?.isGroup) return;
+    api
+      .get(`/api/chat/users/${recipientId}/block-status/`)
+      .then(({ data }) => {
+        setIBlockedThem(data.i_blocked_them);
+        setTheyBlockedMe(data.they_blocked_me);
+      })
+      .catch(() => {});
+  }, [recipientId, conversation?.isGroup]);
+
+  // Fermer le menu header au clic extérieur
+  useEffect(() => {
+    if (!showHeaderMenu) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setShowHeaderMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showHeaderMenu]);
+
+  const handleBlock = async () => {
+    if (!recipientId || blockLoading) return;
+    setShowHeaderMenu(false);
+    if (!window.confirm(`Bloquer ${getDisplayName(recipient) || conversation?.name} ? Vous ne pourrez plus vous envoyer de messages.`)) return;
+    setBlockLoading(true);
+    try {
+      await api.post(`/api/chat/users/${recipientId}/block/`);
+      setIBlockedThem(true);
+    } catch (err) {
+      console.error('Error blocking user:', err);
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  const handleUnblock = async () => {
+    if (!recipientId || blockLoading) return;
+    setShowHeaderMenu(false);
+    setBlockLoading(true);
+    try {
+      await api.delete(`/api/chat/users/${recipientId}/unblock/`);
+      setIBlockedThem(false);
+    } catch (err) {
+      console.error('Error unblocking user:', err);
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
   if (!conversation) {
     return (
       <div className="w-full h-full bg-gray-50 flex flex-col">
@@ -779,14 +840,64 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </button>
           </div>
         )}
-        <button
-          type="button"
-          onClick={(e) => e.stopPropagation()}
-          className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <EllipsisVerticalIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
-        </button>
+        {!conversation.isGroup && recipientId && (
+          <div className="relative" ref={headerMenuRef} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setShowHeaderMenu((v) => !v)}
+              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Options"
+            >
+              <EllipsisVerticalIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
+            </button>
+            {showHeaderMenu && (
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                {iBlockedThem ? (
+                  <button
+                    type="button"
+                    disabled={blockLoading}
+                    onClick={() => void handleUnblock()}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    <CheckCircleIcon className="h-4 w-4" />
+                    Débloquer
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={blockLoading || theyBlockedMe}
+                    onClick={() => void handleBlock()}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <NoSymbolIcon className="h-4 w-4" />
+                    Bloquer
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Bannière de blocage */}
+      {(iBlockedThem || theyBlockedMe) && !conversation.isGroup && (
+        <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-sm text-amber-800">
+          <NoSymbolIcon className="h-4 w-4 shrink-0" />
+          {iBlockedThem
+            ? `Vous avez bloqué ${getDisplayName(recipient) || conversation.name}. Les messages sont désactivés.`
+            : `Vous ne pouvez pas envoyer de messages à cet utilisateur.`}
+          {iBlockedThem && (
+            <button
+              type="button"
+              onClick={() => void handleUnblock()}
+              disabled={blockLoading}
+              className="ml-auto text-xs font-semibold underline hover:no-underline disabled:opacity-50"
+            >
+              Débloquer
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Ajuster le conteneur des messages pour tenir compte du header fixe */}
       <div className="flex-1 overflow-y-auto px-3 py-2 md:p-4 bg-gray-50 space-y-2 md:space-y-4 mt-[1px]">
@@ -1287,9 +1398,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             value={newMessage}
             onChange={handleTyping}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-            placeholder="Écrivez un message..."
-            className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400"
-            disabled={isSending}
+            placeholder={iBlockedThem || theyBlockedMe ? 'Impossible d\'envoyer un message…' : 'Écrivez un message...'}
+            className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isSending || iBlockedThem || theyBlockedMe}
           />
           
           <button

@@ -866,7 +866,7 @@ export default function Sidebar({
 
       {/* Search bar and Create Group button */}
       {sidebarView === 'chats' && (
-      <div className="p-4 border-b border-blue/20 flex gap-2 items-center">
+      <div className="p-2 border-b border-blue/20 flex gap-2 items-center">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <MagnifyingGlassIcon className="h-5 w-5 color-blue" />
@@ -904,8 +904,8 @@ export default function Sidebar({
 
       {/* Online users horizontal list */}
       {sidebarView === 'chats' && (
-      <div className="px-4 py-2.5 border-b border-blue/20">
-        {/* <div className="flex items-center justify-between gap-2 mb-2.5">
+      <div className="px-4 py-1 border-b border-blue/20">
+         <div className="flex items-center justify-between gap-2 mb-2.5">
           <h3 className="text-xs font-semibold color-blue">En ligne</h3>
           <button
             type="button"
@@ -914,7 +914,7 @@ export default function Sidebar({
           >
             Voir tout
           </button>
-        </div> */}
+        </div> 
         <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
           {Array.from(onlineUsers).map(([userId]) => {
             const onlineUser = allUsers.find(u => u.id === userId) ||
@@ -1098,7 +1098,7 @@ export default function Sidebar({
               </div>
             </div>
           ) : (
-            <div className="space-y-1 p-2">
+            <div className="space-y-0 p-2">
               {conversations.map((conversation) => {
                 let peerUserId = conversation.userId ?? conversation.user?.id;
                 if (
