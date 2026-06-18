@@ -21,6 +21,11 @@ interface CreateGroupModalProps {
   onGroupCreated?: () => void;
 }
 
+function getParticipantImageUrl(image?: string) {
+  if (!image) return '/default-avatar.svg';
+  return image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_API_URL}${image}`;
+}
+
 export default function CreateGroupModal({ isOpen, onClose, allUsers, currentUserId, onGroupCreated }: CreateGroupModalProps) {
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,13 +160,14 @@ export default function CreateGroupModal({ isOpen, onClose, allUsers, currentUse
                     </div>
                     <div className="ml-3 flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full overflow-hidden bg-blue/10 flex-shrink-0">
-                        {u.profile?.image ? (
-                          <img src={u.profile.image.startsWith('http') ? u.profile.image : `${process.env.NEXT_PUBLIC_API_URL}${u.profile.image}`} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-blue font-bold text-xs">
-                            {u.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <img
+                          src={getParticipantImageUrl(u.profile?.image)}
+                          alt={u.username}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/default-avatar.svg';
+                          }}
+                        />
                       </div>
                       <div className="flex flex-col">
                         <span className="text-sm font-semibold text-gray-800">{u.username}</span>

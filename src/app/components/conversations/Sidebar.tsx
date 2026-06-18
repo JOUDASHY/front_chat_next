@@ -14,6 +14,8 @@ import {
   XMarkIcon,
   PlusIcon,
   PhoneIcon,
+  ShieldCheckIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
 
@@ -224,6 +226,7 @@ export default function Sidebar({
   const [callsLoading, setCallsLoading] = useState(false);
   const [callsError, setCallsError] = useState<string | null>(null);
   const [typingInConversations, setTypingInConversations] = useState<Map<number, TypingUser[]>>(new Map());
+  const [isStaff, setIsStaff] = useState(false);
   const router = useRouter();
 
   // Référence pour stocker l'instance Pusher
@@ -328,10 +331,15 @@ export default function Sidebar({
       if (userData) {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+        setIsStaff(Boolean(parsedUser.is_staff));
       }
     };
 
     fetchUserFromLocalStorage();
+
+    api.get<{ is_staff?: boolean }>('/api/chat/me/')
+      .then(({ data }) => setIsStaff(Boolean(data.is_staff)))
+      .catch(() => {});
   }, []);
 
   // Charger tous les utilisateurs
@@ -800,16 +808,26 @@ export default function Sidebar({
   return (
     <div className="w-full bg-white h-screen flex flex-col shadow-xl border-r border-blue/20">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-blue">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/10 rounded-lg">
-            <ChatBubbleLeftRightIcon className="h-6 w-6 text-jaune" />
+      <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="p-1.5 md:p-2 bg-white/10 rounded-lg">
+            <ChatBubbleLeftRightIcon className="h-5 w-5 md:h-6 md:w-6 text-jaune" />
           </div>
-          <h1 className="text-xl font-bold text-white font-[Inter]">
+          <h1 className="text-base md:text-xl font-bold text-white font-[Inter] leading-tight">
             {sidebarView === 'calls' ? 'Appels' : 'Messagerie'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {isStaff && (
+            <button
+              onClick={() => router.push('/admin')}
+              className="p-1.5 rounded-full hover:bg-blue-ciel/10 transition-colors"
+              title="Administration"
+              aria-label="Administration"
+            >
+              <ShieldCheckIcon className="h-6 w-6 text-jaune" />
+            </button>
+          )}
           <button
             onClick={() => setSidebarView(sidebarView === 'chats' ? 'calls' : 'chats')}
             className={`p-1.5 rounded-full transition-colors ${
@@ -829,7 +847,7 @@ export default function Sidebar({
               <Avatar
                 src={user.profile?.image}
                 alt={user.username}
-                className="h-8 w-8 border-2 border-jaune/20"
+                className="h-7 w-7 md:h-8 md:w-8 border-2 border-jaune/20"
                 dark={true}
               />
             </div>
@@ -885,8 +903,17 @@ export default function Sidebar({
       {/* Online users horizontal list */}
       {sidebarView === 'chats' && (
       <div className="px-4 py-2.5 border-b border-blue/20">
-        <h3 className="text-xs font-semibold color-blue mb-2.5">En ligne</h3>
-        <div className="flex space-x-4 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <h3 className="text-xs font-semibold color-blue">En ligne</h3>
+          <button
+            type="button"
+            onClick={() => router.push('/chat/online')}
+            className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold color-jaune border border-[var(--jaune)]/40 bg-[var(--jaune)]/10 hover:bg-[var(--jaune)]/20 transition-colors"
+          >
+            Voir tout
+          </button>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
           {Array.from(onlineUsers).map(([userId]) => {
             const onlineUser = allUsers.find(u => u.id === userId) ||
                              searchResults.find(u => u.id === userId) || 
@@ -898,9 +925,9 @@ export default function Sidebar({
               <div 
                 key={userId}
                 onClick={() => handleStartConversation(Number(userId))}
-                className="flex flex-col items-center min-w-[52px] cursor-pointer group"
+                className="flex w-11 shrink-0 flex-col items-center cursor-pointer group overflow-hidden"
               >
-                <div className="relative">
+                <div className="relative shrink-0">
                   <Avatar
                     src={onlineUser.profile?.image}
                     alt={onlineUser.username || ''}
@@ -908,12 +935,28 @@ export default function Sidebar({
                     isOnline={true}
                   />
                 </div>
-                <span className="text-[11px] color-blue mt-1 text-center truncate w-full group-hover:text-jaune transition-colors">
+                <span
+                  className="mt-1 w-full max-w-full truncate text-center text-[10px] md:text-[11px] color-blue group-hover:color-jaune transition-colors"
+                  title={getDisplayName(onlineUser)}
+                >
                   {getDisplayName(onlineUser)}
                 </span>
               </div>
             );
           })}
+          <button
+            type="button"
+            onClick={() => router.push('/chat/online')}
+            className="flex w-11 shrink-0 flex-col items-center cursor-pointer group"
+            aria-label="Voir tous les utilisateurs en ligne"
+          >
+            <div className="h-10 w-10 rounded-full border-2 border-dashed border-[var(--jaune)]/50 bg-[var(--jaune)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--jaune)]/20 transition-colors">
+              <ChevronRightIcon className="h-5 w-5 color-jaune" />
+            </div>
+            <span className="mt-1 w-full truncate text-center text-[10px] md:text-[11px] font-medium color-jaune">
+              Voir tout
+            </span>
+          </button>
         </div>
       </div>
       )}
@@ -936,7 +979,7 @@ export default function Sidebar({
                   isOnline={onlineUsers.get(user.id) || false}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium color-blue truncate">{getDisplayName(user)}</p>
+                  <p className="text-xs md:text-sm font-medium color-blue truncate">{getDisplayName(user)}</p>
                   <p className="text-xs color-blue/80 truncate">@{user.username}</p>
                 </div>
               </div>
@@ -984,7 +1027,7 @@ export default function Sidebar({
                     className="h-10 w-10 bg-blue/20"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold color-blue truncate">
+                    <p className="text-xs md:text-sm font-semibold color-blue truncate">
                       {call.peer.display_name}
                     </p>
                     <p className={`text-xs truncate ${
@@ -1073,7 +1116,7 @@ export default function Sidebar({
                 <div
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation, Number(peerUserId ?? 0))}
-                  className={`group flex items-center gap-3 p-3 cursor-pointer rounded-xl transition-all
+                  className={`group flex items-center gap-2.5 md:gap-3 px-2.5 py-2 md:p-3 cursor-pointer rounded-xl transition-all
                     ${activeConversationId === conversation.id
                       ? 'bg-blue-ciel/20 border border-blue shadow-sm'
                       : 'hover:bg-gray-100 border border-transparent'}`}
@@ -1093,7 +1136,7 @@ export default function Sidebar({
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-sm font-semibold color-blue truncate">
+                      <h3 className="text-xs md:text-sm font-semibold color-blue truncate">
                         {conversation.name}
                       </h3>
                       <span className="text-xs color-blue font-medium">

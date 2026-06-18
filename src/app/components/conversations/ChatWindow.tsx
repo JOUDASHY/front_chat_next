@@ -13,6 +13,8 @@ import {
   TrashIcon,
   PhoneIcon,
   VideoCameraIcon,
+  XMarkIcon,
+  DocumentIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
@@ -79,12 +81,49 @@ interface ChatWindowProps {
   isMobile?: boolean; // Pour savoir si on est sur mobile
 }
 
+function PendingFilePreview({ file }: { file: File }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [file]);
+
+  return (
+    <div className="mt-1.5 md:mt-2 rounded-md md:rounded-lg overflow-hidden bg-indigo-700/30">
+      {previewUrl ? (
+        <img src={previewUrl} alt={file.name} className="max-h-40 w-full object-cover" />
+      ) : (
+        <div className="p-2 flex items-center gap-2">
+          <PaperClipIcon className="h-4 w-4 text-white/70 shrink-0" />
+          <p className="text-xs text-white/80 truncate">{file.name}</p>
+        </div>
+      )}
+      {previewUrl && (
+        <p className="px-2 py-1 text-[10px] text-white/70 truncate">{file.name}</p>
+      )}
+    </div>
+  );
+}
+
+function isImageAttachment(url?: string) {
+  if (!url) return false;
+  const ext = url.split('.').pop()?.split('?')[0]?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
+}
+
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
   const { startCall, phase: callPhase } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [recipientOnline, setRecipientOnline] = useState(false);
@@ -175,11 +214,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/chat/group/${conversation.id}/`
           : `${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/`;
         
-        console.log('🛠️ Loading messages from', endpoint);
-        console.log('Authorization token:', localStorage.getItem('accessToken'));
+        // console.log('🛠️ Loading messages from', endpoint);
+        // console.log('Authorization token:', localStorage.getItem('accessToken'));
         
         const { data } = await api.get(endpoint);
-        console.log('API Response:', data);
+        // console.log('API Response:', data);
         
         if (data && data.messages) {
           setMessages(data.messages);
@@ -399,6 +438,37 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     };
   }, []);
 
+  // Aperçu local du fichier sélectionné (avant envoi)
+  useEffect(() => {
+    if (!file) {
+      setFilePreviewUrl(null);
+      return;
+    }
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setFilePreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setFilePreviewUrl(null);
+  }, [file]);
+
+  const clearSelectedFile = () => {
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileSelect = (selected: File | null) => {
+    setFile(selected);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  };
+
   // Défilement automatique
   const prevMessagesLengthRef = useRef(0);
 
@@ -480,13 +550,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     // Ajouter le message à l'état pending et réinitialiser l'input
     setPendingMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
-    setFile(null);
+    clearSelectedFile();
     
     // Notifier la sidebar IMMÉDIATEMENT (optimistic UI) pour éviter une race condition avec Pusher
     window.dispatchEvent(new CustomEvent('chat-message-sent', {
       detail: {
         conversationId: conversation.id,
-        lastMessage: tempMessage.content,
+        lastMessage: tempMessage.content || (tempMessage.file ? `📎 ${tempMessage.file.name}` : ''),
         timestamp: tempMessage.timestamp,
       }
     }));
@@ -621,7 +691,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     <div className="h-full w-full flex flex-col bg-gray-50">
       {/* Header fixe */}
       <div
-        className="sticky top-0 z-10 p-4 bg-white border-b flex items-center gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
+        className="sticky top-0 z-10 px-3 py-2 md:p-4 bg-white border-b flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
         onClick={handleProfileClick}
       >
         {/* Bouton de retour - visible uniquement sur mobile */}
@@ -631,17 +701,17 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               e.stopPropagation();
               onBackClick();
             }}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Retour"
           >
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+            <ArrowLeftIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
           </button>
         )}
         
-        <div className="h-12 w-12 rounded-full overflow-hidden border border-indigo-100 shadow-sm shrink-0 flex items-center justify-center">
+        <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden border border-indigo-100 shadow-sm shrink-0 flex items-center justify-center">
           {conversation.isGroup ? (
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[var(--blue)] to-[var(--blue-ciel)] flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-[var(--blue)] to-[var(--blue-ciel)] flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -654,14 +724,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             />
           )}
         </div>
-        <div className="flex-1">
-          <h2 className="font-bold text-xl text-gray-900">
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-base md:text-xl text-gray-900 truncate leading-tight">
             {conversation.name || getDisplayName(recipient) || 'Utilisateur'}
           </h2>
-          {!conversation.isGroup && recipient?.username && (
+          {/* {!conversation.isGroup && recipient?.username && (
             <p className="text-xs text-gray-400">@{recipient.username}</p>
-          )}
-          <p className="text-sm text-gray-500 flex items-center">
+          )} */}
+          <p className="text-xs md:text-sm text-gray-500 flex items-center leading-tight mt-0.5">
             {conversation.isGroup ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-indigo-400 mr-2"></span>
@@ -686,11 +756,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   username: recipient?.username,
                 })
               }
-              className="p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors"
+              className="p-1.5 md:p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors"
               title="Appel vocal"
               aria-label="Appel vocal"
             >
-              <PhoneIcon className="h-5 w-5" />
+              <PhoneIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
             <button
               type="button"
@@ -701,25 +771,25 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   username: recipient?.username,
                 })
               }
-              className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors"
+              className="p-1.5 md:p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors"
               title="Appel vidéo"
               aria-label="Appel vidéo"
             >
-              <VideoCameraIcon className="h-5 w-5" />
+              <VideoCameraIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
           </div>
         )}
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+          className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors"
         >
-          <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
+          <EllipsisVerticalIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
         </button>
       </div>
 
       {/* Ajuster le conteneur des messages pour tenir compte du header fixe */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4 mt-[1px]">
+      <div className="flex-1 overflow-y-auto px-3 py-2 md:p-4 bg-gray-50 space-y-2 md:space-y-4 mt-[1px]">
         {Array.isArray(messages) && messages.length > 0 ? (
           (() => {
             // Trouver l'ID du tout dernier message envoyé par l'utilisateur (pour l'avatar de lecture)
@@ -741,13 +811,25 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
               const isCurrentUser = msg.sender === user?.username;
               const isLastUserMessage = msg.id === lastUserMessageId;
+              const imageOnlyMessage =
+                isImageAttachment(msg.attachment) &&
+                !msg.content?.trim() &&
+                editingMessage?.id !== msg.id;
+              const imageWithCaption =
+                isImageAttachment(msg.attachment) &&
+                Boolean(msg.content?.trim()) &&
+                editingMessage?.id !== msg.id;
+              const messageTime = new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
               
               return (
                 <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
                 {/* Avatar pour les messages reçus */}
                 {!isCurrentUser && (
-                  <div className="mr-2 mt-1 shrink-0">
-                    <div className="h-8 w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
+                  <div className="mr-1.5 md:mr-2 mt-0.5 md:mt-1 shrink-0">
+                    <div className="h-7 w-7 md:h-8 md:w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
                       <ImageWithFallback
                         src={msg.sender_profile?.image ?? recipient?.profile?.image ?? undefined}
                         alt={msg.sender}
@@ -759,15 +841,21 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
                 <div className={`max-w-xs md:max-w-md lg:max-w-lg ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col group`}>
                   <div
-                    className={`relative p-3 rounded-lg shadow-sm ${
+                    className={`relative shadow-sm ${
+                      imageOnlyMessage
+                        ? 'overflow-hidden rounded-md md:rounded-lg p-0'
+                        : 'px-2.5 py-2 md:p-3 rounded-md md:rounded-lg'
+                    } ${
                       isCurrentUser
                         ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none'
                         : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                     }`}
                   >
+                    {!imageOnlyMessage && (
+                    <>
                     {/* En-tête du message */}
-                    <div className="flex justify-between mb-2 items-center gap-2">
-                      <span className={`text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800'}`}>
+                    <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
+                      <span className={`text-xs md:text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800'}`}>
                         {isCurrentUser ? 'Vous' : msg.sender}
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
@@ -821,13 +909,54 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                           </div>
                         )}
                         <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
-                          {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {messageTime}
                         </span>
                       </div>
                     </div>
+                    </>
+                    )}
+
+                    {imageOnlyMessage && isCurrentUser && (
+                      <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuMessageId(openMenuMessageId === msg.id ? null : msg.id);
+                            }}
+                            className={`p-1 rounded-full bg-black/40 text-white transition-opacity hover:bg-black/55 ${
+                              isMobile || openMenuMessageId === msg.id
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                            aria-label="Options du message"
+                          >
+                            <EllipsisVerticalIcon className="h-4 w-4" />
+                          </button>
+                          {openMenuMessageId === msg.id && (
+                            <div
+                              className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                disabled={deletingMessageId === msg.id}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                {deletingMessageId === msg.id ? (
+                                  <span className="h-4 w-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+                                ) : (
+                                  <TrashIcon className="h-4 w-4" />
+                                )}
+                                Supprimer
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Contenu du message */}
                     {editingMessage?.id === msg.id ? (
@@ -861,7 +990,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       </div>
                     ) : (
                       msg.content && (
-                        <p className={`text-sm ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
+                        <p className={`text-xs md:text-sm leading-snug ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
                           {msg.content}
                         </p>
                       )
@@ -869,36 +998,45 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     
                     {/* Pièce jointe */}
                     {msg.attachment && (
-                      <div className={`mt-2 rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/30' : 'bg-gray-50'}`}>
+                      <div className={imageOnlyMessage ? 'm-0 p-0' : msg.content ? 'mt-1.5 md:mt-2' : ''}>
                         {(() => {
                           const fileUrl = msg.attachment;
-                          const fileExtension = fileUrl.split('.').pop()?.toLowerCase();
+                          const fileExtension = fileUrl.split('.').pop()?.split('?')[0]?.toLowerCase();
                           const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExtension || '');
                           const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(fileExtension || '');
                           const isPdf = fileExtension === 'pdf';
                           const isAudio = ['mp3', 'wav', 'ogg', 'aac'].includes(fileExtension || '');
                           
-                          // Extraire le nom du fichier de l'URL
                           const fileName = fileUrl.split('/').pop() || 'fichier';
                           const decodedFileName = decodeURIComponent(fileName);
 
                           if (isImage) {
                             return (
-                              <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-1`}>
+                              <div
+                                className={`relative m-0 p-0 leading-none ${
+                                  imageWithCaption ? '-mx-2.5 -mb-2 mt-1.5 md:-mx-3 md:-mb-3 md:mt-2 overflow-hidden' : ''
+                                }`}
+                              >
                                 <ImageWithFallback
                                   src={fileUrl}
                                   alt={decodedFileName}
-                                  className="max-w-full h-auto rounded-lg max-h-60 object-contain cursor-zoom-in hover:opacity-90 transition-opacity"
+                                  className={`w-full h-auto block max-h-80 object-cover cursor-zoom-in hover:opacity-95 transition-opacity ${
+                                    imageOnlyMessage || imageWithCaption
+                                      ? 'rounded-none m-0 p-0'
+                                      : 'max-h-60 rounded-lg'
+                                  }`}
                                   onClick={() => setLightbox({ url: fileUrl, type: 'image', name: decodedFileName })}
                                 />
-                                <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
-                                  {decodedFileName}
-                                </div>
+                                {imageOnlyMessage && (
+                                  <span className="absolute bottom-2 right-2 z-10 rounded-md bg-black/45 px-1.5 py-0.5 text-[10px] text-white">
+                                    {messageTime}
+                                  </span>
+                                )}
                               </div>
                             );
                           } else if (isVideo) {
                             return (
-                              <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-2`}>
+                              <div className={`rounded-md md:rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-1.5 md:p-2`}>
                                 {/* Thumbnail cliquable */}
                                 <div
                                   className="relative cursor-pointer group"
@@ -925,7 +1063,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             );
                           } else if (isPdf) {
                             return (
-                              <div className={`flex flex-col p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-lg`}>
+                              <div className={`flex flex-col p-2 md:p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-md md:rounded-lg`}>
                                 <div className="flex items-center mb-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-red-300' : 'text-red-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
@@ -949,7 +1087,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             );
                           } else if (isAudio) {
                             return (
-                              <div className={`rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-3`}>
+                              <div className={`rounded-md md:rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-2 md:p-3`}>
                                 <div className="flex items-center mb-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isCurrentUser ? 'text-indigo-300' : 'text-indigo-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071a1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243a1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828a1 1 0 010-1.415z" clipRule="evenodd" />
@@ -966,7 +1104,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                           } else {
                             // Pour les autres types de fichiers
                             return (
-                              <div className={`flex items-center p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-lg`}>
+                              <div className={`flex items-center p-2 md:p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-md md:rounded-lg`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-gray-300' : 'text-gray-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a3 3 0 006 0V7a1 1 0 112 0v4a5 5 0 01-10 0V7a5 5 0 0110 0v1.5a2.5 2.5 0 01-5 0V7a1 1 0 012 0v1.5a.5.5 0 001 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
                                 </svg>
@@ -1033,9 +1171,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         {pendingMessages.map(msg => (
           <div key={msg.id} className="flex justify-end animate-fadeIn">
             <div className="max-w-xs md:max-w-md lg:max-w-lg items-end flex flex-col">
-              <div className="p-3 rounded-lg shadow-sm bg-gradient-to-br from-indigo-500/80 to-indigo-600/80 text-white rounded-tr-none">
-                <div className="flex justify-between mb-2 items-center">
-                  <span className="text-sm font-semibold text-white/90">Vous</span>
+              <div className="px-2.5 py-2 md:p-3 rounded-md md:rounded-lg shadow-sm bg-gradient-to-br from-indigo-500/80 to-indigo-600/80 text-white rounded-tr-none">
+                <div className="flex justify-between mb-1 md:mb-2 items-center">
+                  <span className="text-xs md:text-sm font-semibold text-white/90">Vous</span>
                   <span className="ms-2 text-xs text-white/70">
                     {new Date(msg.timestamp).toLocaleTimeString('fr-FR', {
                       hour: '2-digit',
@@ -1044,13 +1182,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   </span>
                 </div>
                 
-                <p className="text-sm text-white">{msg.content}</p>
+                <p className="text-xs md:text-sm leading-snug text-white">{msg.content}</p>
 
                 {msg.file && (
-                  <div className="mt-2 p-2 bg-indigo-700/30 rounded-lg flex items-center gap-2">
-                    <PaperClipIcon className="h-4 w-4 text-white/70 shrink-0" />
-                    <p className="text-xs text-white/80 truncate">{msg.file.name}</p>
-                  </div>
+                  <PendingFilePreview file={msg.file} />
                 )}
               </div>
 
@@ -1080,7 +1215,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
       {/* Indicateur de frappe */}
         {typingUsers.length > 0 && (
-          <div className="px-4 pb-1 flex items-center gap-2">
+          <div className="px-3 md:px-4 pb-1 flex items-center gap-2">
             <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 shadow-sm">
               {/* Trois points animés */}
               <div className="flex items-center gap-[3px]">
@@ -1101,14 +1236,51 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
       {/* Input fixe */}
       <div className="sticky bottom-0 left-0 right-0 z-10 bg-white border-t shadow-lg">
-        <div className="max-w-[100%] mx-auto p-4 flex items-center gap-3">
-          <label className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+        {file && (
+          <div className="px-3 pt-2 pb-1.5 md:px-4 md:pt-3 md:pb-2 border-b border-gray-100 bg-gray-50">
+            <div className="relative inline-flex items-center gap-3 max-w-full rounded-xl border border-indigo-200 bg-white p-2 pr-10 shadow-sm">
+              {filePreviewUrl ? (
+                <img
+                  src={filePreviewUrl}
+                  alt={file.name}
+                  className="h-16 w-16 rounded-lg object-cover shrink-0 border border-gray-200"
+                />
+              ) : file.type.startsWith('video/') ? (
+                <div className="h-16 w-16 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                  <VideoCameraIcon className="h-8 w-8 text-indigo-500" />
+                </div>
+              ) : (
+                <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                  <DocumentIcon className="h-8 w-8 text-gray-500" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate max-w-[220px]">{file.name}</p>
+                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                <p className="text-xs text-indigo-600 mt-0.5">Prêt à envoyer</p>
+              </div>
+              <button
+                type="button"
+                onClick={clearSelectedFile}
+                className="absolute top-1.5 right-1.5 p-1 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
+                aria-label="Retirer le fichier"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-[100%] mx-auto px-3 py-2.5 md:p-4 flex items-center gap-2 md:gap-3">
+          <label className={`p-1.5 md:p-2 rounded-full transition-colors cursor-pointer ${file ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
             <input
+              ref={fileInputRef}
               type="file"
-              onChange={e => setFile(e.target.files?.[0] || null)}
+              onChange={e => handleFileSelect(e.target.files?.[0] || null)}
               className="hidden"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
             />
-            <PaperClipIcon className="h-5 w-5 text-gray-500" />
+            <PaperClipIcon className={`h-5 w-5 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
           </label>
           
           <input
@@ -1117,16 +1289,16 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             onChange={handleTyping}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder="Écrivez un message..."
-            className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400"
+            className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400"
             disabled={isSending}
           />
           
           <button
             onClick={sendMessage}
-            disabled={isSending}
-            className="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            disabled={isSending || (!newMessage.trim() && !file)}
+            className="p-2 md:p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
-            <PaperAirplaneIcon className="h-5 w-5" />
+            <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
         </div>
       </div>

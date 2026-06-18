@@ -16,14 +16,12 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'http',
-        hostname: '192.168.1.187',
-        port: '8000',
-        pathname: '/avatars/**',
+        hostname: '**',
       },
       {
         protocol: 'https',
         hostname: '**',
-      }
+      },
     ],
   },
   async rewrites() {

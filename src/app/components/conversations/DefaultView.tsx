@@ -393,7 +393,7 @@ function UserCard({ user, index, onStart, loading }: {
           <div className="flex items-center gap-1">
             <button
               onClick={() => router.push(`/profile/${user.id}`)}
-              className="text-sm font-bold text-[var(--blue)] hover:underline truncate max-w-[130px]"
+              className="text-xs md:text-sm font-bold text-[var(--blue)] hover:underline truncate max-w-[130px]"
             >
               {fullName || user.username}
             </button>
