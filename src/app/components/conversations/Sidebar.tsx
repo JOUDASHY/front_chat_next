@@ -75,8 +75,8 @@ const GroupAvatar = ({
       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--blue)] to-[var(--blue-ciel)] flex items-center justify-center shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-[...]
+          </svg>
       </div>
     );
   }
@@ -125,8 +125,8 @@ const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false 
             <span className="font-semibold text-sm" style={{ color: fallbackColor }}>{initials}</span>
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5" style={{ color: fallbackColor }}>
-              <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
-            </svg>
+              <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7[...]
+              </svg>
           )}
         </div>
       ) : (
@@ -813,7 +813,7 @@ export default function Sidebar({
       <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue">
         <div className="flex items-center gap-2 md:gap-3">
           <div className="p-1.5 md:p-2 bg-white/10 rounded-lg">
-            <ChatBubbleLeftRightIcon className="h-5 w-5 md:h-6 md:w-6 text-jaune" />
+            <ChatBubbleLeftRightIcon className="h-5 w-5 md:h-6 md:w-6 text-white" />
           </div>
           <h1 className="text-base md:text-xl font-bold text-white font-[Inter] leading-tight">
             {sidebarView === 'calls' ? 'Appels' : 'Messagerie'}
@@ -827,18 +827,18 @@ export default function Sidebar({
               title="Administration"
               aria-label="Administration"
             >
-              <ShieldCheckIcon className="h-6 w-6 text-jaune" />
+              <ShieldCheckIcon className="h-6 w-6 text-white" />
             </button>
           )}
           <button
             onClick={() => setSidebarView(sidebarView === 'chats' ? 'calls' : 'chats')}
             className={`p-1.5 rounded-full transition-colors ${
-              sidebarView === 'calls' ? 'bg-jaune/30' : 'hover:bg-blue-ciel/10'
+              sidebarView === 'calls' ? 'bg-white/20' : 'hover:bg-white/10'
             }`}
             title={sidebarView === 'chats' ? 'Historique des appels' : 'Retour aux conversations'}
             aria-label="Historique des appels"
           >
-            <PhoneIcon className="h-6 w-6 text-jaune" />
+            <PhoneIcon className="h-6 w-6 text-white" />
           </button>
           {user && (
             <div
@@ -849,17 +849,17 @@ export default function Sidebar({
               <Avatar
                 src={user.profile?.image}
                 alt={user.username}
-                className="h-7 w-7 md:h-8 md:w-8 border-2 border-jaune/20"
+                className="h-7 w-7 md:h-8 md:w-8 border-2 border-white/30"
                 dark={true}
               />
             </div>
           )}
           <button
             onClick={handleLogoutClick}
-            className="p-1.5 hover:bg-blue-ciel/10 rounded-full transition-colors"
+            className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
             aria-label="Se déconnecter"
           >
-            <ArrowLeftOnRectangleIcon className="h-6 w-6 text-jaune" />
+            <ArrowLeftOnRectangleIcon className="h-6 w-6 text-white" />
           </button>
         </div>
       </div>
@@ -888,8 +888,8 @@ export default function Sidebar({
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM13 7a1 1 0 11-2 0 1 1 0 012 0z" />
-            </svg>
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0[...]
+              </svg>
           </button>
         )}
         <button
@@ -952,7 +952,7 @@ export default function Sidebar({
             className="flex w-11 shrink-0 flex-col items-center cursor-pointer group"
             aria-label="Voir tous les utilisateurs en ligne"
           >
-            <div className="h-10 w-10 rounded-full border-2 border-dashed border-[var(--jaune)]/50 bg-[var(--jaune)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--jaune)]/20 transition-colors">
+            <div className="h-10 w-10 rounded-full border-2 border-dashed border-[var(--jaune)]/50 bg-[var(--jaune)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--jaune)]/20 [...]
               <ChevronRightIcon className="h-5 w-5 color-jaune" />
             </div>
             <span className="mt-1 w-full truncate text-center text-[10px] md:text-[11px] font-medium color-jaune">
@@ -1089,7 +1089,7 @@ export default function Sidebar({
                   <button
                     type="button"
                     onClick={onDiscover}
-                    className="w-full flex items-center justify-center gap-2 bg-[var(--jaune)] hover:bg-[var(--jaune)]/90 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-md shadow-[var(--jaune)]/20"
+                    className="w-full flex items-center justify-center gap-2 bg-[var(--jaune)] hover:bg-[var(--jaune)]/90 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-m[...]
                   >
                     <UserGroupIcon className="h-5 w-5" />
                     Découvrir des personnes
