@@ -1,4 +1,4 @@
-export type ChatAppLayer = 'root' | 'calls' | 'discover' | 'conversation';
+export type ChatAppLayer = 'root' | 'calls' | 'discover' | 'conversation' | 'online';
 
 const CHAT_PATH = '/chat';
 

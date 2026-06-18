@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import Sidebar from '@/app/components/conversations/Sidebar';
 import ChatWindow from '@/app/components/conversations/ChatWindow';
 import DefaultView from '@/app/components/conversations/DefaultView';
+import OnlineUsersView from '@/app/components/conversations/OnlineUsersView';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/axiosClient';
 import {
@@ -41,6 +42,7 @@ function ChatPageContent() {
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
+  const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [sidebarView, setSidebarView] = useState<'chats' | 'calls'>('chats');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,6 +81,12 @@ function ChatPageContent() {
         return;
       }
 
+      if (showOnlineUsers) {
+        setShowOnlineUsers(false);
+        if (isMobile) setShowChat(false);
+        return;
+      }
+
       if (sidebarView === 'calls') {
         setSidebarView('chats');
         return;
@@ -90,7 +98,7 @@ function ChatPageContent() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [isMobile, showChat, selectedUserId, showDiscover, sidebarView]);
+  }, [isMobile, showChat, selectedUserId, showDiscover, showOnlineUsers, sidebarView]);
 
   // Lire les query params et ouvrir directement la conversation
   useEffect(() => {
@@ -128,6 +136,7 @@ function ChatPageContent() {
     setSelectedConversation(conversation);
     setSelectedUserId(userId);
     setShowDiscover(false);
+    setShowOnlineUsers(false);
     setSidebarView('chats');
     if (isMobile) {
       setShowChat(true);
@@ -167,6 +176,41 @@ function ChatPageContent() {
     if (isMobile) setShowChat(false);
   };
 
+  const handleViewOnlineUsers = () => {
+    if (isMobile) {
+      setShowChat(true);
+      setSelectedUserId(null);
+      setSelectedConversation(null);
+      setShowDiscover(false);
+      setShowOnlineUsers(true);
+      pushChatLayer('online');
+    } else {
+      setShowDiscover(false);
+      setShowOnlineUsers(true);
+      pushChatLayer('online');
+    }
+  };
+
+  const handleOnlineUsersClose = () => {
+    if (showOnlineUsers) {
+      window.history.back();
+      return;
+    }
+    setShowOnlineUsers(false);
+    if (isMobile) setShowChat(false);
+  };
+  
+  const handleOnlineUserClick = async (userId: number) => {
+    try {
+      const { data } = await api.post('/api/chat/conversations/create/', { user_id: userId });
+      setShowOnlineUsers(false);
+      handleSelectConversation(data, userId);
+    } catch (err) {
+      console.error(err);
+      router.push(`/chat?userId=${userId}`);
+    }
+  };
+
   const handleSidebarViewChange = (view: 'chats' | 'calls') => {
     if (view === 'calls') {
       setSidebarView('calls');
@@ -196,6 +240,7 @@ function ChatPageContent() {
           onDiscover={handleDiscover}
           sidebarView={sidebarView}
           onSidebarViewChange={handleSidebarViewChange}
+          onViewOnlineUsers={handleViewOnlineUsers}
         />
       </div>
 
@@ -207,7 +252,12 @@ function ChatPageContent() {
           absolute top-0 bottom-0 right-0 z-0
         `}
       >
-        {selectedUserId !== null ? (
+        {showOnlineUsers ? (
+          <OnlineUsersView
+            onBackClick={handleOnlineUsersClose}
+            onUserClick={handleOnlineUserClick}
+          />
+        ) : selectedUserId !== null ? (
           <ChatWindow
             conversation={selectedConversation}
             userId={selectedUserId}

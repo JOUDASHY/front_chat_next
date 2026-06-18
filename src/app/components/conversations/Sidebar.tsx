@@ -57,6 +57,7 @@ interface SidebarProps {
   onDiscover?: () => void;
   sidebarView?: 'chats' | 'calls';
   onSidebarViewChange?: (view: 'chats' | 'calls') => void;
+  onViewOnlineUsers?: () => void;
 }
 
 const GroupAvatar = ({
@@ -200,6 +201,7 @@ export default function Sidebar({
   onDiscover,
   sidebarView: sidebarViewProp,
   onSidebarViewChange,
+  onViewOnlineUsers,
 }: SidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -903,16 +905,16 @@ export default function Sidebar({
       {/* Online users horizontal list */}
       {sidebarView === 'chats' && (
       <div className="px-4 py-2.5 border-b border-blue/20">
-        <div className="flex items-center justify-between gap-2 mb-2.5">
+        {/* <div className="flex items-center justify-between gap-2 mb-2.5">
           <h3 className="text-xs font-semibold color-blue">En ligne</h3>
           <button
             type="button"
-            onClick={() => router.push('/chat/online')}
+            onClick={onViewOnlineUsers}
             className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold color-jaune border border-[var(--jaune)]/40 bg-[var(--jaune)]/10 hover:bg-[var(--jaune)]/20 transition-colors"
           >
             Voir tout
           </button>
-        </div>
+        </div> */}
         <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
           {Array.from(onlineUsers).map(([userId]) => {
             const onlineUser = allUsers.find(u => u.id === userId) ||
@@ -946,7 +948,7 @@ export default function Sidebar({
           })}
           <button
             type="button"
-            onClick={() => router.push('/chat/online')}
+            onClick={onViewOnlineUsers}
             className="flex w-11 shrink-0 flex-col items-center cursor-pointer group"
             aria-label="Voir tous les utilisateurs en ligne"
           >

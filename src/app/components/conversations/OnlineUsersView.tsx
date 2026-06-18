@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import api from '@/lib/axiosClient';
 import { getDisplayName, getUsernameHandle } from '@/lib/userUtils';
@@ -20,8 +19,12 @@ function getImageUrl(image?: string) {
   return image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_API_URL}${image}`;
 }
 
-export default function OnlineUsersPage() {
-  const router = useRouter();
+interface OnlineUsersViewProps {
+  onBackClick: () => void;
+  onUserClick: (userId: number) => void;
+}
+
+export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUsersViewProps) {
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,14 +45,8 @@ export default function OnlineUsersPage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.replace('/');
-      return;
-    }
-
     void fetchOnlineUsers();
-  }, [router, fetchOnlineUsers]);
+  }, [fetchOnlineUsers]);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -100,24 +97,20 @@ export default function OnlineUsersPage() {
     [users]
   );
 
-  const handleUserClick = (userId: number) => {
-    router.push(`/chat?userId=${userId}`);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="sticky top-0 z-10 flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 bg-blue border-b border-blue/20 shadow-sm">
+    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+      <header className="sticky top-0 z-10 flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 bg-white border-b border-gray-100 shadow-sm shrink-0">
         <button
           type="button"
-          onClick={() => router.push('/chat')}
-          className="p-1.5 md:p-2 rounded-full hover:bg-white/10 transition-colors"
+          onClick={onBackClick}
+          className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors md:hidden"
           aria-label="Retour"
         >
-          <ArrowLeftIcon className="h-5 w-5 text-white" />
+          <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base md:text-lg font-bold text-white truncate">En ligne</h1>
-          <p className="text-xs text-white/70">
+          <h1 className="text-base md:text-lg font-bold text-[var(--blue)] truncate">En ligne</h1>
+          <p className="text-xs text-gray-500">
             {loading ? 'Chargement…' : `${sortedUsers.length} utilisateur${sortedUsers.length > 1 ? 's' : ''}`}
           </p>
         </div>
@@ -125,12 +118,12 @@ export default function OnlineUsersPage() {
 
       <main className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16">
-            <div className="h-8 w-8 rounded-full border-2 border-blue/20 border-t-blue animate-spin" />
+          <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
+            <div className="h-8 w-8 rounded-full border-2 border-[var(--blue)]/20 border-t-[var(--blue)] animate-spin" />
             <p className="text-sm text-gray-500">Chargement des utilisateurs en ligne…</p>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
+          <div className="flex flex-col items-center justify-center h-full gap-3 py-16 px-6 text-center">
             <p className="text-sm text-red-500">{error}</p>
             <button
               type="button"
@@ -138,36 +131,29 @@ export default function OnlineUsersPage() {
                 setLoading(true);
                 void fetchOnlineUsers();
               }}
-              className="text-sm font-medium text-blue hover:underline"
+              className="text-sm font-medium text-[var(--blue)] hover:underline"
             >
               Réessayer
             </button>
           </div>
         ) : sortedUsers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
+          <div className="flex flex-col items-center justify-center h-full gap-3 py-16 px-6 text-center">
             <p className="text-sm text-gray-500">Aucun utilisateur en ligne pour le moment.</p>
-            <button
-              type="button"
-              onClick={() => router.push('/chat')}
-              className="text-sm font-medium text-blue hover:underline"
-            >
-              Retour à la messagerie
-            </button>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100 bg-white">
+          <ul className="bg-white">
             {sortedUsers.map((onlineUser) => (
               <li key={onlineUser.id}>
                 <button
                   type="button"
-                  onClick={() => handleUserClick(onlineUser.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                  onClick={() => onUserClick(onlineUser.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-100/50 last:border-b-0"
                 >
                   <div className="relative shrink-0">
                     <img
                       src={getImageUrl(onlineUser.profile?.image)}
                       alt={getDisplayName(onlineUser)}
-                      className="h-11 w-11 rounded-full object-cover border-2 border-blue/20"
+                      className="h-11 w-11 rounded-full object-cover border-2 border-[var(--blue)]/20 bg-gray-100"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = '/default-avatar.svg';
                       }}
@@ -175,7 +161,7 @@ export default function OnlineUsersPage() {
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold color-blue truncate">
+                    <p className="text-sm font-semibold text-[var(--blue)] truncate">
                       {getDisplayName(onlineUser)}
                     </p>
                     <p className="text-xs text-gray-500 truncate">

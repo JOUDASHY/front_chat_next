@@ -144,7 +144,6 @@ const RegisterPage = () => {
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
                   placeholder="Prénom"
-                  required
                 />
               </div>
               <div className="group relative">

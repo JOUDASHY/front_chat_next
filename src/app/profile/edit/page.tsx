@@ -223,7 +223,7 @@ export default function EditProfilePage() {
         <div className="max-w-3xl mx-auto px-4">
           <div className="flex items-end gap-4 -mt-12 mb-6">
             <motion.div whileHover={{ scale: 1.05 }} className="relative shrink-0">
-              <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
                 <img
                   src={previewImage || user.profile?.image || '/default-avatar.svg'}
                   alt={user.username}

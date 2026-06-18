@@ -85,6 +85,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'about' | 'info'>('about');
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const goToChat = () => router.replace('/chat');
 
@@ -178,10 +179,11 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
           <div className="flex justify-start -mt-14 sm:-mt-18 pl-2 sm:pl-6 relative z-10">
             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
               className="relative shrink-0">
-              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-[5px] border-white
+              <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-[5px] border-white
                               shadow-2xl overflow-hidden bg-white ring-2 ring-[var(--blue-ciel)]/30">
                 <img src={user.profile?.image || '/default-avatar.svg'} alt={user.username}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-transform duration-300"
+                  onClick={() => setIsFullScreen(true)}
                   onError={(e) => { (e.target as HTMLImageElement).src = '/default-avatar.svg'; }} />
               </div>
               <span className={`absolute bottom-2 right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-md ${status.dot}`} />
@@ -282,6 +284,37 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Full screen image modal */}
+      <AnimatePresence>
+        {isFullScreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsFullScreen(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 cursor-zoom-out"
+          >
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              src={user.profile?.image || '/default-avatar.svg'}
+              alt={user.username}
+              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()} 
+            />
+            <button
+              onClick={() => setIsFullScreen(false)}
+              className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              aria-label="Fermer"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
