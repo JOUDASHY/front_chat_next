@@ -75,7 +75,7 @@ const GroupAvatar = ({
       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--blue)] to-[var(--blue-ciel)] flex items-center justify-center shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-[...]
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
       </div>
     );
@@ -125,7 +125,7 @@ const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false 
             <span className="font-semibold text-sm" style={{ color: fallbackColor }}>{initials}</span>
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5" style={{ color: fallbackColor }}>
-              <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7[...]
+              <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
               </svg>
           )}
         </div>
@@ -888,13 +888,13 @@ export default function Sidebar({
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0[...]
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
           </button>
         )}
         <button
           onClick={() => setShowCreateGroupModal(true)}
-          title="Nouveau groupe"
+          title="Novo grupo"
           className="p-2.5 bg-blue text-white rounded-xl hover:bg-blue-ciel transition-colors flex-shrink-0"
         >
           <UserGroupIcon className="h-5 w-5" />
@@ -952,7 +952,7 @@ export default function Sidebar({
             className="flex w-11 shrink-0 flex-col items-center cursor-pointer group"
             aria-label="Voir tous les utilisateurs en ligne"
           >
-            <div className="h-10 w-10 rounded-full border-2 border-dashed border-[var(--jaune)]/50 bg-[var(--jaune)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--jaune)]/20 [...]
+            <div className="h-10 w-10 rounded-full border-2 border-dashed border-[var(--jaune)]/50 bg-[var(--jaune)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--jaune)]/20">
               <ChevronRightIcon className="h-5 w-5 color-jaune" />
             </div>
             <span className="mt-1 w-full truncate text-center text-[10px] md:text-[11px] font-medium color-jaune">
@@ -1089,7 +1089,7 @@ export default function Sidebar({
                   <button
                     type="button"
                     onClick={onDiscover}
-                    className="w-full flex items-center justify-center gap-2 bg-[var(--jaune)] hover:bg-[var(--jaune)]/90 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-m[...]
+                    className="w-full flex items-center justify-center gap-2 bg-[var(--jaune)] hover:bg-[var(--jaune)]/90 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-md"
                   >
                     <UserGroupIcon className="h-5 w-5" />
                     Découvrir des personnes
