@@ -8,6 +8,7 @@ import {
   ShieldCheckIcon,
   NoSymbolIcon,
   CheckCircleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import api from '@/lib/axiosClient';
 
@@ -69,6 +70,7 @@ export default function AdminPage() {
   const [accountFilter, setAccountFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [onlineFilter, setOnlineFilter] = useState<'all' | 'online' | 'offline'>('all');
   const [actionId, setActionId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -144,6 +146,25 @@ export default function AdminPage() {
       alert('Échec de la réactivation.');
     } finally {
       setActionId(null);
+    }
+  };
+
+  const handleDelete = async (user: AdminUser) => {
+    if (
+      !window.confirm(
+        `⚠️ Supprimer définitivement le compte de ${user.display_name} ?\n\nCette action est irréversible.`
+      )
+    )
+      return;
+    setDeleteId(user.id);
+    try {
+      await api.delete(`/api/admin/users/${user.id}/delete/`);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      alert(msg || 'Échec de la suppression.');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -300,26 +321,40 @@ export default function AdminPage() {
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {user.id === currentUserId ? (
                           <span className="text-xs text-gray-400">Votre compte</span>
-                        ) : user.is_active ? (
-                          <button
-                            type="button"
-                            disabled={actionId === user.id}
-                            onClick={() => void handleSuspend(user)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold disabled:opacity-50"
-                          >
-                            <NoSymbolIcon className="h-4 w-4" />
-                            Suspendre
-                          </button>
                         ) : (
-                          <button
-                            type="button"
-                            disabled={actionId === user.id}
-                            onClick={() => void handleUnsuspend(user)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold disabled:opacity-50"
-                          >
-                            <CheckCircleIcon className="h-4 w-4" />
-                            Réactiver
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            {user.is_active ? (
+                              <button
+                                type="button"
+                                disabled={actionId === user.id || deleteId === user.id}
+                                onClick={() => void handleSuspend(user)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold disabled:opacity-50"
+                              >
+                                <NoSymbolIcon className="h-4 w-4" />
+                                Suspendre
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={actionId === user.id || deleteId === user.id}
+                                onClick={() => void handleUnsuspend(user)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold disabled:opacity-50"
+                              >
+                                <CheckCircleIcon className="h-4 w-4" />
+                                Réactiver
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={deleteId === user.id || actionId === user.id}
+                              onClick={() => void handleDelete(user)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-700 text-xs font-semibold disabled:opacity-50 transition-colors"
+                              title="Supprimer définitivement"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                              Supprimer
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
