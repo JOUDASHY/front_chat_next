@@ -51,25 +51,39 @@ export function useTokenExpiry() {
       const accessToken = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
 
-      // Pas de token → déjà déconnecté
+      // Pas de token du tout → déjà déconnecté
       if (!accessToken) {
         router.replace('/');
         return;
       }
 
       const accessMsLeft = msUntilExpiry(accessToken);
-      const refreshMsLeft = refreshToken ? msUntilExpiry(refreshToken) : -1;
 
-      // Le refresh token est expiré → session terminée, déconnexion forcée
+      // Cas Google OAuth : pas de refreshToken mais accessToken encore valide
+      // On ne déconnecte pas — axios retentera si 401
+      if (!refreshToken) {
+        if (accessMsLeft <= 0) {
+          // Access token expiré et pas de refresh → déconnexion
+          clearSession();
+          router.replace('/');
+        } else {
+          // Re-vérifier à l'expiration de l'access token
+          timerRef.current = setTimeout(scheduleCheck, accessMsLeft + 1000);
+        }
+        return;
+      }
+
+      const refreshMsLeft = msUntilExpiry(refreshToken);
+
+      // Le refresh token est expiré → session terminée
       if (refreshMsLeft <= 0) {
         clearSession();
         router.replace('/');
         return;
       }
 
-      // Le refresh token est encore valide → axios se chargera du renouvellement
-      // On programme juste un check au moment où le refresh token expire
-      const checkIn = Math.max(refreshMsLeft + 1000, 5000); // +1s de marge
+      // Programmer un check au moment où le refresh token expire
+      const checkIn = Math.max(refreshMsLeft + 1000, 5000);
       timerRef.current = setTimeout(scheduleCheck, checkIn);
     };
 

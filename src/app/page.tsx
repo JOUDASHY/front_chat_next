@@ -114,6 +114,9 @@ const LoginPage = () => {
         }
 
         localStorage.setItem("accessToken", data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem("refreshToken", data.refresh_token);
+        }
         localStorage.setItem("user", JSON.stringify(data.user));
 
         setIsSuccess(true);
