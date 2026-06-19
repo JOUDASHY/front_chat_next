@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { LockClosedIcon, AtSymbolIcon } from "@heroicons/react/24/outline";
 import AppLogo from "@/components/AppLogo";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -16,23 +15,24 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    setIsClient(true);
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        router.replace('/chat');
-        return;
-      }
+    if (typeof window === 'undefined') return;
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      if (code) {
-        handleGoogleLogin(code);
-      }
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    // Si Google redirige avec un code → traiter en priorité, peu importe le token
+    if (code) {
+      handleGoogleLogin(code);
+      return;
+    }
+
+    // Sinon, si déjà connecté → rediriger directement
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      router.replace('/chat');
     }
   }, []);
 
