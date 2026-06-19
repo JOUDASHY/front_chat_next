@@ -18,6 +18,7 @@ import {
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 
 export interface Conversation {
@@ -210,6 +211,7 @@ export default function Sidebar({
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<number, boolean>>(new Map());  // Changed from Map<string | number, boolean>
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -757,7 +759,11 @@ export default function Sidebar({
     setShowLogoutModal(true);
   };
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    setIsLoggingOut(true);
+    // Petit délai pour que l'overlay soit visible avant la redirection
+    await new Promise(r => setTimeout(r, 1200));
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
@@ -809,6 +815,8 @@ export default function Sidebar({
 
   return (
     <div className="w-full bg-white h-screen flex flex-col shadow-xl border-r border-blue/20">
+      {/* Overlay déconnexion */}
+      <LoadingOverlay visible={isLoggingOut} message="Déconnexion en cours…" />
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue">
         <div className="flex items-center gap-2 md:gap-3">

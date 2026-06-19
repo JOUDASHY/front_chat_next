@@ -1,7 +1,7 @@
 'use client';
 
+import AppLogo from "@/components/AppLogo";
 import { useState } from "react";
-import Image from "next/image";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -90,17 +90,9 @@ export default function PasswordResetForm({ uid, token }: PasswordResetFormProps
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-jaune w-[80px] h-[80px] flex items-center justify-center"
+            className="inline-flex items-center justify-center"
           >
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={40}
-              height={40}
-              priority
-              unoptimized
-              style={{ maxWidth: '100%', height: 'auto' }}
-            />
+            <AppLogo size={70} />
           </motion.div>
           <h1 className="text-4xl font-bold text-[var(--blue)]">
             Nouveau mot de passe

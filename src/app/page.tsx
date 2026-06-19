@@ -6,6 +6,8 @@ import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { LockClosedIcon, AtSymbolIcon } from "@heroicons/react/24/outline";
+import AppLogo from "@/components/AppLogo";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 const LoginPage = () => {
   const [loginId, setLoginId] = useState("");
@@ -135,6 +137,12 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-blue flex items-center justify-center p-4 relative overflow-hidden">
 
+      {/* Overlay de chargement / succès plein écran */}
+      <LoadingOverlay
+        visible={isLoading || isSuccess}
+        message={isSuccess ? 'Connexion réussie…' : 'Connexion en cours…'}
+      />
+
       {/* Carte principale */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
@@ -142,45 +150,14 @@ const LoginPage = () => {
         transition={{ type: "spring", stiffness: 100 }}
         className="w-full max-w-md bg-light rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20"
       >
-        {/* Overlay de succès */}
-        <AnimatePresence>
-          {isSuccess && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0 }}
-              className="absolute inset-0 bg-[var(--jaune)]/10 backdrop-blur-sm flex items-center justify-center rounded-3xl"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="text-[var(--jaune)] text-4xl"
-              >
-                ✓
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* En-tête */}
         <div className="text-center mb-10 space-y-4">
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-jaune w-[80px] h-[80px] flex items-center justify-center"
+            className="inline-flex items-center justify-center"
           >
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={40}
-              height={40}
-              priority
-              unoptimized
-              style={{
-                maxWidth: '100%',
-                height: 'auto'
-              }}
-            />
+            <AppLogo size={70} />
           </motion.div>
           <h1 className="text-4xl font-bold text-[var(--blue)]">
             Welcome Back
@@ -251,24 +228,14 @@ const LoginPage = () => {
   whileHover={{ scale: 1.02 }}
   whileTap={{ scale: 0.98 }}
   type="submit"
-  disabled={isLoading}
+  disabled={isLoading || isSuccess}
   className="w-full btn-jaune rounded-xl relative overflow-hidden"
   style={{ padding: '16px', fontSize: '16px', minHeight: '56px' }}
 >
-  {isLoading ? (
-    <motion.div
-      animate={{ rotate: 360 }}
-      transition={{ repeat: Infinity, duration: 1 }}
-      className="flex items-center justify-center"
-    >
-      <Image src="/logo.png" alt="Loading" width={20} height={20} priority unoptimized style={{ maxWidth: '100%', height: 'auto' }} />
-    </motion.div>
-  ) : (
-    <span className="relative z-10 flex items-center justify-center gap-3">
-      <span>Se connecter</span>
-      <span className="opacity-70">→</span>
-    </span>
-  )}
+  <span className="relative z-10 flex items-center justify-center gap-3">
+    <span>Se connecter</span>
+    <span className="opacity-70">→</span>
+  </span>
   <div className="absolute inset-0 opacity-0 hover:opacity-30 transition-opacity bg-gradient-to-r from-white/30 to-transparent" />
 </motion.button>
 

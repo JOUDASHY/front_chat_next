@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
-import { LockClosedIcon, UserIcon, AtSymbolIcon } from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+import AppLogo from "@/components/AppLogo";
+import { LockClosedIcon, UserIcon, AtSymbolIcon } from "@heroicons/react/24/outline";
 
 const RegisterPage = () => {
   const [firstName, setFirstName] = useState("");
@@ -117,15 +117,9 @@ const RegisterPage = () => {
           <motion.div
             initial={{ y: -20 }}
             animate={{ y: 0 }}
-            className="inline-block p-4 rounded-full bg-jaune"
+            className="inline-flex items-center justify-center"
           >
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={48}
-              height={48}
-              className="object-contain"
-            />
+            <AppLogo size={70} />
           </motion.div>
           <h1 className="text-4xl font-bold text-[var(--blue)]">
             Bienvenue Parmi Nous

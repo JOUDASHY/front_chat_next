@@ -120,7 +120,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const memberSince = user.profile?.created_at
     ? new Date(user.profile.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     : null;
-  const DEFAULT_COVER = 'https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg';
+  const DEFAULT_COVER = 'https://wallpaperbat.com/img/1012550-phoenix-arizona-wall-mural-your-way.jpg';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">

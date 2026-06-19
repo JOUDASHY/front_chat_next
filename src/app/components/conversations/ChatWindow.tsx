@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/axiosClient';
 import axios from 'axios';
 import {
@@ -1286,6 +1286,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               const isSearchMatch = searchResults.includes(messages.indexOf(msg));
               const isActiveMatch = searchResults[searchCursor] === messages.indexOf(msg);
 
+              // Détection sticker : message uniquement composé d'emojis (sans texte)
+              const isStickerMessage = (() => {
+                if (!msg.content?.trim() || msg.attachment) return false;
+                // Supprimer tous les emojis et caractères invisibles, vérifier qu'il ne reste rien
+                const withoutEmoji = msg.content.replace(
+                  /(\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?(\u200D(\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?)*/gu,
+                  ''
+                ).replace(/\s/g, '');
+                return withoutEmoji.length === 0;
+              })();
+              // Taille du sticker selon le nombre d'emojis
+              const stickerCount = isStickerMessage
+                ? [...(msg.content?.matchAll(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?(\u200D(\p{Emoji_Presentation}|\p{Extended_Pictographic})\uFE0F?)*/gu) ?? [])].length
+                : 0;
+              const stickerSize = stickerCount === 1 ? 'text-6xl' : stickerCount <= 3 ? 'text-5xl' : 'text-4xl';
+
               return (
                 <div
                   key={msg.id}
@@ -1310,16 +1326,20 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     className={`relative shadow-sm max-w-full ${
                       imageOnlyMessage
                         ? 'overflow-hidden rounded-md md:rounded-lg p-0'
+                        : isStickerMessage
+                        ? 'p-1 bg-transparent shadow-none'
                         : isVoiceMessage
                         ? 'px-2 py-2 rounded-2xl'
                         : 'px-2.5 py-2 md:p-3 rounded-md md:rounded-lg'
                     } ${
-                      isCurrentUser
+                      isStickerMessage
+                        ? ''
+                        : isCurrentUser
                         ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none'
                         : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                     }`}
                   >
-                    {!imageOnlyMessage && !isVoiceMessage && (
+                    {!imageOnlyMessage && !isVoiceMessage && !isStickerMessage && (
                     <>
                     {/* En-tête du message */}
                     <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
@@ -1458,9 +1478,16 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       </div>
                     ) : (
                       msg.content && (
-                        <p className={`text-xs md:text-sm leading-snug break-words break-all whitespace-pre-wrap ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
-                          {msg.content}
-                        </p>
+                        isStickerMessage ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className={`${stickerSize} leading-none select-none`}>{msg.content}</span>
+                            <span className="text-[10px] text-gray-400">{messageTime}</span>
+                          </div>
+                        ) : (
+                          <p className={`text-xs md:text-sm leading-snug break-words break-all whitespace-pre-wrap ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
+                            {msg.content}
+                          </p>
+                        )
                       )
                     )}
                     
