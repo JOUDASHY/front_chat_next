@@ -166,21 +166,10 @@ export default function PasswordResetForm({ uid, token }: PasswordResetFormProps
             className="w-full py-4 btn-jaune rounded-xl relative overflow-hidden"
           >
             {isLoading ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1 }}
-                className="flex items-center justify-center"
-              >
-                <Image
-                  src="/logo.png"
-                  alt="Loading"
-                  width={20}
-                  height={20}
-                  priority
-                  unoptimized
-                  style={{ maxWidth: '100%', height: 'auto' }}
-                />
-              </motion.div>
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+                <span>Réinitialisation…</span>
+              </span>
             ) : (
               <span className="relative z-10 flex items-center justify-center space-x-2">
                 <span>Réinitialiser le mot de passe</span>
