@@ -849,7 +849,7 @@ export default function Sidebar({
               <Avatar
                 src={user.profile?.image}
                 alt={user.username}
-                className="h-7 w-7 md:h-8 md:w-8 border-2 border-white/30"
+                className="h-9 w-9 md:h-10 md:w-10 border-2 border-white/30"
                 dark={true}
               />
             </div>

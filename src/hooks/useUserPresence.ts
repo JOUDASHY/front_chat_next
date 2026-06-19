@@ -4,6 +4,10 @@
 import { useEffect } from 'react';
 import api from '@/lib/axiosClient';
 
+// Heartbeat toutes les 2 minutes pour garder last_seen à jour pendant une session active
+// Ainsi même si la déconnexion n'est pas détectée, last_seen est au maximum vieux de 2 min
+const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+
 // This is a custom React hook
 const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: boolean) => void) => {
   // useEffect is correctly used inside a custom hook
@@ -14,6 +18,7 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
     let isMounted = true;
     let pusherInstance: any = null;
     let presenceChannel: any = null;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     
     const handleUserStatusChanged = (data: { userId: number; isOnline: boolean }) => {
       if (data.userId === userId) {
@@ -23,7 +28,31 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
     
     const handleDisconnect = () => {
       if (userId) {
-        api.post('/api/chat/handle-disconnect/', { userId });
+        // Utilise sendBeacon pour garantir l'envoi même en cas de fermeture d'onglet
+        const url = `${process.env.NEXT_PUBLIC_API_URL}/api/chat/handle-disconnect/`;
+        const token = localStorage.getItem('accessToken');
+        if (navigator.sendBeacon && token) {
+          const blob = new Blob([JSON.stringify({ userId })], { type: 'application/json' });
+          // sendBeacon ne supporte pas les headers custom — fallback sur fetch synchrone
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ userId }),
+            keepalive: true, // permet à la requête de survivre à la fermeture de page
+          }).catch(() => {});
+        } else {
+          api.post('/api/chat/handle-disconnect/', { userId }).catch(() => {});
+        }
+      }
+    };
+
+    // Heartbeat : signale au backend que l'user est toujours actif
+    const sendHeartbeat = () => {
+      if (userId) {
+        api.post('/api/chat/update-online-status/', { isOnline: true }).catch(() => {});
       }
     };
 
@@ -52,6 +81,9 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
       
       window.addEventListener('beforeunload', handleDisconnect);
       window.addEventListener('unload', handleDisconnect);
+
+      // Démarrer le heartbeat
+      heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
     };
     
     initPusher();
@@ -59,6 +91,7 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
     // Cleanup function
     return () => {
       isMounted = false;
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (presenceChannel) {
         presenceChannel.unbind('user-status-changed', handleUserStatusChanged);
       }

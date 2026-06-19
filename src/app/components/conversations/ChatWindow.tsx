@@ -17,11 +17,14 @@ import {
   DocumentIcon,
   NoSymbolIcon,
   CheckCircleIcon,
+  MicrophoneIcon,
+  StopIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 import CallEventBubble from '@/components/CallEventBubble';
-import { getDisplayName } from '@/lib/userUtils';
+import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
+import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
 import { CallEvent } from '@/lib/callUtils';
 import { useCall } from '@/context/CallContext';
 
@@ -129,6 +132,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [isSending, setIsSending] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [recipientOnline, setRecipientOnline] = useState(false);
+  const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [recipientId, setRecipientId] = useState<number | null>(null);
   const [recipient, setRecipient] = useState<any>(null);
@@ -144,6 +148,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [blockLoading, setBlockLoading] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
+
+  // Voice message state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Typing indicator
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,6 +246,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           
           if (data.recipient) {
             setRecipient(data.recipient);
+            setRecipientLastSeen(data.recipient?.profile?.last_online ?? null);
           }
         } else if (Array.isArray(data)) {
           console.log('Setting messages from array:', data);
@@ -387,6 +401,23 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       presenceChannel.bind('pusher:member_removed', (member: any) => {
         if (recipientId && member.id == recipientId) {
           setRecipientOnline(false);
+          // Refetch last_online depuis l'API pour avoir la valeur à jour
+          api.get(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/users/${recipientId}/`)
+            .then(({ data }) => {
+              if (data.profile?.last_online) setRecipientLastSeen(data.profile.last_online);
+            })
+            .catch(() => {});
+        }
+      });
+      
+      // Écouter les mises à jour de last_online (quand le destinataire se déconnecte)
+      presenceChannel.bind('user-status-changed', (data: { userId: number; isOnline: boolean; lastOnline?: string }) => {
+        if (!isMounted) return;
+        if (recipientId && data.userId === recipientId) {
+          setRecipientOnline(data.isOnline);
+          if (!data.isOnline && data.lastOnline) {
+            setRecipientLastSeen(data.lastOnline);
+          }
         }
       });
       
@@ -535,7 +566,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   // Cleanup timeout on unmount
   useEffect(() => {
-    return () => { if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaRecorderRef.current?.state !== 'inactive') {
+        mediaRecorderRef.current?.stream?.getTracks().forEach((t) => t.stop());
+      }
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+    };
   }, []);
 
   // Envoi de message
@@ -672,6 +710,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       try {
         const { data } = await api.get(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/users/${recipientId}/`);
         setRecipientOnline(data.is_online || false);
+        if (!data.is_online && data.profile?.last_online) {
+          setRecipientLastSeen(data.profile.last_online);
+        }
       } catch (err) {
         console.error('Error checking online status:', err);
       }
@@ -733,6 +774,166 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     }
   };
 
+  // ── Voice recording ──────────────────────────────────────────────
+  const formatRecordingTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const startRecording = async () => {
+    if (iBlockedThem || theyBlockedMe) return;
+    if (isRecording) return; // prevent double-start
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/ogg';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      let cancelled = false;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (cancelled) return; // don't set blob if user cancelled
+        const chunks = audioChunksRef.current;
+        if (chunks.length === 0) return;
+        const blob = new Blob(chunks, { type: mimeType });
+        if (blob.size < 100) return; // ignore empty recordings
+        setAudioBlob(blob);
+        setAudioPreviewUrl(URL.createObjectURL(blob));
+      };
+
+      // Attach cancel flag so cancelRecording can signal onstop
+      (recorder as any)._cancelled = false;
+      Object.defineProperty(recorder, '_setCancelled', {
+        value: (v: boolean) => { cancelled = v; },
+      });
+
+      recorder.start(250); // collect chunks every 250ms
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+      alert('Accès au microphone refusé. Veuillez autoriser le microphone dans les paramètres de votre navigateur.');
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      // Request final chunk then stop
+      recorder.requestData();
+      recorder.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+    // audioBlob will be set by onstop callback
+  };
+
+  const cancelRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      // Signal onstop to NOT produce a blob
+      try { (recorder as any)._setCancelled(true); } catch {}
+      if (recorder.state !== 'inactive') {
+        recorder.stream?.getTracks().forEach((t) => t.stop());
+        recorder.stop();
+      }
+      mediaRecorderRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setAudioBlob(null);
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+      setAudioPreviewUrl(null);
+    }
+    setRecordingSeconds(0);
+  };
+
+  const sendVoiceMessage = async () => {
+    if (!audioBlob || !conversation?.id || isSending) return;
+    setIsSending(true);
+
+    const ext = audioBlob.type.includes('webm') ? 'webm' : 'ogg';
+    const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: audioBlob.type });
+
+    const tempMessage: PendingMessage = {
+      id: `pending-${Date.now()}`,
+      content: '',
+      sender: user?.username || '',
+      timestamp: new Date().toISOString(),
+      isPending: true,
+      file: audioFile,
+    };
+    setPendingMessages((prev) => [...prev, tempMessage]);
+
+    // Notify sidebar
+    window.dispatchEvent(new CustomEvent('chat-message-sent', {
+      detail: {
+        conversationId: conversation.id,
+        lastMessage: '🎤 Message vocal',
+        timestamp: tempMessage.timestamp,
+      },
+    }));
+
+    // Clean up preview
+    if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+    setAudioBlob(null);
+    setAudioPreviewUrl(null);
+    setRecordingSeconds(0);
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+      const endpoint = conversation.isGroup
+        ? `${API_URL}/api/chat/group/${conversation.id}/`
+        : `${API_URL}/api/chat/private/${userId}/`;
+
+      const formData = new FormData();
+      formData.append('content', '');
+      formData.append('attachment', audioFile);
+      if (!conversation.isGroup && recipientId) {
+        formData.append('recipient', String(recipientId));
+      }
+
+      const { data } = await api.post(endpoint, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === data.id)) return prev;
+        return [...prev, data];
+      });
+      setPendingMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
+    } catch (err) {
+      setPendingMessages((prev) =>
+        prev.map((m) => (m.id === tempMessage.id ? { ...m, isPending: false, isError: true } : m))
+      );
+      console.error('Error sending voice message:', err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   if (!conversation) {
     return (
       <div className="w-full h-full bg-gray-50 flex flex-col">
@@ -752,7 +953,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     <div className="h-full w-full flex flex-col bg-gray-50">
       {/* Header fixe */}
       <div
-        className="sticky top-0 z-10 px-3 py-2 md:p-4 bg-white border-b flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
+        className="sticky top-0 z-10 px-3 py-2 md:p-3 bg-white border-b flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
         onClick={handleProfileClick}
       >
         {/* Bouton de retour - visible uniquement sur mobile */}
@@ -801,7 +1002,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             ) : (
               <>
                 <span className={`h-2 w-2 rounded-full ${recipientOnline ? 'bg-green-500' : 'bg-gray-400'} mr-2`}></span>
-                {recipientOnline ? 'En ligne' : 'Hors ligne'}
+                {recipientOnline ? 'En ligne' : (recipientLastSeen ? formatLastSeen(recipientLastSeen) : 'Hors ligne')}
               </>
             )}
           </p>
@@ -922,6 +1123,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
               const isCurrentUser = msg.sender === user?.username;
               const isLastUserMessage = msg.id === lastUserMessageId;
+              const isVoiceMessage = (() => {
+                if (!msg.attachment) return false;
+                const ext = msg.attachment.split('.').pop()?.split('?')[0]?.toLowerCase();
+                const name = decodeURIComponent(msg.attachment.split('/').pop() || '');
+                return (ext === 'webm' || ext === 'ogg') && name.startsWith('voice_');
+              })();
               const imageOnlyMessage =
                 isImageAttachment(msg.attachment) &&
                 !msg.content?.trim() &&
@@ -955,6 +1162,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     className={`relative shadow-sm max-w-full ${
                       imageOnlyMessage
                         ? 'overflow-hidden rounded-md md:rounded-lg p-0'
+                        : isVoiceMessage
+                        ? 'px-2 py-2 rounded-2xl'
                         : 'px-2.5 py-2 md:p-3 rounded-md md:rounded-lg'
                     } ${
                       isCurrentUser
@@ -962,7 +1171,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                     }`}
                   >
-                    {!imageOnlyMessage && (
+                    {!imageOnlyMessage && !isVoiceMessage && (
                     <>
                     {/* En-tête du message */}
                     <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
@@ -1113,15 +1322,27 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         {(() => {
                           const fileUrl = msg.attachment;
                           const fileExtension = fileUrl.split('.').pop()?.split('?')[0]?.toLowerCase();
+                          const decodedName = decodeURIComponent(fileUrl.split('/').pop() || '');
+                          // isVoice MUST be checked before isVideo (.webm would match video otherwise)
+                          const isVoice = (fileExtension === 'webm' || fileExtension === 'ogg') &&
+                            decodedName.startsWith('voice_');
                           const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExtension || '');
-                          const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(fileExtension || '');
+                          const isVideo = !isVoice && ['mp4', 'webm', 'ogg', 'mov'].includes(fileExtension || '');
                           const isPdf = fileExtension === 'pdf';
-                          const isAudio = ['mp3', 'wav', 'ogg', 'aac'].includes(fileExtension || '');
+                          const isAudio = ['mp3', 'wav', 'aac'].includes(fileExtension || '');
                           
                           const fileName = fileUrl.split('/').pop() || 'fichier';
                           const decodedFileName = decodeURIComponent(fileName);
 
-                          if (isImage) {
+                          if (isVoice) {
+                            return (
+                              <VoiceMessagePlayer
+                                src={fileUrl}
+                                isCurrentUser={isCurrentUser}
+                                senderImage={msg.sender_profile?.image ?? recipient?.profile?.image ?? undefined}
+                              />
+                            );
+                          } else if (isImage) {
                             return (
                               <div
                                 className={`relative m-0 p-0 leading-none ${
@@ -1381,35 +1602,110 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </div>
         )}
 
-        <div className="max-w-[100%] mx-auto px-3 py-2.5 md:p-4 flex items-center gap-2 md:gap-3">
-          <label className={`p-1.5 md:p-2 rounded-full transition-colors cursor-pointer ${file ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={e => handleFileSelect(e.target.files?.[0] || null)}
-              className="hidden"
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-            />
-            <PaperClipIcon className={`h-5 w-5 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
-          </label>
-          
-          <input
-            type="text"
-            value={newMessage}
-            onChange={handleTyping}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-            placeholder={iBlockedThem || theyBlockedMe ? 'Impossible d\'envoyer un message…' : 'Écrivez un message...'}
-            className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={isSending || iBlockedThem || theyBlockedMe}
-          />
-          
-          <button
-            onClick={sendMessage}
-            disabled={isSending || (!newMessage.trim() && !file)}
-            className="p-2 md:p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
-          </button>
+        <div className="max-w-[100%] mx-auto px-3 py-1.5 md:py-2 md:px-4 flex items-center gap-2">
+          {/* Prévisualisation du message vocal */}
+          {audioBlob && !isRecording && (
+            <div className="flex-1 flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1.5">
+              <MicrophoneIcon className="h-4 w-4 text-indigo-500 shrink-0" />
+              <audio src={audioPreviewUrl ?? undefined} controls className="flex-1 h-8" style={{ minWidth: 0 }} />
+              <button
+                type="button"
+                onClick={cancelRecording}
+                className="p-1 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                aria-label="Annuler"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => void sendVoiceMessage()}
+                disabled={isSending}
+                className="p-1.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors shrink-0"
+                aria-label="Envoyer le message vocal"
+              >
+                <PaperAirplaneIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Timer d'enregistrement */}
+          {isRecording && (
+            <div className="flex-1 flex items-center gap-2 bg-red-50 border border-red-200 rounded-full px-4 py-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+              <span className="text-sm font-mono text-red-600 font-semibold">
+                {formatRecordingTime(recordingSeconds)}
+              </span>
+              <span className="text-xs text-red-500 flex-1">Enregistrement…</span>
+              <button
+                type="button"
+                onClick={cancelRecording}
+                className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                aria-label="Annuler l'enregistrement"
+              >
+                Annuler
+              </button>
+            </div>
+          )}
+
+          {/* Zone normale (texte + fichier) */}
+          {!isRecording && !audioBlob && (
+            <>
+              <label className={`p-1.5 md:p-2 rounded-full transition-colors cursor-pointer ${file ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={e => handleFileSelect(e.target.files?.[0] || null)}
+                  className="hidden"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+                />
+                <PaperClipIcon className={`h-5 w-5 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
+              </label>
+
+              <input
+                type="text"
+                value={newMessage}
+                onChange={handleTyping}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                placeholder={iBlockedThem || theyBlockedMe ? 'Impossible d\'envoyer un message…' : 'Écrivez un message...'}
+                className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={isSending || iBlockedThem || theyBlockedMe}
+              />
+
+              {/* Bouton envoi OU micro selon contenu */}
+              {newMessage.trim() || file ? (
+                <button
+                  onClick={sendMessage}
+                  disabled={isSending}
+                  className="p-2 md:p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void startRecording()}
+                  disabled={isSending || iBlockedThem || theyBlockedMe}
+                  className="p-2 md:p-2.5 bg-gray-100 text-gray-600 rounded-full hover:bg-indigo-100 hover:text-indigo-600 disabled:opacity-50 transition-colors focus:outline-none"
+                  title="Cliquer pour démarrer l'enregistrement vocal"
+                  aria-label="Enregistrer un message vocal"
+                >
+                  <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Bouton stop pendant enregistrement */}
+          {isRecording && (
+            <button
+              type="button"
+              onClick={stopRecording}
+              className="p-2 md:p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors focus:outline-none shrink-0"
+              aria-label="Arrêter l'enregistrement"
+            >
+              <StopIcon className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+          )}
         </div>
       </div>
       {/* Lightbox plein écran image / vidéo */}
