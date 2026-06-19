@@ -4,6 +4,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import useUserPresence from '../../hooks/useUserPresence';
+import { useTokenExpiry } from '../../hooks/useTokenExpiry';
 import { CallProvider } from '@/context/CallContext';
 import CallOverlay from '@/components/CallOverlay';
 import type Pusher from 'pusher-js';
@@ -60,6 +61,7 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
   }, [router, userId]);
 
   useUserPresence(userId, setRecipientOnline);
+  useTokenExpiry();
 
   return (
     <CallProvider>
