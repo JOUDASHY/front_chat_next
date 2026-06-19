@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '@/lib/axiosClient';
 import axios from 'axios';
 import {
@@ -19,14 +19,22 @@ import {
   CheckCircleIcon,
   MicrophoneIcon,
   StopIcon,
+  MagnifyingGlassIcon,
+  FaceSmileIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 import CallEventBubble from '@/components/CallEventBubble';
 import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
 import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
 import { CallEvent } from '@/lib/callUtils';
 import { useCall } from '@/context/CallContext';
+
+// Chargement lazy du picker (lourd ~200kb)
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface Message {
   id: number;
@@ -149,6 +157,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
 
+  // Emoji picker
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  // Recherche dans la conversation
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<number[]>([]); // indices dans messages[]
+  const [searchCursor, setSearchCursor] = useState(0); // résultat actif
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
   // Voice message state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -164,6 +184,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<any>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const handleProfileClick = () => {
     if (conversation && !conversation.isGroup && recipientId) {
@@ -477,7 +498,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     };
   }, []);
 
-  // Aperçu local du fichier sélectionné (avant envoi)
+  // Auto-focus l'input quand on ouvre une conversation (comme WhatsApp / Messenger)
+  useEffect(() => {
+    if (!conversation?.id) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(t);
+  }, [conversation?.id]);
   useEffect(() => {
     if (!file) {
       setFilePreviewUrl(null);
@@ -597,6 +623,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     setPendingMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
     clearSelectedFile();
+    // Re-focus immédiat pour que l'user puisse enchaîner sans re-cliquer
+    inputRef.current?.focus();
     
     // Notifier la sidebar IMMÉDIATEMENT (optimistic UI) pour éviter une race condition avec Pusher
     window.dispatchEvent(new CustomEvent('chat-message-sent', {
@@ -744,6 +772,53 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [showHeaderMenu]);
+
+  // Fermer le emoji picker au clic extérieur
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showEmojiPicker]);
+
+  // Recherche dans les messages
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchCursor(0);
+      return;
+    }
+    const q = searchQuery.toLowerCase();
+    const indices = messages.reduce<number[]>((acc, msg, i) => {
+      if (msg.content?.toLowerCase().includes(q)) acc.push(i);
+      return acc;
+    }, []);
+    setSearchResults(indices);
+    setSearchCursor(indices.length > 0 ? 0 : 0);
+  }, [searchQuery, messages]);
+
+  // Scroll vers le résultat actif
+  useEffect(() => {
+    if (searchResults.length === 0) return;
+    const msgId = messages[searchResults[searchCursor]]?.id;
+    if (msgId == null) return;
+    const el = messageRefs.current.get(msgId);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [searchCursor, searchResults, messages]);
+
+  // Focus la barre de recherche quand elle s'ouvre
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    } else {
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  }, [showSearch]);
 
   const handleBlock = async () => {
     if (!recipientId || blockLoading) return;
@@ -1009,6 +1084,16 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         </div>
         {!conversation.isGroup && recipientId && callPhase === 'idle' && (
           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {/* Recherche dans la conversation */}
+            <button
+              type="button"
+              onClick={() => setShowSearch(v => !v)}
+              className={`p-1.5 md:p-2 rounded-full transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
+              title="Rechercher dans la conversation"
+              aria-label="Rechercher"
+            >
+              <MagnifyingGlassIcon className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
             <button
               type="button"
               onClick={() =>
@@ -1080,6 +1165,62 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         )}
       </div>
 
+      {/* Barre de recherche dans la conversation */}
+      {showSearch && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-100 shadow-sm">
+          <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchResults.length === 0) return;
+                setSearchCursor(c => (c + 1) % searchResults.length);
+              }
+              if (e.key === 'Escape') setShowSearch(false);
+            }}
+            placeholder="Rechercher dans la conversation…"
+            className="flex-1 text-sm bg-transparent outline-none text-gray-800 placeholder-gray-400"
+          />
+          {searchQuery && (
+            <span className="text-xs text-gray-400 shrink-0">
+              {searchResults.length > 0 ? `${searchCursor + 1}/${searchResults.length}` : '0 résultat'}
+            </span>
+          )}
+          {searchResults.length > 1 && (
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => setSearchCursor(c => (c - 1 + searchResults.length) % searchResults.length)}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500"
+                aria-label="Résultat précédent"
+              >
+                <ChevronUpIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchCursor(c => (c + 1) % searchResults.length)}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500"
+                aria-label="Résultat suivant"
+              >
+                <ChevronDownIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowSearch(false)}
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-400"
+            aria-label="Fermer la recherche"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Bannière de blocage */}
       {(iBlockedThem || theyBlockedMe) && !conversation.isGroup && (
         <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-sm text-amber-800">
@@ -1142,8 +1283,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 minute: '2-digit',
               });
               
+              const isSearchMatch = searchResults.includes(messages.indexOf(msg));
+              const isActiveMatch = searchResults[searchCursor] === messages.indexOf(msg);
+
               return (
-                <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                <div
+                  key={msg.id}
+                  ref={el => { if (el) messageRefs.current.set(msg.id, el); else messageRefs.current.delete(msg.id); }}
+                  className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fadeIn ${isActiveMatch ? 'rounded-lg ring-2 ring-indigo-400 ring-offset-1' : isSearchMatch ? 'rounded-lg ring-1 ring-indigo-200' : ''}`}
+                >
                 {/* Avatar pour les messages reçus */}
                 {!isCurrentUser && (
                   <div className="mr-1.5 md:mr-2 mt-0.5 md:mt-1 shrink-0">
@@ -1368,28 +1516,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             );
                           } else if (isVideo) {
                             return (
-                              <div className={`rounded-md md:rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-1.5 md:p-2`}>
-                                {/* Thumbnail cliquable */}
-                                <div
-                                  className="relative cursor-pointer group"
-                                  onClick={() => setLightbox({ url: fileUrl, type: 'video', name: decodedFileName })}
-                                >
-                                  <video
-                                    src={fileUrl}
-                                    className="max-w-full max-h-60 rounded-lg pointer-events-none"
-                                    preload="metadata"
-                                  />
-                                  {/* Play overlay */}
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors rounded-lg">
-                                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                                      <svg className="w-5 h-5 text-gray-800 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M8 5v14l11-7z"/>
-                                      </svg>
-                                    </div>
+                              <div
+                                className="relative cursor-pointer group rounded-lg overflow-hidden"
+                                onClick={() => setLightbox({ url: fileUrl, type: 'video', name: decodedFileName })}
+                              >
+                                <video
+                                  src={fileUrl}
+                                  className="max-w-full max-h-52 block pointer-events-none"
+                                  preload="metadata"
+                                />
+                                {/* Play overlay */}
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/35 transition-colors">
+                                  <div className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow">
+                                    <svg className="w-4 h-4 text-gray-800 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M8 5v14l11-7z"/>
+                                    </svg>
                                   </div>
-                                </div>
-                                <div className={`text-xs text-center mt-1 ${isCurrentUser ? 'text-white/70' : 'text-gray-500'}`}>
-                                  {decodedFileName}
                                 </div>
                               </div>
                             );
@@ -1419,18 +1561,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             );
                           } else if (isAudio) {
                             return (
-                              <div className={`rounded-md md:rounded-lg overflow-hidden ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} p-2 md:p-3`}>
-                                <div className="flex items-center mb-2">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isCurrentUser ? 'text-indigo-300' : 'text-indigo-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071a1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243a1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828a1 1 0 010-1.415z" clipRule="evenodd" />
-                                  </svg>
-                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700'}`}>{decodedFileName}</span>
-                                </div>
-                                <audio 
-                                  src={fileUrl} 
-                                  controls 
-                                  className="w-full"
-                                />
+                              <div className="flex items-center gap-2 py-0.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 shrink-0 ${isCurrentUser ? 'text-indigo-200' : 'text-indigo-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071a1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243a1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828a1 1 0 010-1.415z" clipRule="evenodd" />
+                                </svg>
+                                <audio src={fileUrl} controls className="h-8 w-44 min-w-0" />
                               </div>
                             );
                           } else {
@@ -1661,14 +1796,42 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 <PaperClipIcon className={`h-5 w-5 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
               </label>
 
+              {/* Emoji picker */}
+              <div className="relative" ref={emojiPickerRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                  className={`p-1.5 md:p-2 rounded-full transition-colors ${showEmojiPicker ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
+                  aria-label="Emoji"
+                  title="Emoji"
+                >
+                  <FaceSmileIcon className="h-5 w-5" />
+                </button>
+                {showEmojiPicker && (
+                  <div className="absolute bottom-12 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
+                    <EmojiPicker
+                      onEmojiClick={({ emoji }) => {
+                        setNewMessage(prev => prev + emoji);
+                        inputRef.current?.focus();
+                      }}
+                      height={380}
+                      width={320}
+                      searchPlaceholder="Rechercher…"
+                      previewConfig={{ showPreview: false }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <input
+                ref={inputRef}
                 type="text"
                 value={newMessage}
                 onChange={handleTyping}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder={iBlockedThem || theyBlockedMe ? 'Impossible d\'envoyer un message…' : 'Écrivez un message...'}
                 className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={isSending || iBlockedThem || theyBlockedMe}
+                disabled={iBlockedThem || theyBlockedMe}
               />
 
               {/* Bouton envoi OU micro selon contenu */}
