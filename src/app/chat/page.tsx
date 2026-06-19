@@ -258,12 +258,14 @@ function ChatPageContent() {
             onUserClick={handleOnlineUserClick}
           />
         ) : selectedUserId !== null ? (
+          <div className="h-full min-h-0">
           <ChatWindow
             conversation={selectedConversation}
             userId={selectedUserId}
             onBackClick={handleBackToList}
             isMobile={isMobile}
           />
+          </div>
         ) : (
           <DefaultView
             onStartConversation={handleSelectConversation}

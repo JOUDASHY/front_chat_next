@@ -143,6 +143,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [recipientOnline, setRecipientOnline] = useState(false);
   const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [recipientId, setRecipientId] = useState<number | null>(null);
   const [recipient, setRecipient] = useState<any>(null);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
@@ -492,12 +493,49 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     };
   }, []);
 
-  // Auto-focus l'input quand on ouvre une conversation (comme WhatsApp / Messenger)
+  // Auto-focus desktop uniquement — sur mobile le clavier ne doit pas s'ouvrir à la sélection
   useEffect(() => {
-    if (!conversation?.id) return;
+    if (!conversation?.id || isMobile) return;
     const t = setTimeout(() => inputRef.current?.focus(), 100);
     return () => clearTimeout(t);
-  }, [conversation?.id]);
+  }, [conversation?.id, isMobile]);
+
+  const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior });
+      return;
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+  };
+
+  // Garder le dernier message visible au-dessus du clavier (mobile)
+  useEffect(() => {
+    if (!isMobile || !conversation?.id) return;
+
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleViewportChange = () => {
+      requestAnimationFrame(() => scrollMessagesToBottom('auto'));
+    };
+
+    vv.addEventListener('resize', handleViewportChange);
+    vv.addEventListener('scroll', handleViewportChange);
+    return () => {
+      vv.removeEventListener('resize', handleViewportChange);
+      vv.removeEventListener('scroll', handleViewportChange);
+    };
+  }, [isMobile, conversation?.id]);
+
+  const handleInputFocus = () => {
+    if (!isMobile) return;
+    // Délais pour laisser le clavier terminer son animation
+    const delays = [50, 150, 350];
+    delays.forEach((ms) => {
+      setTimeout(() => scrollMessagesToBottom('auto'), ms);
+    });
+  };
   useEffect(() => {
     if (!file) {
       setFilePreviewUrl(null);
@@ -538,9 +576,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
     // Petit délai pour laisser le temps au DOM (HTML) de s'agrandir avec le nouveau message
     const timer = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ 
-        behavior: isNewLoad ? 'auto' : 'smooth' 
-      });
+      scrollMessagesToBottom(isNewLoad ? 'auto' : 'smooth');
     }, 50);
 
     return () => clearTimeout(timer);
@@ -1019,10 +1055,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-50">
+    <div className="h-full w-full flex flex-col bg-gray-50 overflow-hidden min-h-0">
       {/* Header fixe */}
       <div
-        className="sticky top-0 z-10 px-3 py-2 md:p-3 bg-white border-b flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
+        className="shrink-0 sticky top-0 z-10 px-3 py-2 md:p-3 bg-white border-b flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
         onClick={handleProfileClick}
       >
         {/* Bouton de retour - visible uniquement sur mobile */}
@@ -1236,7 +1272,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       )}
 
       {/* Ajuster le conteneur des messages pour tenir compte du header fixe */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 md:p-4 bg-gray-50 space-y-2 md:space-y-4 mt-[1px]">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 md:p-4 bg-gray-50 space-y-2 md:space-y-4 mt-[1px]"
+      >
         {Array.isArray(messages) && messages.length > 0 ? (
           (() => {
             // Trouver l'ID du tout dernier message envoyé par l'utilisateur (pour l'avatar de lecture)
@@ -1700,11 +1739,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Indicateur de frappe */}
+      {/* Bas de page : frappe + saisie (reste au-dessus du clavier) */}
+      <div className="shrink-0 z-10">
         {typingUsers.length > 0 && (
-          <div className="px-3 md:px-4 pb-1 flex items-center gap-2">
+          <div className="px-3 md:px-4 pb-1 flex items-center gap-2 bg-gray-50">
             <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 shadow-sm">
-              {/* Trois points animés */}
               <div className="flex items-center gap-[3px]">
                 <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
                 <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
@@ -1721,8 +1760,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </div>
         )}
 
-      {/* Input fixe */}
-      <div className="sticky bottom-0 left-0 right-0 z-10 bg-white border-t shadow-lg">
+      <div className="bg-white border-t shadow-lg">
         {file && (
           <div className="px-3 pt-2 pb-1.5 md:px-4 md:pt-3 md:pb-2 border-b border-gray-100 bg-gray-50">
             <div className="relative inline-flex items-center gap-3 max-w-full rounded-xl border border-indigo-200 bg-white p-2 pr-10 shadow-sm">
@@ -1849,6 +1887,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 type="text"
                 value={newMessage}
                 onChange={handleTyping}
+                onFocus={handleInputFocus}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder={iBlockedThem || theyBlockedMe ? 'Impossible d\'envoyer un message…' : 'Écrivez un message...'}
                 className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1891,6 +1930,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </button>
           )}
         </div>
+      </div>
       </div>
       {/* Lightbox plein écran image / vidéo */}
       <MediaLightbox media={lightbox} onClose={() => setLightbox(null)} />
