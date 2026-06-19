@@ -225,6 +225,8 @@ function DiscoverPage({
   const [search, setSearch] = useState('');
   const [starting, setStarting] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null);
+  // Surcouche temps réel : map userId → true/false (online)
+  const [onlineOverride, setOnlineOverride] = useState<Map<number, boolean>>(new Map());
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -236,6 +238,61 @@ function DiscoverPage({
       .then(({ data }) => setUsers(data))
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, []);
+
+  // Pusher : synchro temps réel avec le presence-channel
+  useEffect(() => {
+    let pusherInstance: any = null;
+    let isMounted = true;
+
+    const init = async () => {
+      const PusherModule = await import('pusher-js');
+      const Pusher = PusherModule.default;
+      if (!isMounted) return;
+
+      pusherInstance = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+        forceTLS: true,
+        authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
+        auth: {
+          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        },
+      });
+
+      const ch = pusherInstance.subscribe('presence-channel');
+
+      // Initialisation : marquer tous les membres actuellement en ligne
+      ch.bind('pusher:subscription_succeeded', (data: any) => {
+        if (!isMounted) return;
+        const ids = Object.keys(data.members).map(Number);
+        setOnlineOverride(prev => {
+          const next = new Map(prev);
+          ids.forEach(id => next.set(id, true));
+          return next;
+        });
+      });
+
+      ch.bind('pusher:member_added', (member: any) => {
+        if (!isMounted) return;
+        setOnlineOverride(prev => new Map(prev).set(Number(member.id), true));
+      });
+
+      ch.bind('pusher:member_removed', (member: any) => {
+        if (!isMounted) return;
+        setOnlineOverride(prev => {
+          const next = new Map(prev);
+          next.set(Number(member.id), false);
+          return next;
+        });
+      });
+    };
+
+    void init();
+
+    return () => {
+      isMounted = false;
+      pusherInstance?.disconnect();
+    };
   }, []);
 
   const filtered = users.filter(u => {
@@ -250,8 +307,12 @@ function DiscoverPage({
     );
   });
 
-  const online = filtered.filter(u => u.profile?.status === 'online');
-  const others = filtered.filter(u => u.profile?.status !== 'online');
+  // Source de vérité unique : presence-channel Pusher, exactement comme la Sidebar
+  // true = Pusher confirme en ligne | false/absent = hors ligne
+  const isOnlineRealtime = (id: number) => onlineOverride.get(id) === true;
+
+  const online = filtered.filter(u => isOnlineRealtime(u.id));
+  const others = filtered.filter(u => !isOnlineRealtime(u.id));
 
   const handleStart = async (user: SuggestedUser) => {
     if (starting) return;
@@ -333,7 +394,7 @@ function DiscoverPage({
               <Section title="En ligne maintenant" icon={<SparklesIcon className="h-4 w-4 text-emerald-500" />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                   {online.map((u, i) => (
-                    <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} />
+                    <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} isOnline={true} />
                   ))}
                 </div>
               </Section>
@@ -342,7 +403,7 @@ function DiscoverPage({
               <Section title="Autres membres" icon={<UserGroupIcon className="h-4 w-4 text-[var(--blue)]" />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                   {others.map((u, i) => (
-                    <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} />
+                    <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} isOnline={false} />
                   ))}
                 </div>
               </Section>
@@ -357,16 +418,15 @@ function DiscoverPage({
 /* ─────────────────────────────────────────────
    UserCard
 ───────────────────────────────────────────── */
-function UserCard({ user, index, onStart, loading }: {
+function UserCard({ user, index, onStart, loading, isOnline }: {
   user: SuggestedUser;
   index: number;
   onStart: (u: SuggestedUser) => void;
   loading: boolean;
+  isOnline: boolean;
 }) {
   const router = useRouter();
-  const dot = STATUS_DOT[user.profile?.status || ''] || 'bg-gray-300';
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
-  const isOnline = user.profile?.status === 'online';
 
   return (
     <motion.div
@@ -386,7 +446,7 @@ function UserCard({ user, index, onStart, loading }: {
               onError={(e) => { (e.target as HTMLImageElement).src = '/default-avatar.svg'; }}
             />
           </div>
-          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${dot}`} />
+          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${isOnline ? 'bg-emerald-500' : 'bg-gray-300'}`} />
         </button>
 
         <div className="flex-1 min-w-0">

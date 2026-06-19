@@ -28,12 +28,9 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
     
     const handleDisconnect = () => {
       if (userId) {
-        // Utilise sendBeacon pour garantir l'envoi même en cas de fermeture d'onglet
         const url = `${process.env.NEXT_PUBLIC_API_URL}/api/chat/handle-disconnect/`;
         const token = localStorage.getItem('accessToken');
-        if (navigator.sendBeacon && token) {
-          const blob = new Blob([JSON.stringify({ userId })], { type: 'application/json' });
-          // sendBeacon ne supporte pas les headers custom — fallback sur fetch synchrone
+        if (token) {
           fetch(url, {
             method: 'POST',
             headers: {
@@ -41,10 +38,8 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({ userId }),
-            keepalive: true, // permet à la requête de survivre à la fermeture de page
+            keepalive: true,
           }).catch(() => {});
-        } else {
-          api.post('/api/chat/handle-disconnect/', { userId }).catch(() => {});
         }
       }
     };

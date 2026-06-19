@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import api from '@/lib/axiosClient';
 import { getDisplayName, getUsernameHandle } from '@/lib/userUtils';
@@ -25,29 +25,25 @@ interface OnlineUsersViewProps {
 }
 
 export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUsersViewProps) {
-  const [users, setUsers] = useState<OnlineUser[]>([]);
+  // Tous les users connus (pour enrichir les membres Pusher avec avatar/nom)
+  const [allUsers, setAllUsers] = useState<OnlineUser[]>([]);
+  // Set des IDs vraiment en ligne selon Pusher presence-channel
+  const [onlineIds, setOnlineIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const pusherRef = useRef<{ disconnect: () => void } | null>(null);
+  const currentUserId = useRef<number | null>(null);
 
-  const fetchOnlineUsers = useCallback(async () => {
-    try {
-      const { data } = await api.get<OnlineUser[]>('/api/chat/users/online/');
-      setUsers(Array.isArray(data) ? data : []);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to fetch online users:', err);
-      setError('Impossible de charger les utilisateurs en ligne.');
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
+  // Charger la liste complète des users une seule fois pour avoir les profils
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) currentUserId.current = JSON.parse(stored).id;
+
+    api.get<OnlineUser[]>('/api/chat/users/')
+      .then(({ data }) => setAllUsers(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    void fetchOnlineUsers();
-  }, [fetchOnlineUsers]);
-
+  // Source de vérité : presence-channel Pusher — même source que la Sidebar
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
@@ -63,21 +59,40 @@ export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUser
         cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
         forceTLS: true,
         authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/api/chat/pusher/auth/`,
-        auth: {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        auth: { headers: { Authorization: `Bearer ${token}` } },
       });
 
       pusherRef.current = pusher;
-      const presenceChannel = pusher.subscribe('presence-channel');
+      const ch = pusher.subscribe('presence-channel');
 
-      const refresh = () => {
-        void fetchOnlineUsers();
-      };
+      // Initialisation : membres actuellement connectés dans le canal
+      ch.bind('pusher:subscription_succeeded', (data: any) => {
+        if (cancelled) return;
+        const ids = new Set<number>(
+          Object.values(data.members).map((m: any) => Number(m.id ?? m))
+        );
+        // Exclure soi-même
+        if (currentUserId.current) ids.delete(currentUserId.current);
+        setOnlineIds(ids);
+        setLoading(false);
+      });
 
-      presenceChannel.bind('pusher:subscription_succeeded', refresh);
-      presenceChannel.bind('pusher:member_added', refresh);
-      presenceChannel.bind('pusher:member_removed', refresh);
+      ch.bind('pusher:member_added', (member: any) => {
+        if (cancelled) return;
+        const id = Number(member.id);
+        if (id === currentUserId.current) return;
+        setOnlineIds(prev => new Set(prev).add(id));
+      });
+
+      ch.bind('pusher:member_removed', (member: any) => {
+        if (cancelled) return;
+        const id = Number(member.id);
+        setOnlineIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      });
     };
 
     void initPusher();
@@ -87,15 +102,24 @@ export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUser
       pusherRef.current?.disconnect();
       pusherRef.current = null;
     };
-  }, [fetchOnlineUsers]);
+  }, []);
 
-  const sortedUsers = useMemo(
-    () =>
-      [...users].sort((a, b) =>
-        getDisplayName(a).localeCompare(getDisplayName(b), 'fr', { sensitivity: 'base' })
-      ),
-    [users]
-  );
+  // Croiser les IDs Pusher avec les profils complets
+  const onlineUsers = useMemo(() => {
+    const result: OnlineUser[] = [];
+    onlineIds.forEach(id => {
+      const user = allUsers.find(u => u.id === id);
+      if (user) {
+        result.push(user);
+      } else {
+        // User pas encore dans allUsers — afficher avec id seulement
+        result.push({ id, username: `user_${id}` });
+      }
+    });
+    return result.sort((a, b) =>
+      getDisplayName(a).localeCompare(getDisplayName(b), 'fr', { sensitivity: 'base' })
+    );
+  }, [onlineIds, allUsers]);
 
   return (
     <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
@@ -111,7 +135,9 @@ export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUser
         <div className="flex-1 min-w-0">
           <h1 className="text-base md:text-lg font-bold text-[var(--blue)] truncate">En ligne</h1>
           <p className="text-xs text-gray-500">
-            {loading ? 'Chargement…' : `${sortedUsers.length} utilisateur${sortedUsers.length > 1 ? 's' : ''}`}
+            {loading
+              ? 'Connexion…'
+              : `${onlineUsers.length} utilisateur${onlineUsers.length > 1 ? 's' : ''} en ligne`}
           </p>
         </div>
       </header>
@@ -120,52 +146,39 @@ export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUser
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
             <div className="h-8 w-8 rounded-full border-2 border-[var(--blue)]/20 border-t-[var(--blue)] animate-spin" />
-            <p className="text-sm text-gray-500">Chargement des utilisateurs en ligne…</p>
+            <p className="text-sm text-gray-500">Connexion au canal de présence…</p>
           </div>
-        ) : error ? (
+        ) : onlineUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-16 px-6 text-center">
-            <p className="text-sm text-red-500">{error}</p>
-            <button
-              type="button"
-              onClick={() => {
-                setLoading(true);
-                void fetchOnlineUsers();
-              }}
-              className="text-sm font-medium text-[var(--blue)] hover:underline"
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : sortedUsers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 py-16 px-6 text-center">
-            <p className="text-sm text-gray-500">Aucun utilisateur en ligne pour le moment.</p>
+            <p className="text-sm text-gray-500">Aucun autre utilisateur en ligne pour le moment.</p>
           </div>
         ) : (
           <ul className="bg-white">
-            {sortedUsers.map((onlineUser) => (
-              <li key={onlineUser.id}>
+            {onlineUsers.map((u) => (
+              <li key={u.id}>
                 <button
                   type="button"
-                  onClick={() => onUserClick(onlineUser.id)}
+                  onClick={() => onUserClick(u.id)}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-100/50 last:border-b-0"
                 >
                   <div className="relative shrink-0">
                     <img
-                      src={getImageUrl(onlineUser.profile?.image)}
-                      alt={getDisplayName(onlineUser)}
+                      src={getImageUrl(u.profile?.image)}
+                      alt={getDisplayName(u)}
                       className="h-11 w-11 rounded-full object-cover border-2 border-[var(--blue)]/20 bg-gray-100"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = '/default-avatar.svg';
                       }}
                     />
+                    {/* Dot vert — toujours affiché ici car tous sont en ligne */}
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[var(--blue)] truncate">
-                      {getDisplayName(onlineUser)}
+                      {getDisplayName(u)}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {getUsernameHandle(onlineUser)}
+                      {getUsernameHandle(u)}
                     </p>
                   </div>
                 </button>
