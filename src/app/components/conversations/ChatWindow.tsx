@@ -138,6 +138,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [recipientOnline, setRecipientOnline] = useState(false);
   const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
@@ -249,6 +250,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     setMessages([]);
     setPendingMessages([]);
     setTypingUsers([]);
+    setMessagesLoading(true);
 
     const loadMessages = async () => {
       try {
@@ -256,11 +258,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/chat/group/${conversation.id}/`
           : `${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/`;
         
-        // console.log('🛠️ Loading messages from', endpoint);
-        // console.log('Authorization token:', localStorage.getItem('accessToken'));
-        
         const { data } = await api.get(endpoint);
-        // console.log('API Response:', data);
         
         if (data && data.messages) {
           setMessages(data.messages);
@@ -270,18 +268,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             setRecipientLastSeen(data.recipient?.profile?.last_online ?? null);
           }
         } else if (Array.isArray(data)) {
-          console.log('Setting messages from array:', data);
           setMessages(data);
         } else {
-          console.error('Unexpected data format:', data);
           setMessages([]);
         }
       } catch (err) {
         console.error('Error loading messages:', err);
-        if (axios.isAxiosError(err)) {
-          console.error('Response status:', err.response?.status);
-          console.error('Response data:', err.response?.data);
-        }
+      } finally {
+        setMessagesLoading(false);
       }
     };
     

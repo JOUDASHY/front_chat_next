@@ -84,3 +84,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Fix hauteur mobile : empêche la fenêtre de "monter" quand le clavier s'ouvre.
+   --vh est mis à jour dynamiquement via JS. Sur les navigateurs modernes, dvh gère ça nativement. */
+.h-screen-mobile {
+  height: 100vh; /* fallback */
+  height: 100dvh; /* dynamic viewport height — suit le clavier sur mobile */
+}
+
+html, body {
+  height: 100%;
+  height: 100dvh;
+}

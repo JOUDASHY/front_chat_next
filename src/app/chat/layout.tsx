@@ -65,7 +65,7 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
 
   return (
     <CallProvider>
-      <div className="flex h-screen">
+      <div className="flex h-[100dvh] overflow-hidden">
         {children}
         <CallOverlay />
       </div>

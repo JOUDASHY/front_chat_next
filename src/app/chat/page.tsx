@@ -30,7 +30,7 @@ export interface Conversation {
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-full bg-[var(--blue)]" />}>
+    <Suspense fallback={<div className="h-[100dvh] w-full bg-[var(--blue)]" />}>
       <ChatPageContent />
     </Suspense>
   );
@@ -225,7 +225,7 @@ function ChatPageContent() {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-[100dvh] w-full overflow-hidden">
       {/* Sidebar */}
       <div
         className={`

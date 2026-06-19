@@ -814,7 +814,7 @@ export default function Sidebar({
   };
 
   return (
-    <div className="w-full bg-white h-screen flex flex-col shadow-xl border-r border-blue/20">
+    <div className="w-full bg-white h-[100dvh] flex flex-col shadow-xl border-r border-blue/20">
       {/* Overlay déconnexion */}
       <LoadingOverlay visible={isLoggingOut} message="Déconnexion en cours…" />
       {/* Header */}
