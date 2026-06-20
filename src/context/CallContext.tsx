@@ -148,7 +148,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     (track: import('livekit-client').RemoteTrack | import('livekit-client').LocalTrack, target: 'local' | 'remote') => {
       const el = target === 'local' ? localVideoRef.current : remoteVideoRef.current;
       if (!el || track.kind !== 'video') return false;
-      track.attach(el);
+      // mirror: false — affichage normal (LiveKit miroire la cam front par défaut)
+      track.attach(el, { mirror: false });
       return true;
     },
     []

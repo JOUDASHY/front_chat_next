@@ -46,6 +46,57 @@ function CallPeerAvatar({
   );
 }
 
+function CallControls({
+  isVideo,
+  isMuted,
+  isCameraOff,
+  toggleMute,
+  toggleCamera,
+  endCall,
+}: {
+  isVideo: boolean;
+  isMuted: boolean;
+  isCameraOff: boolean;
+  toggleMute: () => void;
+  toggleCamera: () => void;
+  endCall: () => void;
+}) {
+  return (
+    <div className="flex justify-center items-center gap-4">
+      <button
+        type="button"
+        onClick={() => void toggleMute()}
+        className={`h-12 w-12 rounded-full flex items-center justify-center ${isMuted ? 'bg-red-500' : 'bg-white/20'}`}
+        aria-label="Micro"
+      >
+        {isMuted ? (
+          <NoSymbolIcon className="h-6 w-6 text-white" />
+        ) : (
+          <MicrophoneIcon className="h-6 w-6 text-white" />
+        )}
+      </button>
+      {isVideo && (
+        <button
+          type="button"
+          onClick={() => void toggleCamera()}
+          className={`h-12 w-12 rounded-full flex items-center justify-center ${isCameraOff ? 'bg-red-500' : 'bg-white/20'}`}
+          aria-label="Caméra"
+        >
+          <VideoCameraIcon className="h-6 w-6 text-white" />
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => void endCall()}
+        className="h-14 w-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-lg"
+        aria-label="Raccrocher"
+      >
+        <PhoneXMarkIcon className="h-7 w-7 text-white" />
+      </button>
+    </div>
+  );
+}
+
 export default function CallOverlay() {
   const {
     phase,
@@ -87,6 +138,68 @@ export default function CallOverlay() {
   const timerLabel = formatCallTimer(elapsedSeconds);
   const showAvatarPlaceholder = !isVideo || phase === 'outgoing';
 
+  // ── Appel vidéo actif / en cours : plein écran ──────────────────
+  if (showActive && isVideo) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black">
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`absolute inset-0 h-full w-full object-cover ${phase === 'active' ? 'block' : 'hidden'}`}
+        />
+
+        {showAvatarPlaceholder && (
+          <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center text-white px-6 bg-gray-900">
+            <CallPeerAvatar peer={peer} size="lg" />
+            <p className="text-xl font-semibold mt-4 text-center">{peer?.display_name}</p>
+            <p className="text-white/60 text-sm mt-2 text-center">Sonnerie…</p>
+          </div>
+        )}
+
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`absolute top-4 right-4 h-32 w-24 sm:h-36 sm:w-28 rounded-xl object-cover border-2 border-white/30 shadow-lg z-[7] ${isCameraOff ? 'hidden' : 'block'}`}
+        />
+
+        {/* Overlays haut / bas */}
+        <div className="absolute inset-0 z-10 flex flex-col justify-between pointer-events-none">
+          <div
+            className="pt-4 px-4 flex flex-col items-center gap-2 bg-gradient-to-b from-black/60 to-transparent pb-8"
+            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+          >
+            {phase === 'active' && (
+              <span className="px-4 py-1.5 rounded-full bg-black/50 text-white text-sm font-mono tabular-nums tracking-wide backdrop-blur-sm">
+                {timerLabel}
+              </span>
+            )}
+            <p className="text-white text-lg font-semibold drop-shadow-md text-center">
+              {phase === 'outgoing' ? 'En attente de réponse…' : peer?.display_name}
+            </p>
+          </div>
+
+          <div
+            className="pb-6 px-4 pt-8 bg-gradient-to-t from-black/70 to-transparent pointer-events-auto"
+            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+          >
+            <CallControls
+              isVideo={isVideo}
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+              toggleMute={toggleMute}
+              toggleCamera={toggleCamera}
+              endCall={endCall}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Appel vocal ou incoming / erreur : carte centrée ─────────────
   return (
     <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
@@ -128,88 +241,32 @@ export default function CallOverlay() {
           </div>
         )}
 
-        {showActive && (
-          <div className="space-y-4">
-            <div className="relative aspect-[9/16] max-h-[70vh] mx-auto rounded-2xl overflow-hidden bg-gray-900 border border-white/10">
-              {phase === 'active' && (
-                <div className="absolute top-4 left-0 right-0 z-10 flex justify-center pointer-events-none">
-                  <span className="px-4 py-1.5 rounded-full bg-black/50 text-white text-sm font-mono tabular-nums tracking-wide backdrop-blur-sm">
-                    {timerLabel}
-                  </span>
-                </div>
-              )}
-
-              {showAvatarPlaceholder && (
-                <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center text-white px-6">
-                  <CallPeerAvatar peer={peer} size="lg" />
-                  <p className="text-xl font-semibold mt-4 text-center">{peer?.display_name}</p>
-                  <p className="text-white/60 text-sm mt-2 text-center">
-                    {phase === 'outgoing' ? (
-                      'Sonnerie…'
-                    ) : (
-                      <span className="font-mono tabular-nums text-base text-white/90">
-                        {timerLabel}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              )}
-
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className={`absolute inset-0 h-full w-full object-cover bg-gray-900 z-[6] ${isVideo && phase === 'active' ? 'block' : 'hidden'}`}
-              />
-              {isVideo && (
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="absolute bottom-4 right-4 h-28 w-20 rounded-xl object-cover border-2 border-white/30 shadow-lg z-[7]"
-                />
-              )}
+        {showActive && !isVideo && (
+          <div className="space-y-6">
+            <div className="text-center text-white space-y-4">
+              <CallPeerAvatar peer={peer} size="lg" />
+              <div>
+                <p className="text-xl font-semibold">{peer?.display_name}</p>
+                <p className="text-white/60 text-sm mt-2">
+                  {phase === 'outgoing' ? (
+                    'Sonnerie…'
+                  ) : (
+                    <span className="font-mono tabular-nums text-base text-white/90">
+                      {timerLabel}
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
 
-            <div className="text-center text-white/80 text-sm">
-              <p>
-                {phase === 'outgoing' ? 'En attente de réponse…' : peer?.display_name}
-              </p>
-            </div>
-
-            <div className="flex justify-center items-center gap-4">
-              <button
-                type="button"
-                onClick={() => void toggleMute()}
-                className={`h-12 w-12 rounded-full flex items-center justify-center ${isMuted ? 'bg-red-500' : 'bg-white/20'}`}
-                aria-label="Micro"
-              >
-                {isMuted ? (
-                  <NoSymbolIcon className="h-6 w-6 text-white" />
-                ) : (
-                  <MicrophoneIcon className="h-6 w-6 text-white" />
-                )}
-              </button>
-              {isVideo && (
-                <button
-                  type="button"
-                  onClick={() => void toggleCamera()}
-                  className={`h-12 w-12 rounded-full flex items-center justify-center ${isCameraOff ? 'bg-red-500' : 'bg-white/20'}`}
-                  aria-label="Caméra"
-                >
-                  <VideoCameraIcon className="h-6 w-6 text-white" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => void endCall()}
-                className="h-14 w-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-lg"
-                aria-label="Raccrocher"
-              >
-                <PhoneXMarkIcon className="h-7 w-7 text-white" />
-              </button>
-            </div>
+            <CallControls
+              isVideo={false}
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+              toggleMute={toggleMute}
+              toggleCamera={toggleCamera}
+              endCall={endCall}
+            />
           </div>
         )}
       </div>
