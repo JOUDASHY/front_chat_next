@@ -145,11 +145,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
   );
 
   const attachTrack = useCallback(
-    (track: import('livekit-client').RemoteTrack | import('livekit-client').LocalTrack, target: 'local' | 'remote') => {
+    (
+      track: import('livekit-client').RemoteTrack | import('livekit-client').LocalTrack,
+      target: 'local' | 'remote'
+    ) => {
       const el = target === 'local' ? localVideoRef.current : remoteVideoRef.current;
       if (!el || track.kind !== 'video') return false;
-      // mirror: false — affichage normal (LiveKit miroire la cam front par défaut)
-      track.attach(el, { mirror: false });
+  
+      track.attach(el);
+  
       return true;
     },
     []
