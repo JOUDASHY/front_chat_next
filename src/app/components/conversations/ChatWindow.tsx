@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 import CallEventBubble from '@/components/CallEventBubble';
+import ChatMessagesSkeleton from '@/components/ChatMessagesSkeleton';
 import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
 import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
 import { CallEvent } from '@/lib/callUtils';
@@ -138,7 +139,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
-  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [recipientOnline, setRecipientOnline] = useState(false);
   const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
@@ -1276,7 +1277,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         ref={messagesContainerRef}
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 md:p-4 bg-gray-50 space-y-2 md:space-y-4 mt-[1px]"
       >
-        {Array.isArray(messages) && messages.length > 0 ? (
+        {messagesLoading ? (
+          <ChatMessagesSkeleton />
+        ) : Array.isArray(messages) && messages.length > 0 ? (
           (() => {
             // Trouver l'ID du tout dernier message envoyé par l'utilisateur (pour l'avatar de lecture)
             const lastUserMessageId = [...messages]
