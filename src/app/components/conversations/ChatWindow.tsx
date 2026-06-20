@@ -29,6 +29,7 @@ import dynamic from 'next/dynamic';
 import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 import CallEventBubble from '@/components/CallEventBubble';
 import ChatMessagesSkeleton from '@/components/ChatMessagesSkeleton';
+import MessageContent from '@/components/MessageContent';
 import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
 import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
 import { CallEvent } from '@/lib/callUtils';
@@ -95,6 +96,50 @@ interface ChatWindowProps {
   isMobile?: boolean; // Pour savoir si on est sur mobile
 }
 
+function SelectedFileChip({
+  file,
+  onRemove,
+}: {
+  file: File;
+  onRemove: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [file]);
+
+  return (
+    <div className="relative shrink-0 w-28 rounded-xl border border-gray-200 bg-white overflow-hidden">
+      {previewUrl ? (
+        <img src={previewUrl} alt={file.name} className="h-20 w-full object-cover" />
+      ) : file.type.startsWith('video/') ? (
+        <div className="h-20 flex items-center justify-center bg-violet-50">
+          <VideoCameraIcon className="h-8 w-8 text-violet-500" />
+        </div>
+      ) : (
+        <div className="h-20 flex items-center justify-center bg-gray-100">
+          <DocumentIcon className="h-8 w-8 text-gray-500" />
+        </div>
+      )}
+      <p className="px-2 py-1 text-[10px] text-gray-600 truncate">{file.name}</p>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-red-500 transition-colors"
+        aria-label="Retirer le fichier"
+      >
+        <XMarkIcon className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 function PendingFilePreview({ file }: { file: File }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -135,8 +180,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const { startCall, phase: callPhase } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(true);
@@ -537,28 +581,23 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       setTimeout(() => scrollMessagesToBottom('auto'), ms);
     });
   };
-  useEffect(() => {
-    if (!file) {
-      setFilePreviewUrl(null);
-      return;
-    }
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      setFilePreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    setFilePreviewUrl(null);
-  }, [file]);
-
-  const clearSelectedFile = () => {
-    setFile(null);
+  const clearSelectedFiles = () => {
+    setSelectedFiles([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const handleFileSelect = (selected: File | null) => {
-    setFile(selected);
+  const handleFileSelect = (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    setSelectedFiles((prev) => [...prev, ...Array.from(fileList)]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatFileSize = (bytes: number) => {
@@ -633,77 +672,102 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     };
   }, []);
 
+  const uploadSingleMessage = async (
+    content: string,
+    attachment?: File
+  ): Promise<Message | null> => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+    const endpoint = conversation!.isGroup
+      ? `${API_URL}/api/chat/group/${conversation!.id}/`
+      : `${API_URL}/api/chat/private/${userId}/`;
+
+    const formData = new FormData();
+    formData.append('content', content);
+
+    if (!conversation!.isGroup && recipientId) {
+      formData.append('recipient', String(recipientId));
+    }
+
+    if (attachment) {
+      formData.append('attachment', attachment);
+    }
+
+    const { data } = await api.post(endpoint, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return data;
+  };
+
   // Envoi de message
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !file) || !conversation?.id || userId == null || isSending) return;
-    
+    const text = newMessage.trim();
+    const filesToSend = [...selectedFiles];
+
+    if ((!text && filesToSend.length === 0) || !conversation?.id || userId == null || isSending) {
+      return;
+    }
+
     setIsSending(true);
     stopTyping();
-    
-    // Créer un message temporaire
-    const tempMessage: PendingMessage = {
-      id: `pending-${Date.now()}`,
-      content: newMessage.trim(),
+
+    const payloads: { content: string; file?: File }[] = [];
+
+    if (filesToSend.length === 0) {
+      payloads.push({ content: text });
+    } else {
+      payloads.push({ content: text, file: filesToSend[0] });
+      for (let i = 1; i < filesToSend.length; i++) {
+        payloads.push({ content: '', file: filesToSend[i] });
+      }
+    }
+
+    const pendingBatch: PendingMessage[] = payloads.map((payload, index) => ({
+      id: `pending-${Date.now()}-${index}`,
+      content: payload.content,
       sender: user?.username || '',
       timestamp: new Date().toISOString(),
       isPending: true,
-      file: file || undefined
-    };
-
-    // Ajouter le message à l'état pending et réinitialiser l'input
-    setPendingMessages(prev => [...prev, tempMessage]);
-    setNewMessage('');
-    clearSelectedFile();
-    // Re-focus immédiat pour que l'user puisse enchaîner sans re-cliquer
-    inputRef.current?.focus();
-    
-    // Notifier la sidebar IMMÉDIATEMENT (optimistic UI) pour éviter une race condition avec Pusher
-    window.dispatchEvent(new CustomEvent('chat-message-sent', {
-      detail: {
-        conversationId: conversation.id,
-        lastMessage: tempMessage.content || (tempMessage.file ? `📎 ${tempMessage.file.name}` : ''),
-        timestamp: tempMessage.timestamp,
-      }
+      file: payload.file,
     }));
 
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL!;
-      const endpoint = conversation.isGroup
-        ? `${API_URL}/api/chat/group/${conversation.id}/`
-        : `${API_URL}/api/chat/private/${userId}/`;
+    setPendingMessages((prev) => [...prev, ...pendingBatch]);
+    setNewMessage('');
+    clearSelectedFiles();
+    inputRef.current?.focus();
 
-      const formData = new FormData();
-      formData.append('content', tempMessage.content);  // peut être vide, le backend l'accepte si attachment présent
-      
-      if (!conversation.isGroup && recipientId) {
-        formData.append('recipient', String(recipientId));
-      }
-      
-      if (tempMessage.file) {
-        formData.append('attachment', tempMessage.file);
-      }
-
-      const { data } = await api.post(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
+    window.dispatchEvent(
+      new CustomEvent('chat-message-sent', {
+        detail: {
+          conversationId: conversation.id,
+          lastMessage:
+            text ||
+            (filesToSend.length === 1
+              ? `📎 ${filesToSend[0].name}`
+              : `📎 ${filesToSend.length} fichiers`),
+          timestamp: pendingBatch[pendingBatch.length - 1].timestamp,
         },
-      });
+      })
+    );
 
-      // Ajouter le vrai message si Pusher est en retard
-      setMessages(prev => {
-        const isDuplicate = prev.some(msg => msg.id === data.id);
-        if (isDuplicate) return prev;
-        return [...prev, data];
-      });
+    try {
+      for (const pending of pendingBatch) {
+        const data = await uploadSingleMessage(pending.content, pending.file);
 
-      // Retirer le message des pending après succès
-      setPendingMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-      
+        if (data) {
+          setMessages((prev) => {
+            const isDuplicate = prev.some((msg) => msg.id === data.id);
+            if (isDuplicate) return prev;
+            return [...prev, data];
+          });
+        }
+
+        setPendingMessages((prev) => prev.filter((msg) => msg.id !== pending.id));
+      }
     } catch (err) {
-      // Marquer le message comme erreur
-      setPendingMessages(prev => 
-        prev.map(msg => 
-          msg.id === tempMessage.id 
+      setPendingMessages((prev) =>
+        prev.map((msg) =>
+          pendingBatch.some((p) => p.id === msg.id)
             ? { ...msg, isPending: false, isError: true }
             : msg
         )
@@ -1520,9 +1584,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             <span className="text-[10px] text-gray-400">{messageTime}</span>
                           </div>
                         ) : (
-                          <p className={`text-xs md:text-sm leading-snug break-words break-all whitespace-pre-wrap ${isCurrentUser ? 'text-white' : 'text-gray-800'}`}>
-                            {msg.content}
-                          </p>
+                          <MessageContent content={msg.content} isCurrentUser={isCurrentUser} />
                         )
                       )
                     )}
@@ -1711,7 +1773,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     })}
                   </span>
                 </div>
-                <p className="text-xs md:text-sm leading-snug break-words break-all whitespace-pre-wrap text-white">{msg.content}</p>
+                {msg.content ? (
+                  <MessageContent content={msg.content} isCurrentUser />
+                ) : null}
 
                 {msg.file && (
                   <PendingFilePreview file={msg.file} />
@@ -1765,43 +1829,28 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
         <div className="bg-white rounded-3xl">
 
-          {file && (
-            <div className="px-3 pt-3 pb-3 md:px-4 md:pt-4 md:pb-3 bg-gray-50 rounded-t-3xl">
-              <div className="relative inline-flex items-center gap-4 max-w-full rounded-2xl bg-white p-3 pr-12">
-
-                {filePreviewUrl ? (
-                  <img
-                    src={filePreviewUrl}
-                    alt={file.name}
-                    className="h-20 w-20 rounded-xl object-cover shrink-0"
-                  />
-                ) : file.type.startsWith('video/') ? (
-                  <div className="h-20 w-20 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-                    <VideoCameraIcon className="h-10 w-10 text-violet-500" />
-                  </div>
-                ) : (
-                  <div className="h-20 w-20 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                    <DocumentIcon className="h-10 w-10 text-gray-500" />
-                  </div>
-                )}
-
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate max-w-[220px]">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                  <p className="text-xs text-violet-600 mt-1 font-medium">Prêt à envoyer</p>
-                </div>
-
+          {selectedFiles.length > 0 && (
+            <div className="px-3 pt-3 pb-2 md:px-4 md:pt-4 bg-gray-50 rounded-t-3xl">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-violet-600">
+                  {selectedFiles.length} fichier{selectedFiles.length > 1 ? 's sélectionnés' : ' sélectionné'}
+                </p>
                 <button
                   type="button"
-                  onClick={clearSelectedFile}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
-                  aria-label="Retirer le fichier"
+                  onClick={clearSelectedFiles}
+                  className="text-xs text-gray-500 hover:text-red-500 transition-colors"
                 >
-                  <XMarkIcon className="h-4 w-4" />
+                  Tout retirer
                 </button>
-
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {selectedFiles.map((selectedFile, index) => (
+                  <SelectedFileChip
+                    key={`${selectedFile.name}-${index}`}
+                    file={selectedFile}
+                    onRemove={() => removeSelectedFile(index)}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -1871,11 +1920,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             {!isRecording && !audioBlob && (
               <>
                 {/* FILE */}
-                <label className={`p-3 rounded-full transition-colors cursor-pointer ${file ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}>
+                <label className={`p-3 rounded-full transition-colors cursor-pointer ${selectedFiles.length > 0 ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    onChange={e => handleFileSelect(e.target.files?.[0] || null)}
+                    multiple
+                    onChange={(e) => handleFileSelect(e.target.files)}
                     className="hidden"
                     accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
                   />
@@ -1926,7 +1976,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 />
 
                 {/* SEND / MIC */}
-                {newMessage.trim() || file ? (
+                {newMessage.trim() || selectedFiles.length > 0 ? (
                   <button
                     onClick={sendMessage}
                     disabled={isSending}
