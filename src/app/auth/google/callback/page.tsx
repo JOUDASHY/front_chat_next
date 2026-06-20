@@ -32,6 +32,7 @@ export default function GoogleCallback() {
         // 3) Stocker les tokens et infos user
         localStorage.setItem('accessToken', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new Event('auth-changed'));
 
         // 4) Rediriger vers la page protégée
         router.replace('/chat');

@@ -57,6 +57,7 @@ const LoginPage = () => {
       localStorage.setItem("accessToken", data.access);
       localStorage.setItem("refreshToken", data.refresh);
       localStorage.setItem("user", JSON.stringify(data.user));
+      window.dispatchEvent(new Event('auth-changed'));
 
       setIsSuccess(true);
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -118,6 +119,7 @@ const LoginPage = () => {
           localStorage.setItem("refreshToken", data.refresh_token);
         }
         localStorage.setItem("user", JSON.stringify(data.user));
+        window.dispatchEvent(new Event('auth-changed'));
 
         setIsSuccess(true);
         await new Promise(resolve => setTimeout(resolve, 2000));

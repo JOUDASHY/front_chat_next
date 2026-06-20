@@ -10,6 +10,12 @@ import {
   type ReactNode,
 } from 'react';
 import api from '@/lib/axiosClient';
+import {
+  closeIncomingCallNotification,
+  ensureCallNotificationPermission,
+  showIncomingCallNotification,
+} from '@/lib/callNotifications';
+import { startCallRingtone, stopCallRingtone } from '@/lib/callRingtone';
 
 export type CallType = 'audio' | 'video';
 export type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'active';
@@ -110,6 +116,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetCall = useCallback(async () => {
+    stopCallRingtone();
+    closeIncomingCallNotification();
     await detachRoom();
     setPhase('idle');
     setCallType(null);
@@ -295,6 +303,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
           image: data.caller.image,
         });
         setPhase('incoming');
+        startCallRingtone('incoming');
+        showIncomingCallNotification(data.caller.display_name, data.call_type);
       });
 
       channel.bind('call-accepted', (data: {
@@ -302,6 +312,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         user?: { display_name?: string; username?: string; image?: string | null };
       }) => {
         if (sessionRef.current?.roomName === data.room_name) {
+          stopCallRingtone();
+          closeIncomingCallNotification();
           if (data.user) {
             setPeer((prev) =>
               prev
@@ -352,6 +364,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
   }, [phase, callType, syncRoomTracks]);
 
+  useEffect(() => {
+    if (phase === 'active') {
+      stopCallRingtone();
+      closeIncomingCallNotification();
+    }
+  }, [phase]);
+
+  useEffect(() => {
+    void ensureCallNotificationPermission();
+  }, []);
+
   const startCall = useCallback(
     async (recipientId: number, type: CallType, peerHint?: Partial<CallPeer>) => {
       setError(null);
@@ -362,11 +385,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         image: peerHint?.image ?? null,
         username: peerHint?.username,
       };
-      setPeer(hintedPeer);
-      setCallType(type);
-      setPhase('outgoing');
+        setPeer(hintedPeer);
+        setCallType(type);
+        setPhase('outgoing');
+        startCallRingtone('outgoing');
 
-      try {
+        try {
         const { data } = await api.post('/api/chat/calls/start/', {
           recipient_id: recipientId,
           call_type: type,
