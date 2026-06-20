@@ -1760,177 +1760,203 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </div>
         )}
 
-      <div className="bg-white border-t shadow-lg">
-        {file && (
-          <div className="px-3 pt-2 pb-1.5 md:px-4 md:pt-3 md:pb-2 border-b border-gray-100 bg-gray-50">
-            <div className="relative inline-flex items-center gap-3 max-w-full rounded-xl border border-indigo-200 bg-white p-2 pr-10 shadow-sm">
-              {filePreviewUrl ? (
-                <img
-                  src={filePreviewUrl}
-                  alt={file.name}
-                  className="h-16 w-16 rounded-lg object-cover shrink-0 border border-gray-200"
-                />
-              ) : file.type.startsWith('video/') ? (
-                <div className="h-16 w-16 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                  <VideoCameraIcon className="h-8 w-8 text-indigo-500" />
-                </div>
-              ) : (
-                <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                  <DocumentIcon className="h-8 w-8 text-gray-500" />
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate max-w-[220px]">{file.name}</p>
-                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                <p className="text-xs text-indigo-600 mt-0.5">Prêt à envoyer</p>
-              </div>
-              <button
-                type="button"
-                onClick={clearSelectedFile}
-                className="absolute top-1.5 right-1.5 p-1 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
-                aria-label="Retirer le fichier"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-            </div>
+<div className="bg-white border-t shadow-lg">
+
+{file && (
+  <div className="px-3 pt-3 pb-3 md:px-4 md:pt-4 md:pb-3 border-b border-gray-100 bg-gray-50">
+    <div className="relative inline-flex items-center gap-4 max-w-full rounded-xl border border-indigo-200 bg-white p-3 pr-12 shadow-sm">
+
+      {filePreviewUrl ? (
+        <img
+          src={filePreviewUrl}
+          alt={file.name}
+          className="h-20 w-20 rounded-lg object-cover shrink-0 border border-gray-200"
+        />
+      ) : file.type.startsWith('video/') ? (
+        <div className="h-20 w-20 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+          <VideoCameraIcon className="h-10 w-10 text-indigo-500" />
+        </div>
+      ) : (
+        <div className="h-20 w-20 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+          <DocumentIcon className="h-10 w-10 text-gray-500" />
+        </div>
+      )}
+
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-800 truncate max-w-[220px]">
+          {file.name}
+        </p>
+        <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+        <p className="text-xs text-indigo-600 mt-1">Prêt à envoyer</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={clearSelectedFile}
+        className="absolute top-2 right-2 p-2 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
+        aria-label="Retirer le fichier"
+      >
+        <XMarkIcon className="h-5 w-5" />
+      </button>
+
+    </div>
+  </div>
+)}
+
+{/* BARRE PRINCIPALE */}
+<div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-center gap-3">
+
+  {/* AUDIO PREVIEW */}
+  {audioBlob && !isRecording && (
+    <div className="flex-1 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-full px-4 py-3">
+
+      <MicrophoneIcon className="h-5 w-5 text-indigo-500 shrink-0" />
+
+      <audio
+        src={audioPreviewUrl ?? undefined}
+        controls
+        className="flex-1 h-9"
+        style={{ minWidth: 0 }}
+      />
+
+      <button
+        type="button"
+        onClick={cancelRecording}
+        className="p-2 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500"
+      >
+        <XMarkIcon className="h-5 w-5" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => void sendVoiceMessage()}
+        disabled={isSending}
+        className="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50"
+      >
+        <PaperAirplaneIcon className="h-5 w-5" />
+      </button>
+
+    </div>
+  )}
+
+  {/* RECORDING */}
+  {isRecording && (
+    <div className="flex-1 flex items-center gap-3 bg-red-50 border border-red-200 rounded-full px-5 py-3">
+
+      <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+
+      <span className="text-sm font-mono text-red-600 font-semibold">
+        {formatRecordingTime(recordingSeconds)}
+      </span>
+
+      <span className="text-xs text-red-500 flex-1">
+        Enregistrement…
+      </span>
+
+      <button
+        type="button"
+        onClick={cancelRecording}
+        className="text-xs text-gray-500 hover:text-red-500"
+      >
+        Annuler
+      </button>
+
+    </div>
+  )}
+
+  {/* ZONE INPUT */}
+  {!isRecording && !audioBlob && (
+    <>
+      {/* FILE */}
+      <label className={`p-3 rounded-full transition-colors cursor-pointer ${file ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={e => handleFileSelect(e.target.files?.[0] || null)}
+          className="hidden"
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+        />
+        <PaperClipIcon className={`h-6 w-6 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
+      </label>
+
+      {/* EMOJI */}
+      <div className="relative" ref={emojiPickerRef}>
+        <button
+          type="button"
+          onClick={() => setShowEmojiPicker(v => !v)}
+          className={`p-3 rounded-full transition-colors ${showEmojiPicker ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
+        >
+          <FaceSmileIcon className="h-6 w-6" />
+        </button>
+
+        {showEmojiPicker && (
+          <div className="absolute bottom-14 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
+            <EmojiPicker
+              onEmojiClick={({ emoji }) => {
+                setNewMessage(prev => prev + emoji);
+                inputRef.current?.focus();
+              }}
+              height={380}
+              width={320}
+              searchPlaceholder="Rechercher…"
+              previewConfig={{ showPreview: false }}
+            />
           </div>
         )}
-
-        <div className="max-w-[100%] mx-auto px-3 py-1.5 md:py-2 md:px-4 flex items-center gap-2">
-          {/* Prévisualisation du message vocal */}
-          {audioBlob && !isRecording && (
-            <div className="flex-1 flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1.5">
-              <MicrophoneIcon className="h-4 w-4 text-indigo-500 shrink-0" />
-              <audio src={audioPreviewUrl ?? undefined} controls className="flex-1 h-8" style={{ minWidth: 0 }} />
-              <button
-                type="button"
-                onClick={cancelRecording}
-                className="p-1 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors shrink-0"
-                aria-label="Annuler"
-              >
-                <XMarkIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => void sendVoiceMessage()}
-                disabled={isSending}
-                className="p-1.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors shrink-0"
-                aria-label="Envoyer le message vocal"
-              >
-                <PaperAirplaneIcon className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          {/* Timer d'enregistrement */}
-          {isRecording && (
-            <div className="flex-1 flex items-center gap-2 bg-red-50 border border-red-200 rounded-full px-4 py-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-              <span className="text-sm font-mono text-red-600 font-semibold">
-                {formatRecordingTime(recordingSeconds)}
-              </span>
-              <span className="text-xs text-red-500 flex-1">Enregistrement…</span>
-              <button
-                type="button"
-                onClick={cancelRecording}
-                className="text-xs text-gray-500 hover:text-red-500 transition-colors"
-                aria-label="Annuler l'enregistrement"
-              >
-                Annuler
-              </button>
-            </div>
-          )}
-
-          {/* Zone normale (texte + fichier) */}
-          {!isRecording && !audioBlob && (
-            <>
-              <label className={`p-1.5 md:p-2 rounded-full transition-colors cursor-pointer ${file ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  onChange={e => handleFileSelect(e.target.files?.[0] || null)}
-                  className="hidden"
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-                />
-                <PaperClipIcon className={`h-5 w-5 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
-              </label>
-
-              {/* Emoji picker */}
-              <div className="relative" ref={emojiPickerRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(v => !v)}
-                  className={`p-1.5 md:p-2 rounded-full transition-colors ${showEmojiPicker ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
-                  aria-label="Emoji"
-                  title="Emoji"
-                >
-                  <FaceSmileIcon className="h-5 w-5" />
-                </button>
-                {showEmojiPicker && (
-                  <div className="absolute bottom-12 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
-                    <EmojiPicker
-                      onEmojiClick={({ emoji }) => {
-                        setNewMessage(prev => prev + emoji);
-                        inputRef.current?.focus();
-                      }}
-                      height={380}
-                      width={320}
-                      searchPlaceholder="Rechercher…"
-                      previewConfig={{ showPreview: false }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <input
-                ref={inputRef}
-                type="text"
-                value={newMessage}
-                onChange={handleTyping}
-                onFocus={handleInputFocus}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                placeholder={iBlockedThem || theyBlockedMe ? 'Impossible d\'envoyer un message…' : 'Écrivez un message...'}
-                className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-full text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={iBlockedThem || theyBlockedMe}
-              />
-
-              {/* Bouton envoi OU micro selon contenu */}
-              {newMessage.trim() || file ? (
-                <button
-                  onClick={sendMessage}
-                  disabled={isSending}
-                  className="p-2 md:p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void startRecording()}
-                  disabled={isSending || iBlockedThem || theyBlockedMe}
-                  className="p-2 md:p-2.5 bg-gray-100 text-gray-600 rounded-full hover:bg-indigo-100 hover:text-indigo-600 disabled:opacity-50 transition-colors focus:outline-none"
-                  title="Cliquer pour démarrer l'enregistrement vocal"
-                  aria-label="Enregistrer un message vocal"
-                >
-                  <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Bouton stop pendant enregistrement */}
-          {isRecording && (
-            <button
-              type="button"
-              onClick={stopRecording}
-              className="p-2 md:p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors focus:outline-none shrink-0"
-              aria-label="Arrêter l'enregistrement"
-            >
-              <StopIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
-          )}
-        </div>
       </div>
+
+      {/* INPUT */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={newMessage}
+        onChange={handleTyping}
+        onFocus={handleInputFocus}
+        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+        placeholder={
+          iBlockedThem || theyBlockedMe
+            ? "Impossible d'envoyer un message…"
+            : "Écrivez un message..."
+        }
+        className="flex-1 px-4 py-3 md:px-5 md:py-3.5 bg-gray-50 border border-gray-200 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800"
+        disabled={iBlockedThem || theyBlockedMe}
+      />
+
+      {/* SEND / MIC */}
+      {newMessage.trim() || file ? (
+        <button
+          onClick={sendMessage}
+          disabled={isSending}
+          className="p-3.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50"
+        >
+          <PaperAirplaneIcon className="h-5 w-5" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void startRecording()}
+          disabled={isSending || iBlockedThem || theyBlockedMe}
+          className="p-3.5 bg-gray-100 text-gray-600 rounded-full hover:bg-indigo-100 hover:text-indigo-600"
+        >
+          <MicrophoneIcon className="h-5 w-5" />
+        </button>
+      )}
+    </>
+  )}
+
+  {/* STOP */}
+  {isRecording && (
+    <button
+      type="button"
+      onClick={stopRecording}
+      className="p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600"
+    >
+      <StopIcon className="h-5 w-5" />
+    </button>
+  )}
+
+</div>
+</div>
       </div>
       {/* Lightbox plein écran image / vidéo */}
       <MediaLightbox media={lightbox} onClose={() => setLightbox(null)} />
