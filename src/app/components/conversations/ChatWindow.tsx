@@ -1746,11 +1746,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       <div className="shrink-0 z-10">
         {typingUsers.length > 0 && (
           <div className="px-3 md:px-4 pb-1 flex items-center gap-2 bg-gray-50">
-            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 shadow-sm">
+            <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1.5">
               <div className="flex items-center gap-[3px]">
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:300ms]" />
               </div>
               <span className="text-xs text-gray-500">
                 {typingUsers.length === 1
@@ -1763,203 +1763,203 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </div>
         )}
 
-<div className="bg-white border-t shadow-lg">
+        <div className="bg-white rounded-3xl">
 
-{file && (
-  <div className="px-3 pt-3 pb-3 md:px-4 md:pt-4 md:pb-3 border-b border-gray-100 bg-gray-50">
-    <div className="relative inline-flex items-center gap-4 max-w-full rounded-xl border border-indigo-200 bg-white p-3 pr-12 shadow-sm">
+          {file && (
+            <div className="px-3 pt-3 pb-3 md:px-4 md:pt-4 md:pb-3 bg-gray-50 rounded-t-3xl">
+              <div className="relative inline-flex items-center gap-4 max-w-full rounded-2xl bg-white p-3 pr-12">
 
-      {filePreviewUrl ? (
-        <img
-          src={filePreviewUrl}
-          alt={file.name}
-          className="h-20 w-20 rounded-lg object-cover shrink-0 border border-gray-200"
-        />
-      ) : file.type.startsWith('video/') ? (
-        <div className="h-20 w-20 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-          <VideoCameraIcon className="h-10 w-10 text-indigo-500" />
-        </div>
-      ) : (
-        <div className="h-20 w-20 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-          <DocumentIcon className="h-10 w-10 text-gray-500" />
-        </div>
-      )}
+                {filePreviewUrl ? (
+                  <img
+                    src={filePreviewUrl}
+                    alt={file.name}
+                    className="h-20 w-20 rounded-xl object-cover shrink-0"
+                  />
+                ) : file.type.startsWith('video/') ? (
+                  <div className="h-20 w-20 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                    <VideoCameraIcon className="h-10 w-10 text-violet-500" />
+                  </div>
+                ) : (
+                  <div className="h-20 w-20 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <DocumentIcon className="h-10 w-10 text-gray-500" />
+                  </div>
+                )}
 
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate max-w-[220px]">
-          {file.name}
-        </p>
-        <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-        <p className="text-xs text-indigo-600 mt-1">Prêt à envoyer</p>
-      </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate max-w-[220px]">
+                    {file.name}
+                  </p>
+                  <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                  <p className="text-xs text-violet-600 mt-1 font-medium">Prêt à envoyer</p>
+                </div>
 
-      <button
-        type="button"
-        onClick={clearSelectedFile}
-        className="absolute top-2 right-2 p-2 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
-        aria-label="Retirer le fichier"
-      >
-        <XMarkIcon className="h-5 w-5" />
-      </button>
+                <button
+                  type="button"
+                  onClick={clearSelectedFile}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
+                  aria-label="Retirer le fichier"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
 
-    </div>
-  </div>
-)}
+              </div>
+            </div>
+          )}
 
-{/* BARRE PRINCIPALE */}
-<div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-center gap-3">
+          {/* BARRE PRINCIPALE */}
+          <div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-center gap-2">
 
-  {/* AUDIO PREVIEW */}
-  {audioBlob && !isRecording && (
-    <div className="flex-1 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-full px-4 py-3">
+            {/* AUDIO PREVIEW */}
+            {audioBlob && !isRecording && (
+              <div className="flex-1 flex items-center gap-3 bg-violet-50 rounded-full px-4 py-2.5">
 
-      <MicrophoneIcon className="h-5 w-5 text-indigo-500 shrink-0" />
+                <MicrophoneIcon className="h-5 w-5 text-violet-500 shrink-0" />
 
-      <audio
-        src={audioPreviewUrl ?? undefined}
-        controls
-        className="flex-1 h-9"
-        style={{ minWidth: 0 }}
-      />
+                <audio
+                  src={audioPreviewUrl ?? undefined}
+                  controls
+                  className="flex-1 h-9"
+                  style={{ minWidth: 0 }}
+                />
 
-      <button
-        type="button"
-        onClick={cancelRecording}
-        className="p-2 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500"
-      >
-        <XMarkIcon className="h-5 w-5" />
-      </button>
+                <button
+                  type="button"
+                  onClick={cancelRecording}
+                  className="p-2 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
 
-      <button
-        type="button"
-        onClick={() => void sendVoiceMessage()}
-        disabled={isSending}
-        className="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50"
-      >
-        <PaperAirplaneIcon className="h-5 w-5" />
-      </button>
+                <button
+                  type="button"
+                  onClick={() => void sendVoiceMessage()}
+                  disabled={isSending}
+                  className="p-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                >
+                  <PaperAirplaneIcon className="h-5 w-5" />
+                </button>
 
-    </div>
-  )}
+              </div>
+            )}
 
-  {/* RECORDING */}
-  {isRecording && (
-    <div className="flex-1 flex items-center gap-3 bg-red-50 border border-red-200 rounded-full px-5 py-3">
+            {/* RECORDING */}
+            {isRecording && (
+              <div className="flex-1 flex items-center gap-3 bg-red-50 rounded-full px-5 py-3">
 
-      <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+                <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
 
-      <span className="text-sm font-mono text-red-600 font-semibold">
-        {formatRecordingTime(recordingSeconds)}
-      </span>
+                <span className="text-sm font-mono text-red-600 font-semibold">
+                  {formatRecordingTime(recordingSeconds)}
+                </span>
 
-      <span className="text-xs text-red-500 flex-1">
-        Enregistrement…
-      </span>
+                <span className="text-xs text-red-400 flex-1">
+                  Enregistrement…
+                </span>
 
-      <button
-        type="button"
-        onClick={cancelRecording}
-        className="text-xs text-gray-500 hover:text-red-500"
-      >
-        Annuler
-      </button>
+                <button
+                  type="button"
+                  onClick={cancelRecording}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  Annuler
+                </button>
 
-    </div>
-  )}
+              </div>
+            )}
 
-  {/* ZONE INPUT */}
-  {!isRecording && !audioBlob && (
-    <>
-      {/* FILE */}
-      <label className={`p-3 rounded-full transition-colors cursor-pointer ${file ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          onChange={e => handleFileSelect(e.target.files?.[0] || null)}
-          className="hidden"
-          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-        />
-        <PaperClipIcon className={`h-6 w-6 ${file ? 'text-indigo-600' : 'text-gray-500'}`} />
-      </label>
+            {/* ZONE INPUT */}
+            {!isRecording && !audioBlob && (
+              <>
+                {/* FILE */}
+                <label className={`p-3 rounded-full transition-colors cursor-pointer ${file ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={e => handleFileSelect(e.target.files?.[0] || null)}
+                    className="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+                  />
+                  <PaperClipIcon className="h-6 w-6" />
+                </label>
 
-      {/* EMOJI */}
-      <div className="relative" ref={emojiPickerRef}>
-        <button
-          type="button"
-          onClick={() => setShowEmojiPicker(v => !v)}
-          className={`p-3 rounded-full transition-colors ${showEmojiPicker ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
-        >
-          <FaceSmileIcon className="h-6 w-6" />
-        </button>
+                {/* EMOJI */}
+                <div className="relative" ref={emojiPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(v => !v)}
+                    className={`p-3 rounded-full transition-colors ${showEmojiPicker ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}
+                  >
+                    <FaceSmileIcon className="h-6 w-6" />
+                  </button>
 
-        {showEmojiPicker && (
-          <div className="absolute bottom-14 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
-            <EmojiPicker
-              onEmojiClick={({ emoji }) => {
-                setNewMessage(prev => prev + emoji);
-                inputRef.current?.focus();
-              }}
-              height={380}
-              width={320}
-              searchPlaceholder="Rechercher…"
-              previewConfig={{ showPreview: false }}
-            />
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-14 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
+                      <EmojiPicker
+                        onEmojiClick={({ emoji }) => {
+                          setNewMessage(prev => prev + emoji);
+                          inputRef.current?.focus();
+                        }}
+                        height={380}
+                        width={320}
+                        searchPlaceholder="Rechercher…"
+                        previewConfig={{ showPreview: false }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* INPUT */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newMessage}
+                  onChange={handleTyping}
+                  onFocus={handleInputFocus}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  placeholder={
+                    iBlockedThem || theyBlockedMe
+                      ? "Impossible d'envoyer un message…"
+                      : "Écrivez un message..."
+                  }
+                  className="flex-1 px-4 py-3 md:px-5 md:py-3.5 bg-gray-100 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-violet-400 text-gray-800 placeholder:text-gray-400 disabled:opacity-50 transition-shadow"
+                  disabled={iBlockedThem || theyBlockedMe}
+                />
+
+                {/* SEND / MIC */}
+                {newMessage.trim() || file ? (
+                  <button
+                    onClick={sendMessage}
+                    disabled={isSending}
+                    className="p-3.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                  >
+                    <PaperAirplaneIcon className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void startRecording()}
+                    disabled={isSending || iBlockedThem || theyBlockedMe}
+                    className="p-3.5 bg-gray-100 text-gray-500 rounded-full hover:bg-violet-100 hover:text-violet-600 disabled:opacity-50 transition-colors"
+                  >
+                    <MicrophoneIcon className="h-5 w-5" />
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* STOP */}
+            {isRecording && (
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+              >
+                <StopIcon className="h-5 w-5" />
+              </button>
+            )}
+
           </div>
-        )}
-      </div>
-
-      {/* INPUT */}
-      <input
-        ref={inputRef}
-        type="text"
-        value={newMessage}
-        onChange={handleTyping}
-        onFocus={handleInputFocus}
-        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-        placeholder={
-          iBlockedThem || theyBlockedMe
-            ? "Impossible d'envoyer un message…"
-            : "Écrivez un message..."
-        }
-        className="flex-1 px-4 py-3 md:px-5 md:py-3.5 bg-gray-50 border border-gray-200 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800"
-        disabled={iBlockedThem || theyBlockedMe}
-      />
-
-      {/* SEND / MIC */}
-      {newMessage.trim() || file ? (
-        <button
-          onClick={sendMessage}
-          disabled={isSending}
-          className="p-3.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 disabled:opacity-50"
-        >
-          <PaperAirplaneIcon className="h-5 w-5" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void startRecording()}
-          disabled={isSending || iBlockedThem || theyBlockedMe}
-          className="p-3.5 bg-gray-100 text-gray-600 rounded-full hover:bg-indigo-100 hover:text-indigo-600"
-        >
-          <MicrophoneIcon className="h-5 w-5" />
-        </button>
-      )}
-    </>
-  )}
-
-  {/* STOP */}
-  {isRecording && (
-    <button
-      type="button"
-      onClick={stopRecording}
-      className="p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600"
-    >
-      <StopIcon className="h-5 w-5" />
-    </button>
-  )}
-
-</div>
-</div>
+        </div>
       </div>
       {/* Lightbox plein écran image / vidéo */}
       <MediaLightbox media={lightbox} onClose={() => setLightbox(null)} />

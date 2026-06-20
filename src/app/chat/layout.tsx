@@ -5,6 +5,8 @@ import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import useUserPresence from '../../hooks/useUserPresence';
 import { useTokenExpiry } from '../../hooks/useTokenExpiry';
+import { CallProvider } from '@/context/CallContext';
+import CallOverlay from '@/components/CallOverlay';
 import type Pusher from 'pusher-js';
 
 export default function ChatLayout({ children }: { children: ReactNode }) {
@@ -62,8 +64,11 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
   useTokenExpiry();
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden">
-      {children}
-    </div>
+    <CallProvider>
+      <div className="flex h-[100dvh] overflow-hidden">
+        {children}
+      </div>
+      <CallOverlay />
+    </CallProvider>
   );
 }

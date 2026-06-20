@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import AuthenticatedCallShell from "@/components/AuthenticatedCallShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,7 +36,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthenticatedCallShell>{children}</AuthenticatedCallShell>
+        {children}
       </body>
     </html>
   );

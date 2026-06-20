@@ -9,6 +9,7 @@ import {
   NoSymbolIcon,
 } from '@heroicons/react/24/solid';
 import { useCall, type CallPeer } from '@/context/CallContext';
+import { useAdaptiveVideoFit } from '@/hooks/useAdaptiveVideoFit';
 import { formatCallTimer } from '@/lib/callUtils';
 
 function CallPeerAvatar({
@@ -131,10 +132,15 @@ export default function CallOverlay() {
     return () => window.clearInterval(intervalId);
   }, [phase]);
 
-  if (phase === 'idle' && !error) return null;
-
   const isVideo = callType === 'video';
   const showActive = phase === 'active' || phase === 'outgoing';
+  const remoteVideoFit = useAdaptiveVideoFit(
+    remoteVideoRef,
+    showActive && isVideo && phase === 'active'
+  );
+
+  if (phase === 'idle' && !error) return null;
+
   const timerLabel = formatCallTimer(elapsedSeconds);
   const showAvatarPlaceholder = !isVideo || phase === 'outgoing';
 
@@ -142,15 +148,14 @@ export default function CallOverlay() {
   if (showActive && isVideo) {
     return (
       <div className="fixed inset-0 z-[100] bg-black">
-        {/* Vidéo distante centrée, ratio préservé (bandes noires si PC ↔ mobile) */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className={`max-h-full max-w-full object-contain ${phase === 'active' ? 'block' : 'hidden'}`}
-          />
-        </div>
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`absolute inset-0 h-full w-full ${
+            remoteVideoFit === 'cover' ? 'object-cover' : 'object-contain'
+          } ${phase === 'active' ? 'block' : 'hidden'}`}
+        />
 
         {showAvatarPlaceholder && (
           <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center text-white px-6 bg-gray-900">
@@ -169,7 +174,7 @@ export default function CallOverlay() {
             autoPlay
             playsInline
             muted
-            className="h-full w-full object-contain"
+            className="h-full w-full object-cover"
           />
         </div>
 
