@@ -142,12 +142,15 @@ export default function CallOverlay() {
   if (showActive && isVideo) {
     return (
       <div className="fixed inset-0 z-[100] bg-black">
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className={`absolute inset-0 h-full w-full object-cover ${phase === 'active' ? 'block' : 'hidden'}`}
-        />
+        {/* Vidéo distante centrée, ratio préservé (bandes noires si PC ↔ mobile) */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`max-h-full max-w-full object-contain ${phase === 'active' ? 'block' : 'hidden'}`}
+          />
+        </div>
 
         {showAvatarPlaceholder && (
           <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center text-white px-6 bg-gray-900">
@@ -157,13 +160,18 @@ export default function CallOverlay() {
           </div>
         )}
 
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`absolute top-4 right-4 h-32 w-24 sm:h-36 sm:w-28 rounded-xl object-cover border-2 border-white/30 shadow-lg z-[7] ${isCameraOff ? 'hidden' : 'block'}`}
-        />
+        <div
+          className={`absolute top-4 right-4 z-[7] h-32 w-24 sm:h-36 sm:w-28 overflow-hidden rounded-xl border-2 border-white/30 bg-black shadow-lg ${isCameraOff ? 'hidden' : 'block'}`}
+          style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+        >
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="h-full w-full object-contain"
+          />
+        </div>
 
         {/* Overlays haut / bas */}
         <div className="absolute inset-0 z-10 flex flex-col justify-between pointer-events-none">
