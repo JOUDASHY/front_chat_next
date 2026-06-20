@@ -30,9 +30,11 @@ import MediaLightbox, { LightboxMedia } from '@/components/MediaLightbox';
 import CallEventBubble from '@/components/CallEventBubble';
 import ChatMessagesSkeleton from '@/components/ChatMessagesSkeleton';
 import MessageContent from '@/components/MessageContent';
+import { MessageReactionsBar, ReactionPicker } from '@/components/MessageReactions';
 import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
 import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
 import { CallEvent } from '@/lib/callUtils';
+import type { MessageReactionGroup } from '@/lib/messageReactions';
 import { useCall } from '@/context/CallContext';
 
 // Chargement lazy du picker (lourd ~200kb)
@@ -50,6 +52,7 @@ interface Message {
   is_read?: boolean;
   read_at?: string;
   call_event?: CallEvent | null;
+  reactions?: MessageReactionGroup[];
   recipient?: {
     id: number;
     username: string;
@@ -194,6 +197,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
   const [openMenuMessageId, setOpenMenuMessageId] = useState<number | null>(null);
+  const [openReactionPickerId, setOpenReactionPickerId] = useState<number | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
   const [savingMessageId, setSavingMessageId] = useState<number | null>(null);
@@ -429,6 +433,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           prev.map(msg => (msg.id === data.id ? { ...msg, ...data } : msg))
         );
       });
+
+      channel.bind('message-reaction', (data: { message_id: number; reactions: MessageReactionGroup[] }) => {
+        if (!isMounted) return;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === data.message_id ? { ...msg, reactions: data.reactions } : msg
+          )
+        );
+      });
       
       // Écouter les events de frappe
       channel.bind('typing', (data: { userId: number; username: string; isTyping: boolean }) => {
@@ -526,6 +539,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     document.addEventListener('click', closeMenu);
     return () => document.removeEventListener('click', closeMenu);
   }, [openMenuMessageId]);
+
+  useEffect(() => {
+    if (openReactionPickerId === null) return;
+    const closePicker = () => setOpenReactionPickerId(null);
+    document.addEventListener('click', closePicker);
+    return () => document.removeEventListener('click', closePicker);
+  }, [openReactionPickerId]);
   
   // Nettoyage de Pusher lors du démontage complet
   useEffect(() => {
@@ -775,6 +795,23 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       console.error('❌ Error sending message:', err);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleReaction = async (messageId: number, emoji: string) => {
+    setOpenReactionPickerId(null);
+    try {
+      const { data } = await api.post<{ message_id: number; reactions: MessageReactionGroup[] }>(
+        `/api/chat/messages/${messageId}/reactions/`,
+        { emoji }
+      );
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.message_id ? { ...msg, reactions: data.reactions } : msg
+        )
+      );
+    } catch (err) {
+      console.error('Error reacting to message:', err);
     }
   };
 
@@ -1422,6 +1459,29 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 )}
 
                 <div className={`max-w-[85%] md:max-w-[75%] lg:max-w-[65%] ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col group`}>
+                  <div className="relative group/msg max-w-full">
+                    {(openReactionPickerId === msg.id) && (
+                      <ReactionPicker
+                        align={isCurrentUser ? 'right' : 'left'}
+                        onSelect={(emoji) => void handleReaction(msg.id, emoji)}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenReactionPickerId((prev) => (prev === msg.id ? null : msg.id));
+                        setOpenMenuMessageId(null);
+                      }}
+                      className={`absolute top-1/2 -translate-y-1/2 z-20 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-violet-600 transition-all ${
+                        isCurrentUser ? '-left-9' : '-right-9'
+                      } ${openReactionPickerId === msg.id ? 'opacity-100 text-violet-600 bg-violet-50' : 'opacity-0 group-hover/msg:opacity-100'}`}
+                      aria-label="Réagir au message"
+                    >
+                      <FaceSmileIcon className="h-5 w-5" />
+                    </button>
+
                   <div
                     className={`relative shadow-sm max-w-full ${
                       imageOnlyMessage
@@ -1718,6 +1778,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       </div>
                     )}
                   </div>
+                  </div>
+
+                  <MessageReactionsBar
+                    reactions={msg.reactions}
+                    isCurrentUser={isCurrentUser}
+                    onReact={(emoji) => void handleReaction(msg.id, emoji)}
+                  />
+
                   {/* Indicateur de statut de lecture */}
                   {isCurrentUser && isLastUserMessage && (
                     <div className="flex items-center mt-1 text-xs justify-end h-4">
