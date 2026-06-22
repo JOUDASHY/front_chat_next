@@ -109,7 +109,7 @@ function SelectedFileChip({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith('image/') || file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
       return () => URL.revokeObjectURL(url);
@@ -117,10 +117,19 @@ function SelectedFileChip({
     setPreviewUrl(null);
   }, [file]);
 
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
   return (
     <div className="relative shrink-0 w-28 rounded-xl border border-gray-200 bg-white overflow-hidden">
       {previewUrl ? (
-        <img src={previewUrl} alt={file.name} className="h-20 w-full object-cover" />
+        isPdf ? (
+          <div className="h-20 w-full bg-white relative overflow-hidden">
+             <iframe src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0`} className="w-full h-[120px] -mt-4 pointer-events-none" title={file.name} />
+             <div className="absolute inset-0 bg-transparent" />
+          </div>
+        ) : (
+          <img src={previewUrl} alt={file.name} className="h-20 w-full object-cover" />
+        )
       ) : file.type.startsWith('video/') ? (
         <div className="h-20 flex items-center justify-center bg-violet-50">
           <VideoCameraIcon className="h-8 w-8 text-violet-500" />
@@ -130,11 +139,11 @@ function SelectedFileChip({
           <DocumentIcon className="h-8 w-8 text-gray-500" />
         </div>
       )}
-      <p className="px-2 py-1 text-[10px] text-gray-600 truncate">{file.name}</p>
+      <p className="px-2 py-1 text-[10px] text-gray-600 truncate bg-white relative z-10">{file.name}</p>
       <button
         type="button"
         onClick={onRemove}
-        className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-red-500 transition-colors"
+        className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-red-500 transition-colors z-20"
         aria-label="Retirer le fichier"
       >
         <XMarkIcon className="h-3 w-3" />
@@ -147,7 +156,7 @@ function PendingFilePreview({ file }: { file: File }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith('image/') || file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
       return () => URL.revokeObjectURL(url);
@@ -155,17 +164,29 @@ function PendingFilePreview({ file }: { file: File }) {
     setPreviewUrl(null);
   }, [file]);
 
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
   return (
     <div className="mt-1.5 md:mt-2 rounded-md md:rounded-lg overflow-hidden bg-indigo-700/30">
       {previewUrl ? (
-        <img src={previewUrl} alt={file.name} className="max-h-40 w-full object-cover" />
+        isPdf ? (
+          <div className="p-2 md:p-3 bg-white/10">
+            <div className="flex items-center mb-2">
+              <DocumentIcon className="h-6 w-6 text-red-300 mr-2" />
+              <span className="text-sm truncate text-white/90 max-w-[150px]">{file.name}</span>
+            </div>
+            <iframe src={`${previewUrl}#toolbar=0&navpanes=0`} className="w-full h-60 rounded border border-white/20 bg-white pointer-events-none" title={file.name} />
+          </div>
+        ) : (
+          <img src={previewUrl} alt={file.name} className="max-h-40 w-full object-cover" />
+        )
       ) : (
         <div className="p-2 flex items-center gap-2">
           <PaperClipIcon className="h-4 w-4 text-white/70 shrink-0" />
           <p className="text-xs text-white/80 truncate">{file.name}</p>
         </div>
       )}
-      {previewUrl && (
+      {previewUrl && !isPdf && (
         <p className="px-2 py-1 text-[10px] text-white/70 truncate">{file.name}</p>
       )}
     </div>
@@ -1928,32 +1949,32 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
             {/* AUDIO PREVIEW */}
             {audioBlob && !isRecording && (
-              <div className="flex-1 flex items-center gap-3 bg-violet-50 rounded-full px-4 py-2.5">
+              <div className="flex-1 flex items-center gap-1.5 md:gap-3 bg-violet-50 rounded-full px-2 md:px-4 py-1.5 md:py-2.5 min-w-0">
 
-                <MicrophoneIcon className="h-5 w-5 text-violet-500 shrink-0" />
+                <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5 text-violet-500 shrink-0 hidden sm:block" />
 
                 <audio
                   src={audioPreviewUrl ?? undefined}
                   controls
-                  className="flex-1 h-9"
+                  className="flex-1 h-8 md:h-9 min-w-[100px] w-full"
                   style={{ minWidth: 0 }}
                 />
 
                 <button
                   type="button"
                   onClick={cancelRecording}
-                  className="p-2 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors"
+                  className="p-1.5 md:p-2 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors shrink-0"
                 >
-                  <XMarkIcon className="h-5 w-5" />
+                  <XMarkIcon className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => void sendVoiceMessage()}
                   disabled={isSending}
-                  className="p-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                  className="p-2 md:p-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors shrink-0"
                 >
-                  <PaperAirplaneIcon className="h-5 w-5" />
+                  <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
 
               </div>
@@ -1961,22 +1982,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
             {/* RECORDING */}
             {isRecording && (
-              <div className="flex-1 flex items-center gap-3 bg-red-50 rounded-full px-5 py-3">
+              <div className="flex-1 flex items-center gap-2 md:gap-3 bg-red-50 rounded-full px-3 md:px-5 py-2 md:py-3 min-w-0">
 
-                <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+                <span className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-red-500 animate-pulse shrink-0" />
 
-                <span className="text-sm font-mono text-red-600 font-semibold">
+                <span className="text-xs md:text-sm font-mono text-red-600 font-semibold shrink-0">
                   {formatRecordingTime(recordingSeconds)}
                 </span>
 
-                <span className="text-xs text-red-400 flex-1">
+                <span className="text-[10px] md:text-xs text-red-400 flex-1 truncate">
                   Enregistrement…
                 </span>
 
                 <button
                   type="button"
                   onClick={cancelRecording}
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                  className="text-[10px] md:text-xs text-gray-400 hover:text-red-500 transition-colors shrink-0"
                 >
                   Annuler
                 </button>
@@ -2070,9 +2091,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               <button
                 type="button"
                 onClick={stopRecording}
-                className="p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                className="p-3 md:p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shrink-0"
               >
-                <StopIcon className="h-5 w-5" />
+                <StopIcon className="h-4 w-4 md:h-5 md:w-5" />
               </button>
             )}
 

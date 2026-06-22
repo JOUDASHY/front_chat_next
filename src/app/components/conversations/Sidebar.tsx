@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
 import { getDisplayName } from '@/lib/userUtils';
 import Image from 'next/image';
+import AppLogo from '@/components/AppLogo';
 import {
   UserGroupIcon,
   ClockIcon,
@@ -820,10 +821,10 @@ export default function Sidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue">
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="p-1.5 md:p-2 bg-white/10 rounded-lg">
-            <ChatBubbleLeftRightIcon className="h-5 w-5 md:h-6 md:w-6 text-white" />
+          <div className="p-1.5 md:p-2 bg-white/10 rounded-lg flex items-center justify-center">
+            <AppLogo size={24} className="h-5 w-5 md:h-6 md:w-6 object-contain" />
           </div>
-          <h1 className="text-base md:text-xl font-bold text-white font-[Inter] leading-tight">
+          <h1 className="text-base md:text-xl font-bold text-[var(--jaune)] font-[Inter] leading-tight">
             {sidebarView === 'calls' ? 'Appels' : 'Messagerie'}
           </h1>
         </div>
@@ -835,7 +836,7 @@ export default function Sidebar({
               title="Administration"
               aria-label="Administration"
             >
-              <ShieldCheckIcon className="h-6 w-6 text-white" />
+              <ShieldCheckIcon className="h-6 w-6 text-[var(--jaune)]" />
             </button>
           )}
           <button
@@ -846,7 +847,7 @@ export default function Sidebar({
             title={sidebarView === 'chats' ? 'Historique des appels' : 'Retour aux conversations'}
             aria-label="Historique des appels"
           >
-            <PhoneIcon className="h-6 w-6 text-white" />
+            <PhoneIcon className="h-6 w-6 text-[var(--jaune)]" />
           </button>
           {user && (
             <div
@@ -857,7 +858,7 @@ export default function Sidebar({
               <Avatar
                 src={user.profile?.image}
                 alt={user.username}
-                className="h-9 w-9 md:h-10 md:w-10 border-2 border-white/30"
+                className="h-9 w-9 md:h-10 md:w-10 border-2 border-[var(--jaune)]/30"
                 dark={true}
               />
             </div>
@@ -867,7 +868,7 @@ export default function Sidebar({
             className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
             aria-label="Se déconnecter"
           >
-            <ArrowLeftOnRectangleIcon className="h-6 w-6 text-white" />
+            <ArrowLeftOnRectangleIcon className="h-6 w-6 text-[var(--jaune)]" />
           </button>
         </div>
       </div>
