@@ -199,6 +199,20 @@ function isImageAttachment(url?: string) {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
 }
 
+function ModalAvatar({ src, name, className = "h-full w-full" }: { src?: string, name: string, className?: string }) {
+  const [error, setError] = useState(false);
+  const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2) : '?';
+  
+  if (!src || error) {
+    return (
+      <div className={`${className} bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold text-sm`}>
+        {initials}
+      </div>
+    );
+  }
+  return <img src={src} alt={name} onError={() => setError(true)} className={`${className} object-cover`} />;
+}
+
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
   const { startCall, phase: callPhase } = useCall();
@@ -260,15 +274,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     setOpenMenuMessageId(null);
     try {
       const { data } = await api.get('/api/chat/conversations/');
-      const allConversations = [
-        ...data.private.map((c: any) => ({
-          ...c,
-          isGroup: false,
-          userId: c.user?.id,
-        })),
-        ...data.groups.map((c: any) => ({ ...c, isGroup: true })),
-      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setForwardConversations(allConversations);
+      setForwardConversations(data);
     } catch (err) {
       console.error('Error fetching conversations for forward:', err);
     }
@@ -2190,11 +2196,28 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     disabled={isForwarding}
                     className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50 text-left"
                   >
-                    <div className="h-10 w-10 shrink-0 bg-indigo-100 rounded-full flex items-center justify-center overflow-hidden">
-                      {conv.user?.profile?.image ? (
-                        <img src={conv.user.profile.image} alt={conv.name} className="h-full w-full object-cover" />
+                    <div className="h-10 w-10 shrink-0 bg-indigo-100 rounded-full flex items-center justify-center overflow-hidden relative">
+                      {conv.isGroup ? (
+                        conv.participants && conv.participants.length > 0 ? (
+                          <>
+                            {conv.participants.length === 1 ? (
+                              <ModalAvatar src={conv.participants[0].profile?.image} name={conv.participants[0].username} />
+                            ) : (
+                              <>
+                                <div className="absolute bottom-0 right-0 h-6 w-6 rounded-full overflow-hidden border-2 border-white z-10">
+                                  <ModalAvatar src={conv.participants[1].profile?.image} name={conv.participants[1].username} className="h-full w-full bg-indigo-200" />
+                                </div>
+                                <div className="absolute top-0 left-0 h-6 w-6 rounded-full overflow-hidden border-2 border-white z-20">
+                                  <ModalAvatar src={conv.participants[0].profile?.image} name={conv.participants[0].username} className="h-full w-full bg-indigo-200" />
+                                </div>
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          <UserCircleIcon className="h-8 w-8 text-indigo-400" />
+                        )
                       ) : (
-                        <UserCircleIcon className="h-8 w-8 text-indigo-400" />
+                        <ModalAvatar src={conv.user?.profile?.image} name={conv.name} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
