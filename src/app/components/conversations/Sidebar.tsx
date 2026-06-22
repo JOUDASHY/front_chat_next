@@ -821,8 +821,11 @@ export default function Sidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue">
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="p-1.5 md:p-2 bg-white/10 rounded-lg flex items-center justify-center">
-            <AppLogo size={24} className="h-5 w-5 md:h-6 md:w-6 object-contain" />
+          <div className="p-1.5 md:p-2 flex items-center justify-center">
+           <AppLogo
+  size={30}
+  className="h-6 w-6 md:h-8 md:w-8 object-contain"
+/>
           </div>
           {/* <h1 className="text-base md:text-xl font-bold text-[var(--jaune)] font-[Inter] leading-tight">
             {sidebarView === 'calls' ? 'Appels' : 'Messagerie'}
