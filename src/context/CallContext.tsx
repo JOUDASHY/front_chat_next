@@ -312,6 +312,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         user?: { display_name?: string; username?: string; image?: string | null };
       }) => {
         if (sessionRef.current?.roomName === data.room_name) {
+          // L'appelant voit que l'appel a été accepté
           stopCallRingtone();
           closeIncomingCallNotification();
           if (data.user) {
@@ -328,12 +329,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
           }
           setPhase('active');
           void syncRoomTracks();
+        } else if (incomingRef.current?.room_name === data.room_name) {
+          // L'appelé a accepté sur UN AUTRE appareil, cet appareil doit arrêter de sonner
+          notifyCallHistoryChanged();
+          void resetCall();
         }
       });
 
       channel.bind('call-rejected', async (data: { room_name: string }) => {
-        if (sessionRef.current?.roomName === data.room_name) {
-          setError('Appel refusé');
+        const currentRoom = sessionRef.current?.roomName || incomingRef.current?.room_name;
+        if (currentRoom === data.room_name) {
+          if (sessionRef.current) {
+            setError('Appel refusé');
+          }
           notifyCallHistoryChanged();
           await resetCall();
         }

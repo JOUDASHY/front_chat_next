@@ -930,8 +930,7 @@ export default function Sidebar({
         <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
           {Array.from(onlineUsers).map(([userId]) => {
             const onlineUser = allUsers.find(u => u.id === userId) ||
-                             searchResults.find(u => u.id === userId) || 
-                             conversations.find(c => c.userId === userId)?.user as User;
+                               searchResults.find(u => u.id === userId);
             
             if (!onlineUser || userId === user?.id) return null;
 
@@ -1067,11 +1066,17 @@ export default function Sidebar({
       {sidebarView === 'chats' && !searchResults.length && (
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3">
-              <div className="animate-spin">
-                <ClockIcon className="h-8 w-8 color-blue" />
-              </div>
-              <p className="color-blue/80 text-sm font-medium">Chargement des conversations...</p>
+            <div className="space-y-0 p-2">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-2.5 md:gap-3 px-2.5 py-2 md:p-3 rounded-xl animate-pulse">
+                  <div className="h-10 w-10 rounded-full bg-blue/10 shrink-0"></div>
+                  <div className="flex-1 min-w-0 space-y-2.5 py-1">
+                    <div className="h-3.5 w-1/2 bg-blue/10 rounded"></div>
+                    <div className="h-3 w-3/4 bg-blue/5 rounded"></div>
+                  </div>
+                  <div className="h-3 w-8 bg-blue/10 rounded shrink-0 mt-1 self-start"></div>
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="p-4 text-center">

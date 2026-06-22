@@ -1300,6 +1300,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </button>
             <button
               type="button"
+              disabled={iBlockedThem || theyBlockedMe}
               onClick={() =>
                 void startCall(recipientId, 'audio', {
                   display_name: getDisplayName(recipient) || conversation.name,
@@ -1307,7 +1308,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   username: recipient?.username,
                 })
               }
-              className="p-1.5 md:p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors"
+              className="p-1.5 md:p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Appel vocal"
               aria-label="Appel vocal"
             >
@@ -1315,6 +1316,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </button>
             <button
               type="button"
+              disabled={iBlockedThem || theyBlockedMe}
               onClick={() =>
                 void startCall(recipientId, 'video', {
                   display_name: getDisplayName(recipient) || conversation.name,
@@ -1322,7 +1324,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   username: recipient?.username,
                 })
               }
-              className="p-1.5 md:p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors"
+              className="p-1.5 md:p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Appel vidéo"
               aria-label="Appel vidéo"
             >
@@ -2113,11 +2115,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             {!isRecording && !audioBlob && (
               <>
                 {/* FILE */}
-                <label className={`p-3 rounded-full transition-colors cursor-pointer ${selectedFiles.length > 0 ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}>
+                <label className={`p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : selectedFiles.length > 0 ? 'bg-violet-100 text-violet-600 cursor-pointer' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600 cursor-pointer'}`}>
                   <input
                     ref={fileInputRef}
                     type="file"
                     multiple
+                    disabled={iBlockedThem || theyBlockedMe}
                     onChange={(e) => handleFileSelect(e.target.files)}
                     className="hidden"
                     accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
@@ -2129,8 +2132,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 <div className="relative" ref={emojiPickerRef}>
                   <button
                     type="button"
+                    disabled={iBlockedThem || theyBlockedMe}
                     onClick={() => setShowEmojiPicker(v => !v)}
-                    className={`p-3 rounded-full transition-colors ${showEmojiPicker ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}
+                    className={`p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : showEmojiPicker ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}
                   >
                     <FaceSmileIcon className="h-6 w-6" />
                   </button>
