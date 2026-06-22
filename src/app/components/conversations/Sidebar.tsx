@@ -824,9 +824,9 @@ export default function Sidebar({
           <div className="p-1.5 md:p-2 bg-white/10 rounded-lg flex items-center justify-center">
             <AppLogo size={24} className="h-5 w-5 md:h-6 md:w-6 object-contain" />
           </div>
-          <h1 className="text-base md:text-xl font-bold text-[var(--jaune)] font-[Inter] leading-tight">
+          {/* <h1 className="text-base md:text-xl font-bold text-[var(--jaune)] font-[Inter] leading-tight">
             {sidebarView === 'calls' ? 'Appels' : 'Messagerie'}
-          </h1>
+          </h1> */}
         </div>
         <div className="flex items-center gap-2">
           {isStaff && (

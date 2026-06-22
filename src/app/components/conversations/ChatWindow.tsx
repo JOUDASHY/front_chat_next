@@ -248,7 +248,52 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Forward state
+  const [forwardingMessageId, setForwardingMessageId] = useState<number | null>(null);
+  const [forwardConversations, setForwardConversations] = useState<any[]>([]);
+  const [isForwarding, setIsForwarding] = useState(false);
+
+  const openForwardModal = async (msgId: number) => {
+    setForwardingMessageId(msgId);
+    setOpenMenuMessageId(null);
+    try {
+      const { data } = await api.get('/api/chat/conversations/');
+      const allConversations = [
+        ...data.private.map((c: any) => ({
+          ...c,
+          isGroup: false,
+          userId: c.user?.id,
+        })),
+        ...data.groups.map((c: any) => ({ ...c, isGroup: true })),
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setForwardConversations(allConversations);
+    } catch (err) {
+      console.error('Error fetching conversations for forward:', err);
+    }
+  };
+
+  const handleForwardMessage = async (targetConv: any) => {
+    if (!forwardingMessageId || isForwarding) return;
+    setIsForwarding(true);
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+      const payload = targetConv.isGroup
+        ? { room_id: targetConv.id }
+        : { recipient_id: targetConv.userId };
+        
+      await api.post(`${API_URL}/api/chat/messages/${forwardingMessageId}/forward/`, payload);
+      setForwardingMessageId(null);
+      alert('Message transféré avec succès !');
+    } catch (err) {
+      console.error('Error forwarding message:', err);
+      alert('Erreur lors du transfert du message.');
+    } finally {
+      setIsForwarding(false);
+    }
+  };
+  
   // Typing indicator
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1528,7 +1573,6 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         {isCurrentUser ? 'Vous' : msg.sender}
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
-                        {isCurrentUser && (
                           <div className="relative">
                             <button
                               type="button"
@@ -1536,21 +1580,29 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 e.stopPropagation();
                                 setOpenMenuMessageId(openMenuMessageId === msg.id ? null : msg.id);
                               }}
-                              className={`p-1 rounded-full transition-opacity hover:bg-white/20 ${
+                              className={`p-1 rounded-full transition-opacity hover:bg-black/10 ${
                                 isMobile || openMenuMessageId === msg.id
                                   ? 'opacity-100'
                                   : 'opacity-0 group-hover:opacity-70'
                               }`}
                               aria-label="Options du message"
                             >
-                              <EllipsisVerticalIcon className="h-4 w-4" />
+                              <EllipsisVerticalIcon className={`h-4 w-4 ${isCurrentUser ? 'text-white' : 'text-gray-600'}`} />
                             </button>
                             {openMenuMessageId === msg.id && (
                               <div
                                 className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                {msg.content && !msg.attachment && (
+                                <button
+                                  type="button"
+                                  onClick={() => openForwardModal(msg.id)}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  <PaperAirplaneIcon className="h-4 w-4" />
+                                  Transférer
+                                </button>
+                                {isCurrentUser && msg.content && !msg.attachment && (
                                   <button
                                     type="button"
                                     onClick={() => startEditMessage(msg)}
@@ -1560,6 +1612,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                     Modifier
                                   </button>
                                 )}
+                                {isCurrentUser && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteMessage(msg.id)}
@@ -1573,10 +1626,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                   )}
                                   Supprimer
                                 </button>
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
                         <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
                           {messageTime}
                         </span>
@@ -1585,7 +1638,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     </>
                     )}
 
-                    {imageOnlyMessage && isCurrentUser && (
+                    {imageOnlyMessage && (
                       <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
                         <div className="relative">
                           <button
@@ -1610,6 +1663,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             >
                               <button
                                 type="button"
+                                onClick={() => openForwardModal(msg.id)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <PaperAirplaneIcon className="h-4 w-4" />
+                                Transférer
+                              </button>
+                              {isCurrentUser && (
+                              <button
+                                type="button"
                                 onClick={() => handleDeleteMessage(msg.id)}
                                 disabled={deletingMessageId === msg.id}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -1621,6 +1683,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 )}
                                 Supprimer
                               </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2102,6 +2165,50 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       </div>
       {/* Lightbox plein écran image / vidéo */}
       <MediaLightbox media={lightbox} onClose={() => setLightbox(null)} />
+
+      {/* Modal de transfert */}
+      {forwardingMessageId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-800">Transférer le message</h2>
+              <button 
+                onClick={() => setForwardingMessageId(null)}
+                className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full transition-colors text-gray-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {forwardConversations.length === 0 ? (
+                <p className="text-center text-gray-500 py-10 text-sm">Aucune conversation trouvée.</p>
+              ) : (
+                forwardConversations.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => handleForwardMessage(conv)}
+                    disabled={isForwarding}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50 text-left"
+                  >
+                    <div className="h-10 w-10 shrink-0 bg-indigo-100 rounded-full flex items-center justify-center overflow-hidden">
+                      {conv.user?.profile?.image ? (
+                        <img src={conv.user.profile.image} alt={conv.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <UserCircleIcon className="h-8 w-8 text-indigo-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{conv.name}</p>
+                      {conv.isGroup && <p className="text-xs text-gray-500">Groupe</p>}
+                    </div>
+                    <PaperAirplaneIcon className="h-5 w-5 text-indigo-400" />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
