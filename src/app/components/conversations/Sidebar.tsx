@@ -1162,7 +1162,9 @@ export default function Sidebar({
                         </p>
                       ) : (
                         <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
-                          {conversation.lastMessage || 'Nouvelle conversation'}
+                          {conversation.lastMessageSenderId === user?.id 
+                            ? `Vous : ${conversation.lastMessage || 'Nouvelle conversation'}` 
+                            : conversation.lastMessage || 'Nouvelle conversation'}
                         </p>
                       )}
                       <div className="flex items-center gap-2 flex-shrink-0">
