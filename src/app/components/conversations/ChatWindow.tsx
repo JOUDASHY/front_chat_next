@@ -1555,6 +1555,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     </button>
 
                   <div
+                    onClick={() => {
+                      if (isMobile) {
+                        setOpenReactionPickerId((prev) => (prev === msg.id ? null : msg.id));
+                      }
+                    }}
                     className={`relative shadow-sm max-w-full ${
                       imageOnlyMessage
                         ? 'overflow-hidden rounded-md md:rounded-lg p-0'
@@ -1602,7 +1607,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                               >
                                 <button
                                   type="button"
-                                  onClick={() => openForwardModal(msg.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenReactionPickerId(msg.id);
+                                    setOpenMenuMessageId(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  <FaceSmileIcon className="h-4 w-4" />
+                                  Réagir
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    openForwardModal(msg.id);
+                                    setOpenMenuMessageId(null);
+                                  }}
                                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
                                   <PaperAirplaneIcon className="h-4 w-4" />
@@ -1669,7 +1689,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             >
                               <button
                                 type="button"
-                                onClick={() => openForwardModal(msg.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenReactionPickerId(msg.id);
+                                  setOpenMenuMessageId(null);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <FaceSmileIcon className="h-4 w-4" />
+                                Réagir
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openForwardModal(msg.id);
+                                  setOpenMenuMessageId(null);
+                                }}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
                                 <PaperAirplaneIcon className="h-4 w-4" />
