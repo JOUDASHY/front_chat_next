@@ -45,9 +45,10 @@ function renderLinkedText(text: string, linkClassName: string): ReactNode[] {
 interface MessageContentProps {
   content: string;
   isCurrentUser: boolean;
+  translatedContent?: string;
 }
 
-export default function MessageContent({ content, isCurrentUser }: MessageContentProps) {
+export default function MessageContent({ content, isCurrentUser, translatedContent }: MessageContentProps) {
   const urls = extractUrls(content);
   const primaryUrl = urls[0];
   const onlyUrl = messageIsOnlyUrl(content);
@@ -60,11 +61,18 @@ export default function MessageContent({ content, isCurrentUser }: MessageConten
   return (
     <>
       {!onlyUrl && (
-        <p
-          className={`text-xs md:text-sm leading-snug break-words whitespace-pre-wrap ${textClass}`}
-        >
-          {renderLinkedText(content, linkClass)}
-        </p>
+        <div className="flex flex-col">
+          <p
+            className={`text-xs md:text-sm leading-snug break-words whitespace-pre-wrap ${textClass}`}
+          >
+            {renderLinkedText(content, linkClass)}
+          </p>
+          {translatedContent && (
+            <p className={`text-[11px] md:text-xs leading-snug break-words whitespace-pre-wrap mt-1 opacity-70 italic ${textClass}`}>
+              {translatedContent}
+            </p>
+          )}
+        </div>
       )}
 
       {primaryUrl && (

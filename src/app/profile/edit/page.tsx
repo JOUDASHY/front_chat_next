@@ -53,6 +53,7 @@ export default function EditProfilePage() {
     passion: '',
     profession: '',
     website: '',
+    language_preference: '',
   });
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function EditProfilePage() {
           passion: data.profile.passion || '',
           profession: data.profile.profession || '',
           website: data.profile.website || '',
+          language_preference: data.profile.language_preference || '',
         });
       } catch {
         setError('Impossible de charger le profil');
@@ -132,6 +134,7 @@ export default function EditProfilePage() {
       formDataToSend.append('profile.passion', formData.passion);
       formDataToSend.append('profile.profession', formData.profession);
       formDataToSend.append('profile.website', formData.website);
+      if (formData.language_preference) formDataToSend.append('profile.language_preference', formData.language_preference);
 
       if (coverImageRef.current?.files?.[0]) {
         formDataToSend.append('profile.cover_image', coverImageRef.current.files[0]);
@@ -359,6 +362,21 @@ export default function EditProfilePage() {
                 </Field>
                 <Field label="Site web">
                   <input type="text" name="website" value={formData.website} onChange={handleInputChange} className={inputCls} />
+                </Field>
+              </div>
+            </Section>
+
+            {/* Section Préférences */}
+            <Section title="Préférences" icon="⚙️">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Langue de traduction par défaut" hint="Langue vers laquelle les messages seront traduits automatiquement">
+                  <select name="language_preference" value={formData.language_preference} onChange={handleInputChange} className={inputCls}>
+                    <option value="">Désactivé (Langue originale)</option>
+                    <option value="fr">Français</option>
+                    <option value="en">Anglais</option>
+                    <option value="es">Espagnol</option>
+                    <option value="mg">Malgache</option>
+                  </select>
                 </Field>
               </div>
             </Section>

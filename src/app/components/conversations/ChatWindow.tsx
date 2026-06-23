@@ -23,6 +23,7 @@ import {
   FaceSmileIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  LanguageIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -33,6 +34,7 @@ import MessageContent from '@/components/MessageContent';
 import { MessageReactionsBar, ReactionPicker } from '@/components/MessageReactions';
 import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
 import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
+import { translateText } from '@/lib/translationService';
 import { CallEvent } from '@/lib/callUtils';
 import type { MessageReactionGroup } from '@/lib/messageReactions';
 import { useCall } from '@/context/CallContext';
@@ -81,6 +83,10 @@ interface User {
   first_name: string;
   last_name: string;
   is_online: boolean;
+  profile?: { 
+    language_preference?: string;
+    notification_preferences?: Record<string, any>;
+  };
 }
 
 interface Conversation {
@@ -218,6 +224,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const { startCall, phase: callPhase } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [translations, setTranslations] = useState<Record<number, string>>({});
+  const [draftLang, setDraftLang] = useState<string>('');
+  const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
+  const [showTranslateMenu, setShowTranslateMenu] = useState(false);
+  const [translatingMessage, setTranslatingMessage] = useState<{id: number, content: string} | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
@@ -629,6 +640,102 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       }
     };
   }, []);
+
+  const getConversationKey = () => {
+    if (!conversation) return null;
+    return conversation.isGroup ? `group_${conversation.id}` : `private_${recipientId}`;
+  };
+
+  const isAutoTranslateEnabled = () => {
+    const key = getConversationKey();
+    if (!key || !user?.profile?.notification_preferences?.auto_translate) return false;
+    return !!user.profile.notification_preferences.auto_translate[key];
+  };
+
+  const handleToggleAutoTranslate = async () => {
+    if (!user) return;
+    const key = getConversationKey();
+    if (!key) return;
+
+    const currentPrefs = user.profile?.notification_preferences || {};
+    const currentAutoTranslate = currentPrefs.auto_translate || {};
+    const isCurrentlyEnabled = !!currentAutoTranslate[key];
+
+    const updatedPrefs = {
+      ...currentPrefs,
+      auto_translate: {
+        ...currentAutoTranslate,
+        [key]: !isCurrentlyEnabled
+      }
+    };
+
+    setUser(prev => prev ? {
+      ...prev,
+      profile: {
+        ...prev.profile,
+        notification_preferences: updatedPrefs
+      }
+    } : prev);
+
+    try {
+      const formData = new FormData();
+      formData.append('profile.notification_preferences', JSON.stringify(updatedPrefs));
+      await api.put('/api/chat/profile/', formData);
+    } catch (e) {
+      console.error('Error saving translation preference', e);
+    }
+  };
+
+  const handleTranslateMessage = async (msgId: number, content: string, targetLang?: string) => {
+    const lang = targetLang || user?.profile?.language_preference;
+    if (!lang || !content) {
+      alert("Veuillez définir une langue de traduction dans vos préférences de profil ou choisir une langue.");
+      return;
+    }
+    setOpenMenuMessageId(null);
+    setTranslatingMessage(null);
+    try {
+      const translated = await translateText(content, lang);
+      if (translated) {
+        setTranslations(prev => ({ ...prev, [msgId]: translated }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Auto-translate incoming messages
+  useEffect(() => {
+    if (!user || !user.profile?.language_preference || messages.length === 0) return;
+    if (!isAutoTranslateEnabled()) return;
+    
+    const prefLang = user.profile.language_preference;
+    
+    messages.forEach(msg => {
+      if (msg.sender !== user.username && msg.content && !translations[msg.id]) {
+        translateText(msg.content, prefLang).then(translated => {
+          if (translated && translated.toLowerCase() !== msg.content.toLowerCase()) {
+            setTranslations(prev => ({ ...prev, [msg.id]: translated }));
+          }
+        });
+      }
+    });
+  }, [messages, user, translations]);
+
+  const handleTranslateDraft = async () => {
+    if (!newMessage.trim() || !draftLang) return;
+    setIsTranslatingDraft(true);
+    try {
+      const translated = await translateText(newMessage, draftLang);
+      if (translated) {
+        setNewMessage(translated);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTranslatingDraft(false);
+    }
+  };
 
   // Auto-focus desktop uniquement — sur mobile le clavier ne doit pas s'ouvrir à la sélection
   useEffect(() => {
@@ -1343,7 +1450,19 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               <EllipsisVerticalIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
             </button>
             {showHeaderMenu && (
-              <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleToggleAutoTranslate();
+                    setShowHeaderMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-50"
+                >
+                  <LanguageIcon className="h-4 w-4" />
+                  {isAutoTranslateEnabled() ? 'Désactiver trad auto' : 'Activer trad auto'}
+                </button>
+                <div className="h-px bg-gray-100 my-1"></div>
                 {iBlockedThem ? (
                   <button
                     type="button"
@@ -1630,6 +1749,19 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                   <PaperAirplaneIcon className="h-4 w-4" />
                                   Transférer
                                 </button>
+                                {msg.content && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTranslatingMessage({ id: msg.id, content: msg.content });
+                                      setOpenMenuMessageId(null);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50"
+                                  >
+                                    <LanguageIcon className="h-4 w-4" />
+                                    Traduire
+                                  </button>
+                                )}
                                 {isCurrentUser && msg.content && !msg.attachment && (
                                   <button
                                     type="button"
@@ -1712,6 +1844,19 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 <PaperAirplaneIcon className="h-4 w-4" />
                                 Transférer
                               </button>
+                              {msg.content && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTranslatingMessage({ id: msg.id, content: msg.content });
+                                    setOpenMenuMessageId(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50"
+                                >
+                                  <LanguageIcon className="h-4 w-4" />
+                                  Traduire
+                                </button>
+                              )}
                               {isCurrentUser && (
                               <button
                                 type="button"
@@ -1771,7 +1916,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             <span className="text-[10px] text-gray-400">{messageTime}</span>
                           </div>
                         ) : (
-                          <MessageContent content={msg.content} isCurrentUser={isCurrentUser} />
+                          <MessageContent content={msg.content} isCurrentUser={isCurrentUser} translatedContent={translations[msg.id]} />
                         )
                       )
                     )}
@@ -2128,6 +2273,46 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   <PaperClipIcon className="h-6 w-6" />
                 </label>
 
+                {/* TRANSLATE DRAFT */}
+                <div className="hidden sm:flex items-center relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowTranslateMenu(!showTranslateMenu)}
+                    className={`p-3 rounded-full transition-colors ${showTranslateMenu ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600'}`}
+                    title="Traduire le message"
+                  >
+                    <LanguageIcon className="h-6 w-6" />
+                  </button>
+                  
+                  {showTranslateMenu && (
+                    <div className="absolute bottom-14 left-0 z-50 bg-white border border-gray-200 shadow-lg rounded-xl p-2 flex flex-col gap-2 min-w-[150px]">
+                      <select 
+                        value={draftLang}
+                        onChange={(e) => setDraftLang(e.target.value)}
+                        className="bg-gray-50 border border-gray-200 text-sm rounded-lg text-gray-700 outline-none p-2 w-full cursor-pointer"
+                      >
+                        <option value="">Langue cible...</option>
+                        <option value="en">Anglais</option>
+                        <option value="fr">Français</option>
+                        <option value="es">Espagnol</option>
+                        <option value="mg">Malgache</option>
+                      </select>
+                      {draftLang && newMessage.trim() && (
+                        <button 
+                          onClick={() => {
+                            handleTranslateDraft();
+                            setShowTranslateMenu(false);
+                          }}
+                          disabled={isTranslatingDraft}
+                          className="w-full text-xs text-white bg-indigo-500 hover:bg-indigo-600 font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {isTranslatingDraft ? 'Traduction...' : 'Traduire le texte'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* EMOJI */}
                 <div className="relative" ref={emojiPickerRef}>
                   <button
@@ -2271,6 +2456,82 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </div>
         </div>
       )}
+
+      {/* Modal de traduction */}
+      {translatingMessage && (
+        <TranslateModal 
+          message={translatingMessage} 
+          onClose={() => setTranslatingMessage(null)} 
+          onTranslate={(lang) => handleTranslateMessage(translatingMessage.id, translatingMessage.content, lang)} 
+        />
+      )}
+    </div>
+  );
+}
+
+// Composant Modal de traduction
+function TranslateModal({ message, onClose, onTranslate }: { message: {id: number, content: string}, onClose: () => void, onTranslate: (lang: string) => void }) {
+  const [selectedLang, setSelectedLang] = useState('fr');
+  
+  const ALL_LANGUAGES = [
+    { code: 'af', name: 'Afrikaans' },
+    { code: 'sq', name: 'Albanais' },
+    { code: 'de', name: 'Allemand' },
+    { code: 'en', name: 'Anglais' },
+    { code: 'ar', name: 'Arabe' },
+    { code: 'zh', name: 'Chinois' },
+    { code: 'ko', name: 'Coréen' },
+    { code: 'es', name: 'Espagnol' },
+    { code: 'fr', name: 'Français' },
+    { code: 'hi', name: 'Hindi' },
+    { code: 'id', name: 'Indonésien' },
+    { code: 'it', name: 'Italien' },
+    { code: 'ja', name: 'Japonais' },
+    { code: 'mg', name: 'Malgache' },
+    { code: 'nl', name: 'Néerlandais' },
+    { code: 'pt', name: 'Portugais' },
+    { code: 'ru', name: 'Russe' },
+    { code: 'sw', name: 'Swahili' },
+    { code: 'tr', name: 'Turc' },
+    { code: 'vi', name: 'Vietnamien' }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+            <LanguageIcon className="h-5 w-5 text-indigo-500" />
+            Traduire le message
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+            <XMarkIcon className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+        <div className="p-5 flex-1 overflow-y-auto">
+          <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm text-gray-600 italic border-l-4 border-indigo-300 line-clamp-3">
+            "{message.content}"
+          </div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Choisir la langue de destination :</label>
+          <select 
+            value={selectedLang} 
+            onChange={e => setSelectedLang(e.target.value)}
+            className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all cursor-pointer shadow-sm"
+          >
+            {ALL_LANGUAGES.map(lang => (
+              <option key={lang.code} value={lang.code}>{lang.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-xl transition-colors">
+            Annuler
+          </button>
+          <button onClick={() => { onTranslate(selectedLang); onClose(); }} className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-sm">
+            Traduire
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
