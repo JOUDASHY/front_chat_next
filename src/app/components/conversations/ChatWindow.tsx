@@ -2196,7 +2196,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           )}
 
           {/* BARRE PRINCIPALE */}
-          <div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-center gap-2">
+          <div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-center gap-1.5 md:gap-2 min-w-0">
 
             {/* AUDIO PREVIEW */}
             {audioBlob && !isRecording && (
@@ -2260,7 +2260,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             {!isRecording && !audioBlob && (
               <>
                 {/* FILE */}
-                <label className={`p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : selectedFiles.length > 0 ? 'bg-violet-100 text-violet-600 cursor-pointer' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600 cursor-pointer'}`}>
+                <label className={`p-2 md:p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : selectedFiles.length > 0 ? 'bg-violet-100 text-violet-600 cursor-pointer' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600 cursor-pointer'}`}>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -2270,18 +2270,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     className="hidden"
                     accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
                   />
-                  <PaperClipIcon className="h-6 w-6" />
+                  <PaperClipIcon className="h-4 w-4 md:h-6 md:w-6" />
                 </label>
 
                 {/* TRANSLATE DRAFT */}
-                <div className="hidden sm:flex items-center relative">
+              <div className="flex items-center relative shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowTranslateMenu(!showTranslateMenu)}
-                    className={`p-3 rounded-full transition-colors ${showTranslateMenu ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600'}`}
+                    className={`p-2 md:p-3 rounded-full transition-colors ${showTranslateMenu ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600'}`}
                     title="Traduire le message"
                   >
-                    <LanguageIcon className="h-6 w-6" />
+                    <LanguageIcon className="h-4 w-4 md:h-6 md:w-6" />
                   </button>
                   
                 {showTranslateMenu && (
@@ -2338,9 +2338,9 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     type="button"
                     disabled={iBlockedThem || theyBlockedMe}
                     onClick={() => setShowEmojiPicker(v => !v)}
-                    className={`p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : showEmojiPicker ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}
+                    className={`p-2 md:p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : showEmojiPicker ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}
                   >
-                    <FaceSmileIcon className="h-6 w-6" />
+                    <FaceSmileIcon className="h-4 w-4 md:h-6 md:w-6" />
                   </button>
 
                   {showEmojiPicker && (
@@ -2372,7 +2372,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       ? "Impossible d'envoyer un message…"
                       : "Écrivez un message..."
                   }
-                  className="flex-1 px-4 py-3 md:px-5 md:py-3.5 bg-gray-100 dark:bg-gray-800 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-violet-400 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50 transition-shadow"
+                  className="flex-1 min-w-0 px-3 py-2.5 md:px-5 md:py-3.5 bg-gray-100 dark:bg-gray-800 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-violet-400 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50 transition-shadow"
                   disabled={iBlockedThem || theyBlockedMe}
                 />
 
@@ -2381,18 +2381,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   <button
                     onClick={sendMessage}
                     disabled={isSending}
-                    className="p-3.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                    className="shrink-0 p-2.5 md:p-3.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors"
                   >
-                    <PaperAirplaneIcon className="h-5 w-5" />
+                    <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => void startRecording()}
                     disabled={isSending || iBlockedThem || theyBlockedMe}
-                    className="p-3.5 bg-gray-100 text-gray-500 rounded-full hover:bg-violet-100 hover:text-violet-600 disabled:opacity-50 transition-colors"
+                    className="shrink-0 p-2.5 md:p-3.5 bg-gray-100 text-gray-500 rounded-full hover:bg-violet-100 hover:text-violet-600 disabled:opacity-50 transition-colors"
                   >
-                    <MicrophoneIcon className="h-5 w-5" />
+                    <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
                 )}
               </>
