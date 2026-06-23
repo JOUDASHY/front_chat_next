@@ -2284,33 +2284,52 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     <LanguageIcon className="h-6 w-6" />
                   </button>
                   
-                  {showTranslateMenu && (
-                    <div className="absolute bottom-14 left-0 z-50 bg-white border border-gray-200 shadow-lg rounded-xl p-2 flex flex-col gap-2 min-w-[150px]">
-                      <select 
-                        value={draftLang}
-                        onChange={(e) => setDraftLang(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 text-sm rounded-lg text-gray-700 outline-none p-2 w-full cursor-pointer"
-                      >
-                        <option value="">Langue cible...</option>
-                        <option value="en">Anglais</option>
-                        <option value="fr">Français</option>
-                        <option value="es">Espagnol</option>
-                        <option value="mg">Malgache</option>
-                      </select>
-                      {draftLang && newMessage.trim() && (
-                        <button 
-                          onClick={() => {
-                            handleTranslateDraft();
-                            setShowTranslateMenu(false);
-                          }}
-                          disabled={isTranslatingDraft}
-                          className="w-full text-xs text-white bg-indigo-500 hover:bg-indigo-600 font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          {isTranslatingDraft ? 'Traduction...' : 'Traduire le texte'}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                {showTranslateMenu && (
+  <div className="absolute bottom-14 left-0 z-50 bg-white border border-gray-200 shadow-lg rounded-xl p-2 flex flex-col gap-2 min-w-[200px] max-h-64 overflow-y-auto">
+
+    <select
+      value={draftLang}
+      onChange={(e) => setDraftLang(e.target.value)}
+      className="bg-gray-50 border border-gray-200 text-sm rounded-lg text-gray-700 outline-none p-2 w-full cursor-pointer"
+    >
+      <option value="">Langue cible...</option>
+
+      <option value="en">Anglais</option>
+      <option value="fr">Français</option>
+      <option value="es">Espagnol</option>
+      <option value="mg">Malgache</option>
+      <option value="de">Allemand</option>
+      <option value="it">Italien</option>
+      <option value="pt">Portugais</option>
+      <option value="ru">Russe</option>
+      <option value="zh">Chinois</option>
+      <option value="ja">Japonais</option>
+      <option value="ko">Coréen</option>
+      <option value="ar">Arabe</option>
+      <option value="hi">Hindi</option>
+      <option value="tr">Turc</option>
+      <option value="vi">Vietnamien</option>
+      <option value="nl">Néerlandais</option>
+      <option value="sw">Swahili</option>
+      <option value="id">Indonésien</option>
+      <option value="af">Afrikaans</option>
+      <option value="sq">Albanais</option>
+    </select>
+
+    {draftLang && newMessage.trim() && (
+      <button
+        onClick={() => {
+          handleTranslateDraft();
+          setShowTranslateMenu(false);
+        }}
+        disabled={isTranslatingDraft}
+        className="w-full text-xs text-white bg-indigo-500 hover:bg-indigo-600 font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+      >
+        {isTranslatingDraft ? 'Traduction...' : 'Traduire le texte'}
+      </button>
+    )}
+  </div>
+)}
                 </div>
 
                 {/* EMOJI */}

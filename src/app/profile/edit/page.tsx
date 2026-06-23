@@ -372,10 +372,25 @@ export default function EditProfilePage() {
                 <Field label="Langue de traduction par défaut" hint="Langue vers laquelle les messages seront traduits automatiquement">
                   <select name="language_preference" value={formData.language_preference} onChange={handleInputChange} className={inputCls}>
                     <option value="">Désactivé (Langue originale)</option>
-                    <option value="fr">Français</option>
-                    <option value="en">Anglais</option>
-                    <option value="es">Espagnol</option>
-                    <option value="mg">Malgache</option>
+  <option value="en">Anglais</option>
+      <option value="fr">Français</option>
+      <option value="es">Espagnol</option>
+      <option value="mg">Malgache</option>
+      <option value="de">Allemand</option>
+      <option value="it">Italien</option>
+      <option value="pt">Portugais</option>
+      <option value="ru">Russe</option>
+      <option value="zh">Chinois</option>
+      <option value="ja">Japonais</option>
+      <option value="ko">Coréen</option>
+      <option value="ar">Arabe</option>
+      <option value="hi">Hindi</option>
+      <option value="tr">Turc</option>
+      <option value="vi">Vietnamien</option>
+      <option value="nl">Néerlandais</option>
+      <option value="sw">Swahili</option>
+      <option value="id">Indonésien</option>
+      <option value="af">Afrikaans</option>
                   </select>
                 </Field>
               </div>
