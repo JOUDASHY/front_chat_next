@@ -86,13 +86,13 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-blue flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-blue dark:bg-gray-950 flex items-center justify-center p-4 relative overflow-hidden transition-colors">
 
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100 }}
-        className="w-full max-w-md bg-light rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20"
+        className="w-full max-w-md bg-light dark:bg-gray-900 rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20 dark:border-gray-800"
       >
         <AnimatePresence>
           {isSuccess && (
@@ -121,10 +121,10 @@ const RegisterPage = () => {
           >
             <AppLogo size={70} />
           </motion.div>
-          <h1 className="text-4xl font-bold text-[var(--blue)]">
+          <h1 className="text-4xl font-bold text-[var(--blue)] dark:text-gray-100">
             Bienvenue Parmi Nous
           </h1>
-          <p className="text-[var(--blue)]/80">Commencez votre aventure dès maintenant</p>
+          <p className="text-[var(--blue)]/80 dark:text-gray-400">Commencez votre aventure dès maintenant</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -136,7 +136,7 @@ const RegisterPage = () => {
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                  className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 dark:placeholder-gray-400 text-[var(--blue)] dark:text-white transition-all"
                   placeholder="Prénom"
                 />
               </div>
@@ -145,13 +145,13 @@ const RegisterPage = () => {
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                  className="w-full px-4 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 dark:placeholder-gray-400 text-[var(--blue)] dark:text-white transition-all"
                   placeholder="Nom"
                   required
                 />
               </div>
             </div>
-            <p className="mt-1.5 text-xs text-[var(--blue)]/60 px-1">Nom affiché dans le chat et sur votre profil</p>
+            <p className="mt-1.5 text-xs text-[var(--blue)]/60 dark:text-gray-500 px-1">Nom affiché dans le chat et sur votre profil</p>
           </motion.div>
 
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.2 }}>
@@ -161,13 +161,13 @@ const RegisterPage = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 dark:placeholder-gray-400 text-[var(--blue)] dark:text-white transition-all"
                 placeholder="Adresse email"
                 autoComplete="email"
                 required
               />
             </div>
-            <p className="mt-1.5 text-xs text-[var(--blue)]/60 px-1">Utilisé pour vous connecter</p>
+            <p className="mt-1.5 text-xs text-[var(--blue)]/60 dark:text-gray-500 px-1">Utilisé pour vous connecter</p>
           </motion.div>
 
           <motion.div initial={{ x: -20 }} animate={{ x: 0 }} transition={{ delay: 0.25 }}>
@@ -177,7 +177,7 @@ const RegisterPage = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 dark:placeholder-gray-400 text-[var(--blue)] dark:text-white transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -190,7 +190,7 @@ const RegisterPage = () => {
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="w-full pl-4 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 text-[var(--blue)] transition-all"
+                className="w-full pl-4 pr-4 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 text-[var(--blue)] dark:text-white transition-all"
                 required
               >
                 <option value="" disabled>Sélectionnez votre sexe</option>
@@ -245,7 +245,7 @@ const RegisterPage = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="mt-8 text-center space-y-4 text-[var(--blue)]/80"
+          className="mt-8 text-center space-y-4 text-[var(--blue)]/80 dark:text-gray-400"
         >
           <p>
             Déjà membre ?{" "}

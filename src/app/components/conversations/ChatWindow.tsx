@@ -1322,24 +1322,24 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   if (!conversation) {
     return (
-      <div className="w-full h-full bg-gray-50 flex flex-col">
+      <div className="w-full h-full bg-gray-50 dark:bg-gray-900 flex flex-col">
 
-        <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
+        <div className="p-4 bg-indigo-600 dark:bg-indigo-900 text-white flex justify-between items-center">
           <h1 className="text-2xl font-bold">WhatsApp</h1>
           <EllipsisVerticalIcon className="h-6 w-6 cursor-pointer" />
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-500 text-lg">Sélectionnez une conversation</p>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">Sélectionnez une conversation</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-50 overflow-hidden min-h-0">
+    <div className="h-full w-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden min-h-0">
       {/* Header fixe */}
       <div
-        className="shrink-0 sticky top-0 z-10 px-3 py-2 md:p-3 bg-white border-b flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50"
+        className="shrink-0 sticky top-0 z-10 px-3 py-2 md:p-3 bg-white dark:bg-gray-950 border-b border-[#f3f4f6] dark:border-transparent flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-800"
         onClick={handleProfileClick}
       >
         {/* Bouton de retour - visible uniquement sur mobile */}
@@ -1373,13 +1373,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-base md:text-xl text-gray-900 truncate leading-tight">
+          <h2 className="font-bold text-base md:text-xl text-gray-900 dark:text-gray-100 truncate leading-tight">
             {conversation.name || getDisplayName(recipient) || 'Utilisateur'}
           </h2>
           {/* {!conversation.isGroup && recipient?.username && (
             <p className="text-xs text-gray-400">@{recipient.username}</p>
           )} */}
-          <p className="text-xs md:text-sm text-gray-500 flex items-center leading-tight mt-0.5">
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 flex items-center leading-tight mt-0.5">
             {conversation.isGroup ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-indigo-400 mr-2"></span>
@@ -1399,7 +1399,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             <button
               type="button"
               onClick={() => setShowSearch(v => !v)}
-              className={`p-1.5 md:p-2 rounded-full transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
+              className={`p-1.5 md:p-2 rounded-full transition-colors ${showSearch ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
               title="Rechercher dans la conversation"
               aria-label="Rechercher"
             >
@@ -1415,7 +1415,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   username: recipient?.username,
                 })
               }
-              className="p-1.5 md:p-2 rounded-full hover:bg-green-50 text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Appel vocal"
               aria-label="Appel vocal"
             >
@@ -1431,7 +1431,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   username: recipient?.username,
                 })
               }
-              className="p-1.5 md:p-2 rounded-full hover:bg-indigo-50 text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Appel vidéo"
               aria-label="Appel vidéo"
             >
@@ -1444,13 +1444,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             <button
               type="button"
               onClick={() => setShowHeaderMenu((v) => !v)}
-              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Options"
             >
-              <EllipsisVerticalIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
+              <EllipsisVerticalIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-500 dark:text-gray-400" />
             </button>
             {showHeaderMenu && (
-              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg">
                 <button
                   type="button"
                   onClick={() => {
@@ -1492,7 +1492,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
       {/* Barre de recherche dans la conversation */}
       {showSearch && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-[#f3f4f6] shadow-sm">
           <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 shrink-0" />
           <input
             ref={searchInputRef}
@@ -1569,7 +1569,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       {/* Ajuster le conteneur des messages pour tenir compte du header fixe */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 md:p-4 bg-gray-50 space-y-2 md:space-y-4 mt-[1px]"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 md:p-4 bg-gray-50 dark:bg-gray-900 space-y-2 md:space-y-4 mt-[1px]"
       >
         {messagesLoading ? (
           <ChatMessagesSkeleton />
@@ -1694,14 +1694,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         ? ''
                         : isCurrentUser
                         ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none'
-                        : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none border border-[#f3f4f6] dark:border-transparent'
                     }`}
                   >
                     {!imageOnlyMessage && !isVoiceMessage && !isStickerMessage && (
                     <>
                     {/* En-tête du message */}
                     <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
-                      <span className={`text-xs md:text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800'}`}>
+                      <span className={`text-xs md:text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800 dark:text-gray-300'}`}>
                         {isCurrentUser ? 'Vous' : msg.sender}
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
@@ -1719,11 +1719,11 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                               }`}
                               aria-label="Options du message"
                             >
-                              <EllipsisVerticalIcon className={`h-4 w-4 ${isCurrentUser ? 'text-white' : 'text-gray-600'}`} />
+                              <EllipsisVerticalIcon className={`h-4 w-4 ${isCurrentUser ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
                             </button>
                             {openMenuMessageId === msg.id && (
                               <div
-                                className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+                                className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <button
@@ -1733,7 +1733,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                     setOpenReactionPickerId(msg.id);
                                     setOpenMenuMessageId(null);
                                   }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                                 >
                                   <FaceSmileIcon className="h-4 w-4" />
                                   Réagir
@@ -1744,7 +1744,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                     openForwardModal(msg.id);
                                     setOpenMenuMessageId(null);
                                   }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                                 >
                                   <PaperAirplaneIcon className="h-4 w-4" />
                                   Transférer
@@ -1818,7 +1818,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                           </button>
                           {openMenuMessageId === msg.id && (
                             <div
-                              className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+                              className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <button
@@ -1862,7 +1862,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 type="button"
                                 onClick={() => handleDeleteMessage(msg.id)}
                                 disabled={deletingMessageId === msg.id}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-50"
                               >
                                 {deletingMessageId === msg.id ? (
                                   <span className="h-4 w-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
@@ -1913,7 +1913,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         isStickerMessage ? (
                           <div className="flex flex-col items-end gap-0.5">
                             <span className={`${stickerSize} leading-none select-none`}>{msg.content}</span>
-                            <span className="text-[10px] text-gray-400">{messageTime}</span>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{messageTime}</span>
                           </div>
                         ) : (
                           <MessageContent content={msg.content} isCurrentUser={isCurrentUser} translatedContent={translations[msg.id]} />
@@ -1994,23 +1994,23 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                             );
                           } else if (isPdf) {
                             return (
-                              <div className={`flex flex-col p-2 md:p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-md md:rounded-lg`}>
+                              <div className={`flex flex-col p-2 md:p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100 dark:bg-gray-700'} rounded-md md:rounded-lg`}>
                                 <div className="flex items-center mb-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-red-300' : 'text-red-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                                   </svg>
-                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700'}`}>{decodedFileName}</span>
+                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700 dark:text-gray-200'}`}>{decodedFileName}</span>
                                 </div>
                                 <iframe 
                                   src={`${fileUrl}#toolbar=0&navpanes=0`} 
-                                  className="w-full h-60 rounded border border-gray-300 bg-white"
+                                  className="w-full h-60 rounded border border-gray-300 dark:border-gray-600 bg-white"
                                   title={decodedFileName}
                                 />
                                 <a 
                                   href={fileUrl} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
-                                  className={`${isCurrentUser ? 'text-indigo-200' : 'text-indigo-600'} hover:underline text-sm mt-2 text-center`}
+                                  className={`${isCurrentUser ? 'text-indigo-200' : 'text-indigo-600 dark:text-indigo-400'} hover:underline text-sm mt-2 text-center`}
                                 >
                                   Ouvrir le PDF
                                 </a>
@@ -2028,17 +2028,17 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                           } else {
                             // Pour les autres types de fichiers
                             return (
-                              <div className={`flex items-center p-2 md:p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100'} rounded-md md:rounded-lg`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-gray-300' : 'text-gray-500'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
+                              <div className={`flex items-center p-2 md:p-3 ${isCurrentUser ? 'bg-indigo-700/20' : 'bg-gray-100 dark:bg-gray-700'} rounded-md md:rounded-lg`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isCurrentUser ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'} mr-2`} viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a3 3 0 006 0V7a1 1 0 112 0v4a5 5 0 01-10 0V7a5 5 0 0110 0v1.5a2.5 2.5 0 01-5 0V7a1 1 0 012 0v1.5a.5.5 0 001 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
                                 </svg>
                                 <div className="flex flex-col">
-                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700'}`}>{decodedFileName}</span>
+                                  <span className={`text-sm truncate max-w-[150px] ${isCurrentUser ? 'text-white/90' : 'text-gray-700 dark:text-gray-200'}`}>{decodedFileName}</span>
                                   <a 
                                     href={fileUrl} 
                                     target="_blank" 
                                     rel="noopener noreferrer" 
-                                    className={`${isCurrentUser ? 'text-indigo-200' : 'text-indigo-600'} hover:underline text-xs`}
+                                    className={`${isCurrentUser ? 'text-indigo-200' : 'text-indigo-600 dark:text-indigo-400'} hover:underline text-xs`}
                                   >
                                     Télécharger
                                   </a>
@@ -2063,7 +2063,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     <div className="flex items-center mt-1 text-xs justify-end h-4">
                       {msg.is_read ? (
                         /* Mini avatar de l'interlocuteur */
-                        <div className="h-4 w-4 rounded-full overflow-hidden border border-gray-200 opacity-80">
+                        <div className="h-4 w-4 rounded-full overflow-hidden border border-gray-200 dark:border-transparent opacity-80">
                           <ImageWithFallback
                             src={recipient?.profile?.image}
                             alt={recipient?.username || ''}
@@ -2072,8 +2072,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         </div>
                       ) : (
                         /* Check gris (envoyé) */
-                        <div className="h-4 w-4 rounded-full border border-gray-400 flex items-center justify-center opacity-70">
-                          <svg className="h-2.5 w-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="h-4 w-4 rounded-full border border-gray-400 dark:border-gray-500 flex items-center justify-center opacity-70">
+                          <svg className="h-2.5 w-2.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         </div>
@@ -2087,7 +2087,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         })()
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-gray-400">
               Aucun message à afficher
               {/* Debug info */}
               {process.env.NODE_ENV === 'development' && (
@@ -2123,7 +2123,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               </div>
 
               {/* Indicateur d'état */}
-              <div className="flex items-center mt-1 text-xs text-gray-500 justify-end">
+              <div className="flex items-center mt-1 text-xs text-gray-500 dark:text-gray-400 justify-end">
                 {msg.isPending ? (
                   <svg className="animate-spin h-3 w-3 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -2149,14 +2149,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       {/* Bas de page : frappe + saisie (reste au-dessus du clavier) */}
       <div className="shrink-0 z-10">
         {typingUsers.length > 0 && (
-          <div className="px-3 md:px-4 pb-1 flex items-center gap-2 bg-gray-50">
-            <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1.5">
+          <div className="px-3 md:px-4 pb-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-900">
+            <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 rounded-full px-3 py-1.5">
               <div className="flex items-center gap-[3px]">
                 <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:0ms]" />
                 <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:150ms]" />
                 <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:300ms]" />
               </div>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
                 {typingUsers.length === 1
                   ? `${typingUsers[0]} est en train d'écrire...`
                   : typingUsers.length === 2
@@ -2167,12 +2167,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           </div>
         )}
 
-        <div className="bg-white rounded-3xl">
+        <div className="bg-white dark:bg-gray-950 rounded-3xl">
 
           {selectedFiles.length > 0 && (
-            <div className="px-3 pt-3 pb-2 md:px-4 md:pt-4 bg-gray-50 rounded-t-3xl">
+            <div className="px-3 pt-3 pb-2 md:px-4 md:pt-4 bg-gray-50 dark:bg-gray-900 rounded-t-3xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-violet-600">
+                <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
                   {selectedFiles.length} fichier{selectedFiles.length > 1 ? 's sélectionnés' : ' sélectionné'}
                 </p>
                 <button
@@ -2353,7 +2353,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       ? "Impossible d'envoyer un message…"
                       : "Écrivez un message..."
                   }
-                  className="flex-1 px-4 py-3 md:px-5 md:py-3.5 bg-gray-100 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-violet-400 text-gray-800 placeholder:text-gray-400 disabled:opacity-50 transition-shadow"
+                  className="flex-1 px-4 py-3 md:px-5 md:py-3.5 bg-gray-100 dark:bg-gray-800 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-violet-400 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50 transition-shadow"
                   disabled={iBlockedThem || theyBlockedMe}
                 />
 
@@ -2499,7 +2499,7 @@ function TranslateModal({ message, onClose, onTranslate }: { message: {id: numbe
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="p-4 border-b border-[#f3f4f6] flex justify-between items-center bg-gray-50">
           <h3 className="font-bold text-gray-800 flex items-center gap-2">
             <LanguageIcon className="h-5 w-5 text-indigo-500" />
             Traduire le message
@@ -2523,7 +2523,7 @@ function TranslateModal({ message, onClose, onTranslate }: { message: {id: numbe
             ))}
           </select>
         </div>
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+        <div className="p-4 border-t border-[#f3f4f6] bg-gray-50 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-xl transition-colors">
             Annuler
           </button>

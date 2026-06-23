@@ -158,24 +158,24 @@ export default function EditProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[var(--blue)]" />
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[var(--blue)] dark:border-indigo-500" />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gray-100">
-        <p className="text-red-400 bg-white p-6 rounded-xl shadow-xl">{error || 'Utilisateur introuvable'}</p>
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-red-400 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl">{error || 'Utilisateur introuvable'}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header fixe */}
-      <div className="fixed top-0 left-0 right-0 bg-[var(--blue)] shadow-sm z-30 h-14 flex items-center px-4 gap-3">
+      <div className="fixed top-0 left-0 right-0 bg-[var(--blue)] dark:bg-gray-950 border-b border-gray-800 shadow-sm z-30 h-14 flex items-center px-4 gap-3">
         <button
           onClick={() => router.push('/profile')}
           className="p-2 hover:bg-[var(--blue-ciel)]/20 rounded-full transition-colors"
@@ -226,7 +226,7 @@ export default function EditProfilePage() {
         <div className="max-w-3xl mx-auto px-4">
           <div className="flex items-end gap-4 -mt-12 mb-6">
             <motion.div whileHover={{ scale: 1.05 }} className="relative shrink-0">
-              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-800 shadow-xl overflow-hidden bg-white dark:bg-gray-700">
                 <img
                   src={previewImage || user.profile?.image || '/default-avatar.svg'}
                   alt={user.username}
@@ -257,8 +257,8 @@ export default function EditProfilePage() {
             </motion.div>
 
             <div className="pb-2">
-              <p className="text-xs text-gray-500 mb-0.5">JPEG ou PNG · max 2 MB</p>
-              <p className="text-[var(--blue)] font-semibold text-lg">{user.username}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">JPEG ou PNG · max 2 MB</p>
+              <p className="text-[var(--blue)] dark:text-gray-100 font-semibold text-lg">{user.username}</p>
             </div>
           </div>
 
@@ -383,12 +383,12 @@ export default function EditProfilePage() {
 
             {/* Messages retour */}
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 rounded-xl text-sm">
                 ⚠️ {error}
               </div>
             )}
             {successMsg && (
-              <div className="p-4 bg-green-50 border border-green-200 text-green-600 rounded-xl text-sm">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-green-600 dark:text-green-400 rounded-xl text-sm">
                 ✅ {successMsg}
               </div>
             )}
@@ -401,7 +401,7 @@ export default function EditProfilePage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={() => router.push('/profile')}
                 disabled={isSaving}
-                className="px-6 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                className="px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
               >
                 Annuler
               </motion.button>
@@ -432,7 +432,7 @@ export default function EditProfilePage() {
 /* ─── Helpers ─── */
 
 const inputCls =
-  'w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--blue)] focus:border-transparent transition-all';
+  'w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--blue)] focus:border-transparent transition-all';
 
 function Section({
   title,
@@ -444,10 +444,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">{icon}</span>
-        <h2 className="text-[var(--blue)] font-semibold text-base">{title}</h2>
+        <h2 className="text-[var(--blue)] dark:text-gray-100 font-semibold text-base">{title}</h2>
       </div>
       {children}
     </div>
@@ -467,11 +467,11 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-gray-600">
+      <label className="block text-sm font-medium text-gray-600 dark:text-gray-300">
         {label}
         {required && <span className="text-red-400 ml-1">*</span>}
       </label>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="text-xs text-gray-400 dark:text-gray-500">{hint}</p>}
       {children}
     </div>
   );

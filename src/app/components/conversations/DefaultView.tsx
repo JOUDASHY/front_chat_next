@@ -328,7 +328,7 @@ function DiscoverPage({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#f0f2f5] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#f0f2f5] dark:bg-gray-900 overflow-hidden">
 
       {/* Header */}
       <div className="relative bg-[var(--blue)] px-5 pt-6 pb-12 shrink-0 overflow-hidden">
@@ -364,14 +364,14 @@ function DiscoverPage({
 
       {/* Barre de recherche flottante */}
       <div className="px-4 -mt-5 relative z-10 shrink-0">
-        <div className="flex items-center gap-2 bg-white rounded-2xl shadow-md px-4 py-3 border border-gray-100">
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-2xl shadow-md px-4 py-3 border border-[#f3f4f6] dark:border-[#374151]">
           <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 shrink-0" />
           <input
             type="text"
             placeholder="Nom, profession, ville..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="flex-1 text-sm text-gray-700 placeholder-gray-400 outline-none bg-transparent"
+            className="flex-1 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 outline-none bg-transparent"
           />
           {search && (
             <button onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
@@ -433,12 +433,12 @@ function UserCard({ user, index, onStart, loading, isOnline }: {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.22 }}
-      className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4
+      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-[#f3f4f6] dark:border-[#374151] p-4
                  hover:shadow-md hover:border-[var(--blue-ciel)]/40 transition-all"
     >
       <div className="flex items-start gap-3">
         <button onClick={() => router.push(`/profile/${user.id}`)} className="relative shrink-0 focus:outline-none">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-100 bg-gray-100">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#f3f4f6] bg-gray-100">
             <img
               src={user.profile?.image || '/default-avatar.svg'}
               alt={user.username}
@@ -453,7 +453,7 @@ function UserCard({ user, index, onStart, loading, isOnline }: {
           <div className="flex items-center gap-1">
             <button
               onClick={() => router.push(`/profile/${user.id}`)}
-              className="text-xs md:text-sm font-bold text-[var(--blue)] hover:underline truncate max-w-[130px]"
+              className="text-xs md:text-sm font-bold text-[var(--blue)] dark:text-gray-100 hover:underline truncate max-w-[130px]"
             >
               {fullName || user.username}
             </button>
@@ -477,7 +477,7 @@ function UserCard({ user, index, onStart, loading, isOnline }: {
       </div>
 
       {isOnline && (
-        <div className="mt-2 inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+        <div className="mt-2 inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           En ligne
         </div>
@@ -514,7 +514,7 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
     <div>
       <div className="flex items-center gap-2 mb-3">
         {icon}
-        <h2 className="text-sm font-bold text-[var(--blue)]">{title}</h2>
+        <h2 className="text-sm font-bold text-[var(--blue)] dark:text-gray-200">{title}</h2>
       </div>
       {children}
     </div>
@@ -525,16 +525,16 @@ function SkeletonGrid() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 animate-pulse">
+        <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-[#f3f4f6] dark:border-[#374151] animate-pulse">
           <div className="flex gap-3">
-            <div className="w-12 h-12 rounded-full bg-gray-200 shrink-0" />
+            <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
             <div className="flex-1 space-y-2 pt-1">
-              <div className="h-3 bg-gray-200 rounded w-3/4" />
-              <div className="h-2.5 bg-gray-200 rounded w-1/2" />
-              <div className="h-2 bg-gray-200 rounded w-2/3" />
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+              <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
             </div>
           </div>
-          <div className="mt-3 h-7 bg-gray-200 rounded-xl" />
+          <div className="mt-3 h-7 bg-gray-200 dark:bg-gray-700 rounded-xl" />
         </div>
       ))}
     </div>

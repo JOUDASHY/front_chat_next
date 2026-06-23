@@ -21,7 +21,7 @@ function LeftBubble({ lines }: { lines: string[] }) {
   return (
     <div className="flex justify-start items-end gap-2">
       <div className="skeleton-shimmer h-8 w-8 shrink-0 rounded-full" />
-      <div className="max-w-[75%] space-y-2 rounded-2xl rounded-tl-sm bg-gray-100/80 px-3 py-3">
+      <div className="max-w-[75%] space-y-2 rounded-2xl rounded-tl-sm bg-gray-100/80 dark:bg-gray-800 px-3 py-3">
         {lines.map((width, index) => (
           <SkeletonLine key={index} className={width} />
         ))}
@@ -33,7 +33,7 @@ function LeftBubble({ lines }: { lines: string[] }) {
 function RightBubble({ lines }: { lines: string[] }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[75%] space-y-2 rounded-2xl rounded-tr-sm bg-gray-100/80 px-3 py-3">
+      <div className="max-w-[75%] space-y-2 rounded-2xl rounded-tr-sm bg-gray-100/80 dark:bg-gray-800 px-3 py-3">
         {lines.map((width, index) => (
           <SkeletonLine key={index} className={width} />
         ))}

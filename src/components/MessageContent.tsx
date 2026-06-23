@@ -53,10 +53,10 @@ export default function MessageContent({ content, isCurrentUser, translatedConte
   const primaryUrl = urls[0];
   const onlyUrl = messageIsOnlyUrl(content);
 
-  const textClass = isCurrentUser ? 'text-white' : 'text-gray-800';
+  const textClass = isCurrentUser ? 'text-white' : 'text-gray-800 dark:text-gray-100';
   const linkClass = isCurrentUser
     ? 'underline text-white/95 hover:text-white'
-    : 'underline text-indigo-600 hover:text-indigo-700';
+    : 'underline text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300';
 
   return (
     <>

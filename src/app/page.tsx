@@ -140,7 +140,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-blue flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-blue dark:bg-gray-950 flex items-center justify-center p-4 relative overflow-hidden transition-colors">
 
       {/* Overlay de chargement / succès plein écran */}
       <LoadingOverlay
@@ -153,7 +153,7 @@ const LoginPage = () => {
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100 }}
-        className="w-full max-w-md bg-light rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20"
+        className="w-full max-w-md bg-light dark:bg-gray-900 rounded-3xl shadow-2xl p-8 relative border border-[var(--blue)]/20 dark:border-gray-800"
       >
         {/* En-tête */}
         <div className="text-center mb-10 space-y-4">
@@ -164,10 +164,10 @@ const LoginPage = () => {
           >
             <AppLogo size={70} />
           </motion.div>
-          <h1 className="text-4xl font-bold text-[var(--blue)]">
+          <h1 className="text-4xl font-bold text-[var(--blue)] dark:text-gray-100">
             Welcome Back
           </h1>
-          <p className="text-[var(--blue)]/80">Votre univers personnel vous attend</p>
+          <p className="text-[var(--blue)]/80 dark:text-gray-400">Votre univers personnel vous attend</p>
         </div>
 
         {/* Formulaire */}
@@ -180,13 +180,13 @@ const LoginPage = () => {
                 type="text"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 dark:placeholder-gray-400 text-[var(--blue)] dark:text-white transition-all"
                 placeholder="Email ou identifiant (@pseudo)"
                 autoComplete="username"
                 required
               />
             </div>
-            <p className="mt-1.5 text-xs text-[var(--blue)]/60 px-1">
+            <p className="mt-1.5 text-xs text-[var(--blue)]/60 dark:text-gray-500 px-1">
               Utilisez l&apos;email ou l&apos;identifiant choisi à l&apos;inscription
             </p>
           </motion.div>
@@ -199,7 +199,7 @@ const LoginPage = () => {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-4 bg-[var(--light)]/30 border border-[var(--blue)]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 text-[var(--blue)] transition-all"
+                className="w-full pl-12 pr-12 py-4 bg-[var(--light)]/30 dark:bg-gray-800 border border-[var(--blue)]/20 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--jaune)]/50 focus:border-[var(--jaune)]/30 placeholder-[var(--blue)]/50 dark:placeholder-gray-400 text-[var(--blue)] dark:text-white transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -265,7 +265,7 @@ const LoginPage = () => {
         </form>
 
         {/* Liens footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-8 text-center space-y-4 text-[var(--blue)]/80">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-8 text-center space-y-4 text-[var(--blue)]/80 dark:text-gray-400">
           <a
             href="/emailreset"
             onClick={(e) => {

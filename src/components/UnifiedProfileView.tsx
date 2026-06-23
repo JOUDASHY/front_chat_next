@@ -49,11 +49,11 @@ interface Props {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; dot: string }> = {
-  online:    { label: 'En ligne',   color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  offline:   { label: 'Hors ligne', color: 'bg-gray-100 text-gray-500',       dot: 'bg-gray-400'    },
-  away:      { label: 'Absent',     color: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-400'   },
-  busy:      { label: 'Occupé',     color: 'bg-red-100 text-red-600',         dot: 'bg-red-500'     },
-  invisible: { label: 'Invisible',  color: 'bg-purple-100 text-purple-600',   dot: 'bg-purple-400'  },
+  online:    { label: 'En ligne',   color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  offline:   { label: 'Hors ligne', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',       dot: 'bg-gray-400'    },
+  away:      { label: 'Absent',     color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',     dot: 'bg-amber-400'   },
+  busy:      { label: 'Occupé',     color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',         dot: 'bg-red-500'     },
+  invisible: { label: 'Invisible',  color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',   dot: 'bg-purple-400'  },
 };
 
 function fmt(d?: string | null) {
@@ -67,12 +67,12 @@ function fmtDT(d?: string | null) {
 
 function Skeleton() {
   return (
-    <div className="min-h-screen bg-[#f0f2f5] animate-pulse">
-      <div className="h-[300px] bg-gray-300 w-full" />
+    <div className="min-h-screen bg-[#f0f2f5] dark:bg-gray-900 animate-pulse">
+      <div className="h-[300px] bg-gray-300 dark:bg-gray-800 w-full" />
       <div className="max-w-5xl mx-auto px-4 mt-4">
-        <div className="w-32 h-32 rounded-full bg-gray-300 border-4 border-white" />
-        <div className="mt-4 h-7 w-48 bg-gray-300 rounded-lg" />
-        <div className="mt-2 h-4 w-64 bg-gray-200 rounded-lg" />
+        <div className="w-32 h-32 rounded-full bg-gray-300 dark:bg-gray-700 border-4 border-white dark:border-gray-900" />
+        <div className="mt-4 h-7 w-48 bg-gray-300 dark:bg-gray-700 rounded-lg" />
+        <div className="mt-2 h-4 w-64 bg-gray-200 dark:bg-gray-800 rounded-lg" />
       </div>
     </div>
   );
@@ -106,10 +106,10 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
 
   if (!user) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#f0f2f5]">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center space-y-3">
+      <div className="fixed inset-0 flex items-center justify-center bg-[#f0f2f5] dark:bg-gray-900">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl text-center space-y-3">
           <p className="text-red-500 font-medium">{error || 'Utilisateur introuvable'}</p>
-          <button onClick={goToChat} className="text-[var(--blue)] underline text-sm">Retour</button>
+          <button onClick={goToChat} className="text-[var(--blue)] dark:text-blue-400 underline text-sm">Retour</button>
         </div>
       </div>
     );
@@ -123,7 +123,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const DEFAULT_COVER = 'https://wallpaperbat.com/img/1012550-phoenix-arizona-wall-mural-your-way.jpg';
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-[#f0f2f5] dark:bg-gray-900">
       {/* Topbar */}
       <div className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-4
                       bg-[var(--blue)]/95 backdrop-blur-md shadow-lg">
@@ -179,8 +179,8 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
           <div className="flex justify-start -mt-14 sm:-mt-18 pl-2 sm:pl-6 relative z-10">
             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
               className="relative shrink-0">
-              <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-[5px] border-white
-                              shadow-2xl overflow-hidden bg-white ring-2 ring-[var(--blue-ciel)]/30">
+              <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-[5px] border-white dark:border-gray-900
+                              shadow-2xl overflow-hidden bg-white dark:bg-gray-800 ring-2 ring-[var(--blue-ciel)]/30">
                 <img src={user.profile?.image || '/default-avatar.svg'} alt={user.username}
                   className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-transform duration-300"
                   onClick={() => setIsFullScreen(true)}
@@ -192,10 +192,10 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
 
           {/* Card identité */}
           <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl shadow-sm px-5 pt-4 pb-5 mt-3">
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm px-5 pt-4 pb-5 mt-3">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--blue)] leading-tight">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--blue)] dark:text-gray-100 leading-tight">
                   {fullName || user.username}
                 </h1>
                 {fullName && <p className="text-gray-400 text-sm mt-0.5">@{user.username}</p>}
@@ -249,7 +249,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
               </div>
             </div>
             {user.profile?.bio && (
-              <p className="mt-3 text-gray-600 text-sm leading-relaxed border-t border-gray-100 pt-3">
+              <p className="mt-3 text-gray-600 dark:text-gray-300 text-sm leading-relaxed border-t border-[#f3f4f6] dark:border-[#374151] pt-3">
                 {user.profile.bio}
               </p>
             )}
@@ -263,11 +263,11 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
 
           {/* Tabs */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-            className="flex gap-1 mt-5 bg-white rounded-2xl shadow-sm p-1.5">
+            className="flex gap-1 mt-5 bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-1.5">
             {(['about', 'info'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all
-                  ${activeTab === tab ? 'bg-[var(--blue)] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  ${activeTab === tab ? 'bg-[var(--blue)] text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                 {tab === 'about' ? '📝 À propos' : 'ℹ️ Informations'}
               </button>
             ))}
@@ -359,7 +359,7 @@ function AboutTab({ user }: { user: UserData }) {
         <GlassCard>
           <CardHeader icon={<PencilSquareIcon className="h-5 w-5" />} title="Bio" />
           {profile?.bio
-            ? <p className="mt-3 text-gray-700 leading-relaxed text-[15px]">{profile.bio}</p>
+            ? <p className="mt-3 text-gray-700 dark:text-gray-300 leading-relaxed text-[15px]">{profile.bio}</p>
             : <EmptyState text="Aucune bio renseignée" />}
         </GlassCard>
 
@@ -415,10 +415,10 @@ function InfoTab({ user, isSelf }: { user: UserData; isSelf: boolean }) {
         <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
           <GlassCard>
             <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-xl ${item.highlight ? 'bg-blue-50' : 'bg-gray-50'}`}>{item.icon}</div>
+              <div className={`p-2 rounded-xl ${item.highlight ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-700'}`}>{item.icon}</div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-400 font-medium">{item.label}</p>
-                <p className={`text-sm font-bold mt-0.5 truncate ${item.highlight ? 'text-blue-600' : 'text-[var(--blue)]'}`}>
+                <p className={`text-sm font-bold mt-0.5 truncate ${item.highlight ? 'text-blue-600 dark:text-blue-400' : 'text-[var(--blue)] dark:text-gray-100'}`}>
                   {item.value}
                 </p>
               </div>
@@ -433,7 +433,7 @@ function InfoTab({ user, isSelf }: { user: UserData; isSelf: boolean }) {
 /* ─── UI helpers ─── */
 function GlassCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-[#f3f4f6] dark:border-[#374151] p-5 hover:shadow-md transition-shadow duration-200">
       {children}
     </div>
   );
@@ -441,15 +441,15 @@ function GlassCard({ children }: { children: React.ReactNode }) {
 function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-[var(--blue)]/10 rounded-lg text-[var(--blue)]">{icon}</div>
-      <h3 className="font-bold text-[var(--blue)] text-base">{title}</h3>
+      <div className="p-1.5 bg-[var(--blue)]/10 dark:bg-gray-700 rounded-lg text-[var(--blue)] dark:text-gray-200">{icon}</div>
+      <h3 className="font-bold text-[var(--blue)] dark:text-gray-100 text-base">{title}</h3>
     </div>
   );
 }
 function InfoRow({ icon, label, value, link }: { icon: React.ReactNode; label: string; value: string; link?: string }) {
   return (
     <div className="flex items-center gap-3 group">
-      <div className="shrink-0 w-8 h-8 flex items-center justify-center bg-gray-50 group-hover:bg-[var(--blue)]/5 rounded-xl transition-colors">
+      <div className="shrink-0 w-8 h-8 flex items-center justify-center bg-gray-50 dark:bg-gray-700 group-hover:bg-[var(--blue)]/5 dark:group-hover:bg-gray-600 rounded-xl transition-colors">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -458,7 +458,7 @@ function InfoRow({ icon, label, value, link }: { icon: React.ReactNode; label: s
           <a href={link.startsWith('http') ? link : `https://${link}`} target="_blank" rel="noopener noreferrer"
             className="text-sm font-semibold text-[var(--blue-ciel)] hover:underline truncate block">{value}</a>
         ) : (
-          <p className="text-sm font-semibold text-[var(--blue)] truncate">{value}</p>
+          <p className="text-sm font-semibold text-[var(--blue)] dark:text-gray-100 truncate">{value}</p>
         )}
       </div>
     </div>

@@ -17,9 +17,13 @@ import {
   PhoneIcon,
   ShieldCheckIcon,
   ChevronRightIcon,
+  EllipsisVerticalIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { useTheme } from 'next-themes';
 
 
 export interface Conversation {
@@ -106,27 +110,22 @@ const GroupAvatar = ({
   );
 };
 
-const Avatar = ({ src, alt = '', className = '', isOnline = false, dark = false }: { src?: string; alt?: string; className?: string; isOnline?: boolean; dark?: boolean }) => {
+const Avatar = ({ src, alt = '', className = '', isOnline = false }: { src?: string; alt?: string; className?: string; isOnline?: boolean }) => {
   const [hasError, setHasError] = useState(false);
   const initials = alt ? alt.split(' ').map((n) => n[0]).join('').toUpperCase() : '';
   const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(alt || 'User')}&background=random`;
   const displaySrc = !src ? fallback : src;
 
-  // Couleurs adaptées selon le fond (clair ou sombre)
-  const fallbackBg = dark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 11, 49, 0.15)';
-  const fallbackColor = dark ? '#ffffff' : 'var(--blue)';
-
   return (
     <div className="relative">
       {hasError ? (
         <div
-          className={`rounded-full flex items-center justify-center ${className}`}
-          style={{ backgroundColor: fallbackBg }}
+          className={`rounded-full flex items-center justify-center bg-[rgba(0,11,49,0.15)] dark:bg-white/20 text-[var(--blue)] dark:text-white ${className}`}
         >
           {initials ? (
-            <span className="font-semibold text-sm" style={{ color: fallbackColor }}>{initials}</span>
+            <span className="font-semibold text-sm">{initials}</span>
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5" style={{ color: fallbackColor }}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5">
               <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
               </svg>
           )}
@@ -233,6 +232,20 @@ export default function Sidebar({
   const [typingInConversations, setTypingInConversations] = useState<Map<number, TypingUser[]>>(new Map());
   const [isStaff, setIsStaff] = useState(false);
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showHeaderMenu) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setShowHeaderMenu(false);
+      }
+    };
+    document.addEventListener('click', handleOutside);
+    return () => document.removeEventListener('click', handleOutside);
+  }, [showHeaderMenu]);
 
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<any>(null);
@@ -815,11 +828,11 @@ export default function Sidebar({
   };
 
   return (
-    <div className="w-full bg-white h-[100dvh] flex flex-col shadow-xl border-r border-blue/20">
+    <div className="w-full bg-white dark:bg-gray-900 h-[100dvh] flex flex-col shadow-xl border-r border-[#000b31]/20 dark:border-gray-800">
       {/* Overlay déconnexion */}
       <LoadingOverlay visible={isLoggingOut} message="Déconnexion en cours…" />
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue">
+      <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue dark:bg-gray-950 border-b border-gray-800">
         <div className="flex items-center gap-2 md:gap-3">
           <div className="p-1.5 md:p-2 flex items-center justify-center">
            <AppLogo
@@ -862,33 +875,70 @@ export default function Sidebar({
                 src={user.profile?.image}
                 alt={user.username}
                 className="h-9 w-9 md:h-10 md:w-10 border-2 border-[var(--jaune)]/30"
-                dark={true}
               />
             </div>
           )}
-          <button
-            onClick={handleLogoutClick}
-            className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
-            aria-label="Se déconnecter"
-          >
-            <ArrowLeftOnRectangleIcon className="h-6 w-6 text-[var(--jaune)]" />
-          </button>
+          
+          <div className="relative" ref={headerMenuRef}>
+            <button
+              onClick={() => setShowHeaderMenu((prev) => !prev)}
+              className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+              aria-label="Options"
+            >
+              <EllipsisVerticalIcon className="h-6 w-6 text-[var(--jaune)]" />
+            </button>
+            
+            {showHeaderMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setTheme(theme === 'dark' ? 'light' : 'dark');
+                    setShowHeaderMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                >
+                  {theme === 'dark' ? (
+                    <>
+                      <SunIcon className="h-5 w-5 text-gray-400" />
+                      Mode clair
+                    </>
+                  ) : (
+                    <>
+                      <MoonIcon className="h-5 w-5 text-gray-400" />
+                      Mode sombre
+                    </>
+                  )}
+                </button>
+                <div className="h-px bg-gray-100 dark:bg-gray-700 my-1"></div>
+                <button
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    handleLogoutClick();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left font-medium"
+                >
+                  <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+                  Se déconnecter
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
+      
       {/* Search bar and Create Group button */}
       {sidebarView === 'chats' && (
-      <div className="p-1.5 border-b border-blue/20 flex gap-2 items-center">
+      <div className="p-1.5 border-b border-[#000b31]/20 dark:border-gray-800 flex gap-2 items-center">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-4 w-5 color-blue" />
+            <MagnifyingGlassIcon className="h-4 w-5 text-[var(--blue)] dark:text-white/70" />
           </div>
           <input
             type="text"
             placeholder="Rechercher des personnes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-1.5 bg-gray-50 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-jaune focus:bg-white transition-all color-blue placeholder-blue/60"
+            className="w-full pl-10 pr-4 py-1.5 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-jaune focus:bg-white dark:focus:bg-gray-900 transition-all text-[var(--blue)] dark:text-white placeholder-[var(--blue)]/60 dark:placeholder-white/50 outline-none"
           />
         </div>
         {/* Bouton Découvrir */}
@@ -916,9 +966,9 @@ export default function Sidebar({
 
       {/* Online users horizontal list */}
       {sidebarView === 'chats' && (
-      <div className="px-4 py-1 border-b border-blue/20">
+      <div className="px-4 py-1 border-b border-[#000b31]/20 dark:border-gray-800">
          <div className="flex items-center justify-between gap-2 mb-2.5">
-          <h3 className="text-xs font-semibold color-blue">En ligne</h3>
+          <h3 className="text-xs font-semibold text-[var(--blue)] dark:text-gray-100">En ligne</h3>
           <button
             type="button"
             onClick={onViewOnlineUsers}
@@ -944,12 +994,12 @@ export default function Sidebar({
                   <Avatar
                     src={onlineUser.profile?.image}
                     alt={onlineUser.username || ''}
-                    className="h-10 w-10 border-2 border-blue hover:border-jaune transition-colors"
+                    className="h-10 w-10 border-2 border-[#000b31] hover:border-jaune transition-colors"
                     isOnline={true}
                   />
                 </div>
                 <span
-                  className="mt-1 w-full max-w-full truncate text-center text-[10px] md:text-[11px] color-blue group-hover:color-jaune transition-colors"
+                  className="mt-1 w-full max-w-full truncate text-center text-[10px] md:text-[11px] text-[var(--blue)] dark:text-gray-300 group-hover:text-[var(--jaune)] transition-colors"
                   title={getDisplayName(onlineUser)}
                 >
                   {getDisplayName(onlineUser)}
@@ -1092,7 +1142,7 @@ export default function Sidebar({
             </div>
           ) : conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full p-6">
-              <div className="w-full max-w-sm text-center rounded-2xl border border-[var(--blue)]/15 bg-gradient-to-b from-[var(--blue)]/5 to-white p-6 shadow-sm">
+              <div className="w-full max-w-sm text-center rounded-2xl border border-[#000b31]/15 bg-gradient-to-b from-[var(--blue)]/5 to-white p-6 shadow-sm">
                 <div className="mx-auto mb-4 p-4 bg-[var(--blue)]/10 rounded-full w-fit">
                   <ChatBubbleLeftRightIcon className="h-10 w-10 text-[var(--blue)]" />
                 </div>
@@ -1137,8 +1187,8 @@ export default function Sidebar({
                   onClick={() => onSelectConversation(conversation, Number(peerUserId ?? 0))}
                   className={`group flex items-center gap-2.5 md:gap-3 px-2.5 py-2 md:p-3 cursor-pointer rounded-xl transition-all
                     ${activeConversationId === conversation.id
-                      ? 'bg-blue-ciel/20 border border-blue shadow-sm'
-                      : 'hover:bg-gray-100 border border-transparent'}`}
+                      ? 'bg-gray-200 dark:bg-gray-700 shadow-sm'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-800/50'}`}
                 >
                   {conversation.isGroup ? (
                     <GroupAvatar
@@ -1155,10 +1205,10 @@ export default function Sidebar({
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-xs md:text-sm font-semibold color-blue truncate">
+                      <h3 className="text-xs md:text-sm font-semibold text-[var(--blue)] dark:text-gray-200 truncate">
                         {conversation.name}
                       </h3>
-                      <span className="text-xs color-blue font-medium">
+                      <span className="text-xs text-[var(--blue)] dark:text-gray-400 font-medium">
                         {formatTimestamp(conversation.timestamp)}
                       </span>
                     </div>
@@ -1169,7 +1219,7 @@ export default function Sidebar({
                           <TypingDots />
                         </p>
                       ) : (
-                        <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black' : 'text-gray-600'}`}>
+                        <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
                           {conversation.lastMessageSenderId === user?.id 
                             ? `Vous : ${conversation.lastMessage || 'Nouvelle conversation'}` 
                             : conversation.lastMessage || 'Nouvelle conversation'}
@@ -1215,26 +1265,26 @@ export default function Sidebar({
       {/* Modal de confirmation de déconnexion */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold color-blue">Confirmation</h3>
+              <h3 className="text-lg font-bold text-[var(--blue)] dark:text-gray-100">Confirmation</h3>
               <button
                 onClick={cancelLogout}
-                className="p-1 rounded-full hover:bg-gray-100"
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <XMarkIcon className="h-5 w-5 text-gray-500" />
+                <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
-            <p className="text-gray-700 mb-6">
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
               Êtes-vous sûr de vouloir vous déconnecter ?
             </p>
             <div className="flex justify-end gap-3">
-              <button
-                onClick={cancelLogout}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
-              >
-                Annuler
-              </button>
+           <button
+  onClick={cancelLogout}
+  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium transition-colors"
+>
+  Annuler
+</button>
               <button
                 onClick={confirmLogout}
                 className="px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue-ciel font-medium"

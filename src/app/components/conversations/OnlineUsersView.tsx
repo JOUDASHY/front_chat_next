@@ -14,8 +14,8 @@ interface OnlineUser {
   profile?: { image?: string };
 }
 
-function getImageUrl(image?: string) {
-  if (!image) return '/default-avatar.svg';
+function getImageUrl(image?: string, name?: string) {
+  if (!image) return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random`;
   return image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_API_URL}${image}`;
 }
 
@@ -122,19 +122,19 @@ export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUser
   }, [onlineIds, allUsers]);
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
-      <header className="sticky top-0 z-10 flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 bg-white border-b border-gray-100 shadow-sm shrink-0">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      <header className="sticky top-0 z-10 flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shadow-sm shrink-0">
         <button
           type="button"
           onClick={onBackClick}
-          className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors md:hidden"
+          className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors md:hidden"
           aria-label="Retour"
         >
-          <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+          <ArrowLeftIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base md:text-lg font-bold text-[var(--blue)] truncate">En ligne</h1>
-          <p className="text-xs text-gray-500">
+          <h1 className="text-base md:text-lg font-bold text-[var(--blue)] dark:text-gray-100 truncate">En ligne</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {loading
               ? 'Connexion…'
               : `${onlineUsers.length} utilisateur${onlineUsers.length > 1 ? 's' : ''} en ligne`}
@@ -145,39 +145,39 @@ export default function OnlineUsersView({ onBackClick, onUserClick }: OnlineUser
       <main className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
-            <div className="h-8 w-8 rounded-full border-2 border-[var(--blue)]/20 border-t-[var(--blue)] animate-spin" />
-            <p className="text-sm text-gray-500">Connexion au canal de présence…</p>
+            <div className="h-8 w-8 rounded-full border-2 border-[var(--blue)]/20 dark:border-gray-700 border-t-[var(--blue)] dark:border-t-indigo-500 animate-spin" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Connexion au canal de présence…</p>
           </div>
         ) : onlineUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-16 px-6 text-center">
-            <p className="text-sm text-gray-500">Aucun autre utilisateur en ligne pour le moment.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun autre utilisateur en ligne pour le moment.</p>
           </div>
         ) : (
-          <ul className="bg-white">
+          <ul className="bg-white dark:bg-gray-900">
             {onlineUsers.map((u) => (
               <li key={u.id}>
                 <button
                   type="button"
                   onClick={() => onUserClick(u.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-100/50 last:border-b-0"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-b border-gray-100/50 dark:border-gray-800 last:border-b-0"
                 >
                   <div className="relative shrink-0">
                     <img
-                      src={getImageUrl(u.profile?.image)}
+                      src={getImageUrl(u.profile?.image, getDisplayName(u))}
                       alt={getDisplayName(u)}
-                      className="h-11 w-11 rounded-full object-cover border-2 border-[var(--blue)]/20 bg-gray-100"
+                      className="h-11 w-11 rounded-full object-cover border-2 border-[var(--blue)]/20 dark:border-gray-700 bg-[rgba(0,11,49,0.15)] dark:bg-white/20"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/default-avatar.svg';
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(getDisplayName(u))}&background=random`;
                       }}
                     />
                     {/* Dot vert — toujours affiché ici car tous sont en ligne */}
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white" />
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-900" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[var(--blue)] truncate">
+                    <p className="text-sm font-semibold text-[var(--blue)] dark:text-gray-200 truncate">
                       {getDisplayName(u)}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {getUsernameHandle(u)}
                     </p>
                   </div>

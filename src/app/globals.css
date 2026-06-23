@@ -65,6 +65,8 @@
 
 .resize-none { resize: none; }
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -72,11 +74,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
@@ -116,3 +121,14 @@ html, body {
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #1f2937 0%,
+    #374151 45%,
+    #1f2937 90%
+  );
+  background-size: 200% 100%;
+}
+
