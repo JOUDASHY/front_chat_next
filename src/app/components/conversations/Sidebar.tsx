@@ -1090,7 +1090,7 @@ export default function Sidebar({
                     className="h-10 w-10 bg-blue/20"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs md:text-sm font-semibold color-blue truncate">
+                    <p className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white truncate">
                       {call.peer.display_name}
                     </p>
                     <p className={`text-xs truncate ${
