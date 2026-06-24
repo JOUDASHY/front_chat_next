@@ -1118,10 +1118,10 @@ export default function Sidebar({
           {loading ? (
             <div className="space-y-0 p-2">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="flex items-center gap-2.5 md:gap-3 px-2.5 py-2 md:p-3 rounded-xl animate-pulse">
-                  <div className="h-10 w-10 rounded-full bg-blue/10 shrink-0"></div>
-                  <div className="flex-1 min-w-0 space-y-2.5 py-1">
-                    <div className="h-3.5 w-1/2 bg-blue/10 rounded"></div>
+                <div key={i} className="flex items-center gap-2.5 md:gap-3 px-3 py-2.5 md:p-4 rounded-xl animate-pulse">
+                  <div className="h-11 w-11 rounded-full bg-blue/10 shrink-0"></div>
+                  <div className="flex-1 min-w-0 space-y-2 py-1">
+                    <div className="h-4 w-1/2 bg-blue/10 rounded"></div>
                     <div className="h-3 w-3/4 bg-blue/5 rounded"></div>
                   </div>
                   <div className="h-3 w-8 bg-blue/10 rounded shrink-0 mt-1 self-start"></div>
@@ -1185,7 +1185,7 @@ export default function Sidebar({
                 <div
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation, Number(peerUserId ?? 0))}
-                  className={`group flex items-center gap-2.5 md:gap-3 px-2.5 py-2 md:p-3 cursor-pointer rounded-xl transition-all
+                  className={`group flex items-center gap-2.5 md:gap-3 px-3 py-2.5 md:p-4 cursor-pointer rounded-xl transition-all
                     ${activeConversationId === conversation.id
                       ? 'bg-gray-200 dark:bg-gray-700 shadow-sm'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-800/50'}`}
@@ -1199,13 +1199,13 @@ export default function Sidebar({
                     <Avatar
                       src={conversation.user?.profile?.image}
                       alt={conversation.name || 'Utilisateur'}
-                      className="h-10 w-10 bg-blue/20"
+                      className="h-11 w-11 bg-blue/20"
                       isOnline={onlineUsers.get(conversation.userId ?? 0) === true}
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-xs md:text-sm font-semibold text-[var(--blue)] dark:text-gray-200 truncate">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h3 className="text-sm md:text-[15px] font-semibold text-[var(--blue)] dark:text-gray-200 truncate">
                         {conversation.name}
                       </h3>
                       <span className="text-xs text-[var(--blue)] dark:text-gray-400 font-medium">
@@ -1219,13 +1219,13 @@ export default function Sidebar({
                           <TypingDots />
                         </p>
                       ) : (
-                        <p className={`text-sm truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                        <p className={`text-sm leading-relaxed truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
                           {conversation.lastMessageSenderId === user?.id 
                             ? `Vous : ${conversation.lastMessage || 'Nouvelle conversation'}` 
                             : conversation.lastMessage || 'Nouvelle conversation'}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2.5 flex-shrink-0">
                         {conversation.unreadCount > 0 && (
                           <span className="px-2 py-0.5 bg-jaune text-white text-xs font-medium rounded-full">
                             {conversation.unreadCount}

@@ -82,7 +82,7 @@ export const GoogleIcon = () => (
 /* ─────────────────────────────────────────────
    Panneau gauche décoratif
 ───────────────────────────────────────────── */
-export const LeftPanel = ({ title = "Votre espace<br />vous attend.", subtitle = "Connectez-vous pour accéder à vos conversations, vos outils et votre historique.", quote = "Une interface qui s'adapte vraiment à mon flux de travail. Je ne reviendrais plus en arrière.", quoteAuthor = "Maya R. — Product Designer", quoteInitials = "MR" }: { title?: React.ReactNode; subtitle?: string; quote?: string; quoteAuthor?: string; quoteInitials?: string }) => (
+export const LeftPanel = ({ title = "Votre espace<br />vous attend.", subtitle = "Connectez-vous pour accéder à vos conversations, vos outils et votre historique.", quote = "Une interface qui s'adapte vraiment à mon flux de travail. Je ne reviendrais plus en arrière.", quoteAuthor = "Tobias J. — Product Designer", quoteInitials = "MR" }: { title?: React.ReactNode; subtitle?: string; quote?: string; quoteAuthor?: string; quoteInitials?: string }) => (
   <div
     className="
       hidden lg:flex
