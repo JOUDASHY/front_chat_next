@@ -34,6 +34,7 @@ import MessageContent from '@/components/MessageContent';
 import { MessageReactionsBar, ReactionPicker } from '@/components/MessageReactions';
 import VoiceMessagePlayer from '@/components/VoiceMessagePlayer';
 import { getDisplayName, formatLastSeen } from '@/lib/userUtils';
+import { playMessageSound } from '@/hooks/useNotificationSound';
 import { translateText } from '@/lib/translationService';
 import { CallEvent } from '@/lib/callUtils';
 import type { MessageReactionGroup } from '@/lib/messageReactions';
@@ -505,6 +506,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         if (data.sender !== user?.username && !conversation.isGroup && userId) {
           api.post(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/read/`)
             .catch(console.error);
+          // Jouer le son de notification pour les messages reçus
+          playMessageSound();
         }
         
         setMessages(prev => {

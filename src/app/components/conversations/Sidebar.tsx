@@ -20,9 +20,12 @@ import {
   EllipsisVerticalIcon,
   SunIcon,
   MoonIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { isSoundEnabled, setSoundEnabled } from '@/hooks/useNotificationSound';
 import { useTheme } from 'next-themes';
 
 
@@ -231,7 +234,13 @@ export default function Sidebar({
   const [callsError, setCallsError] = useState<string | null>(null);
   const [typingInConversations, setTypingInConversations] = useState<Map<number, TypingUser[]>>(new Map());
   const [isStaff, setIsStaff] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(true);
   const router = useRouter();
+
+  // Initialiser l'état du son depuis localStorage
+  useEffect(() => {
+    setSoundEnabledState(isSoundEnabled());
+  }, []);
   const { theme, setTheme } = useTheme();
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
@@ -910,6 +919,32 @@ export default function Sidebar({
                   )}
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-gray-700 my-1"></div>
+                {/* Toggle son de notification */}
+                <button
+                  onClick={() => {
+                    const next = !soundEnabled;
+                    setSoundEnabledState(next);
+                    setSoundEnabled(next);
+                    setShowHeaderMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                >
+                  {soundEnabled ? (
+                    <>
+                      <SpeakerWaveIcon className="h-5 w-5 text-gray-400" />
+                      Son activé
+                    </>
+                  ) : (
+                    <>
+                      <SpeakerXMarkIcon className="h-5 w-5 text-gray-400" />
+                      Son désactivé
+                    </>
+                  )}
+                  <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${soundEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {soundEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+                <div className="h-px bg-gray-100 dark:bg-gray-700 my-1"></div>
                 <button
                   onClick={() => {
                     setShowHeaderMenu(false);
@@ -1093,14 +1128,18 @@ export default function Sidebar({
                     <p className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white truncate">
                       {call.peer.display_name}
                     </p>
-                    <p className={`text-xs truncate ${
-                      call.status === 'missed' && call.direction === 'incoming'
-                        ? 'text-red-500 font-medium'
-                        : 'text-gray-500'
-                    }`}>
-                      {call.direction === 'outgoing' ? '↗ ' : '↙ '}
-                      {call.preview}
-                    </p>
+                    <p
+  className={`text-xs truncate ${
+    call.status === 'missed'
+      ? 'text-red-500 font-medium'
+      : call.status === 'completed' || call.status === 'answered'
+      ? 'text-green-500 font-medium'
+      : 'text-gray-500'
+  }`}
+>
+  {call.direction === 'outgoing' ? '↗ ' : '↙ '}
+  {call.preview}
+</p>
                   </div>
                   <span className="text-[10px] text-gray-400 shrink-0">
                     {formatTimestamp(call.started_at)}
