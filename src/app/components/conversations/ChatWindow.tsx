@@ -506,8 +506,6 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         if (data.sender !== user?.username && !conversation.isGroup && userId) {
           api.post(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/private/${userId}/read/`)
             .catch(console.error);
-          // Jouer le son de notification pour les messages reçus
-          playMessageSound();
         }
         
         setMessages(prev => {

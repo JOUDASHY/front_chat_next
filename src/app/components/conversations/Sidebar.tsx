@@ -25,7 +25,8 @@ import {
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
-import { isSoundEnabled, setSoundEnabled } from '@/hooks/useNotificationSound';
+import ChatToast, { type ChatToastData } from '@/components/ChatToast';
+import { isSoundEnabled, setSoundEnabled, playMessageSound, playReadSound, playTypingSound } from '@/hooks/useNotificationSound';
 import { useTheme } from 'next-themes';
 
 
@@ -235,7 +236,17 @@ export default function Sidebar({
   const [typingInConversations, setTypingInConversations] = useState<Map<number, TypingUser[]>>(new Map());
   const [isStaff, setIsStaff] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [toasts, setToasts] = useState<ChatToastData[]>([]);
   const router = useRouter();
+
+  const addToast = (t: Omit<ChatToastData, 'id'>) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev.slice(-3), { ...t, id }]); // max 4 toasts
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Initialiser l'état du son depuis localStorage
   useEffect(() => {
@@ -496,6 +507,18 @@ export default function Sidebar({
     channel.bind('new-message', (data: { conversation: Conversation & { incrementUnread?: boolean } }) => {
       clearConversationTyping(data.conversation.id);
 
+      // Son + toast si c'est un message reçu (pas de nous) et conversation non active
+      if (data.conversation.incrementUnread) {
+        playMessageSound();
+        const conv = data.conversation;
+        addToast({
+          type: 'message',
+          title: conv.name || 'Nouveau message',
+          body: conv.lastMessage || '',
+          avatar: conv.user?.profile?.image,
+        });
+      }
+
       setConversations(prev => {
         // Trouver si la conversation existe déjà
         const existingIndex = prev.findIndex(conv => conv.id === data.conversation.id);
@@ -565,6 +588,17 @@ export default function Sidebar({
       isTyping: boolean;
     }) => {
       handleSidebarTyping(data);
+      // Son + toast "en train d'écrire" — seulement au début (isTyping=true)
+      if (data.isTyping) {
+        playTypingSound();
+        const conv = conversations.find(c => c.id === data.conversation_id);
+        const name = data.display_name || data.username;
+        addToast({
+          type: 'typing',
+          title: `${name} est en train d'écrire…`,
+          avatar: conv?.user?.profile?.image,
+        });
+      }
     });
 
     // Écouter les nouvelles conversations
@@ -582,6 +616,18 @@ export default function Sidebar({
 
     // Écouter le signal que les messages ont été lus
     channel.bind('messages-read-sidebar', (data: { conversation_id: number; reset_unread: boolean; lastMessageIsRead?: boolean }) => {
+      // Son + toast "vu"
+      if (data.lastMessageIsRead) {
+        playReadSound();
+        const conv = conversations.find(c => c.id === data.conversation_id);
+        if (conv) {
+          addToast({
+            type: 'read',
+            title: `${conv.name || 'Contact'} a vu votre message`,
+            avatar: conv.user?.profile?.image,
+          });
+        }
+      }
       setConversations(prev => {
         const idx = prev.findIndex(c => c.id === data.conversation_id);
         if (idx >= 0) {
@@ -840,6 +886,8 @@ export default function Sidebar({
     <div className="w-full bg-white dark:bg-gray-900 h-[100dvh] flex flex-col shadow-xl border-r border-[#000b31]/20 dark:border-gray-800">
       {/* Overlay déconnexion */}
       <LoadingOverlay visible={isLoggingOut} message="Déconnexion en cours…" />
+      {/* Toasts de notification (message, vu, typing) */}
+      <ChatToast toasts={toasts} onDismiss={dismissToast} />
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue dark:bg-gray-950 border-b border-gray-800">
         <div className="flex items-center gap-2 md:gap-3">

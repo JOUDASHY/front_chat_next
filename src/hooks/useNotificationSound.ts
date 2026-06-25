@@ -62,3 +62,62 @@ export function playMessageSound(): void {
     // Silently fail — autoplay policy peut bloquer
   }
 }
+
+/** Son "vu" — bip doux unique grave (style Messenger) */
+export function playReadSound(): void {
+  if (!isSoundEnabled()) return;
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(620, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(480, ctx.currentTime + 0.18);
+
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+    setTimeout(() => ctx.close(), 400);
+  } catch (e) {}
+}
+
+/** Son "en train d'écrire" — deux petits tics légers (style Messenger) */
+export function playTypingSound(): void {
+  if (!isSoundEnabled()) return;
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // Deux petits tics très courts et légers
+    [0, 0.12].forEach((start) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, ctx.currentTime + start);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(0.07, ctx.currentTime + start + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + 0.055);
+
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + 0.06);
+    });
+
+    setTimeout(() => ctx.close(), 400);
+  } catch (e) {}
+}
