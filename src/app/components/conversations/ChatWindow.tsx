@@ -1610,16 +1610,28 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               .reverse()
               .find(m => m.sender === user?.username && !m.call_event)?.id;
             
-            return messages.map(msg => {
+            return messages.flatMap((msg, index) => {
+              const prevMsg = messages[index - 1];
+              const showDateSep = !prevMsg || isDifferentDay(prevMsg.timestamp, msg.timestamp);
+
+              const dateSeparator = showDateSep ? (
+                <div key={`date-${msg.id}`} className="flex items-center justify-center my-3">
+                  <span className="px-3 py-1 text-[11px] font-medium text-gray-500 bg-white border border-gray-200 rounded-full shadow-sm">
+                    {formatDateSeparator(msg.timestamp)}
+                  </span>
+                </div>
+              ) : null;
+
               if (msg.call_event) {
-                return (
+                return [
+                  dateSeparator,
                   <CallEventBubble
                     key={msg.id}
                     callEvent={msg.call_event}
                     currentUserId={user?.id ?? 0}
                     timestamp={msg.timestamp}
                   />
-                );
+                ].filter(Boolean);
               }
 
               const isCurrentUser = msg.sender === user?.username;
@@ -1662,7 +1674,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 : 0;
               const stickerSize = stickerCount === 1 ? 'text-6xl' : stickerCount <= 3 ? 'text-5xl' : 'text-4xl';
 
-              return (
+              return [
+                dateSeparator,
                 <div
                   key={msg.id}
                   ref={el => { if (el) messageRefs.current.set(msg.id, el); else messageRefs.current.delete(msg.id); }}
@@ -2112,7 +2125,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   )}
                 </div>
               </div>
-            );
+            ].filter(Boolean);
           })
         })()
         ) : (
