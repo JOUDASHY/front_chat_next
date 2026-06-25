@@ -205,6 +205,36 @@ function isImageAttachment(url?: string) {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
 }
 
+/** Formatte la date d'un séparateur de groupe (style WhatsApp/Messenger) */
+function formatDateSeparator(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate  = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfDate.getTime()) / 86400000);
+
+  if (diffDays === 0) return "Aujourd'hui";
+  if (diffDays === 1) return 'Hier';
+  if (diffDays < 7) {
+    return date.toLocaleDateString('fr-FR', { weekday: 'long' }); // "lundi"
+  }
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); // "12 juin"
+  }
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); // "12 juin 2024"
+}
+
+/** Renvoie true si deux timestamps sont dans des jours calendaires différents */
+function isDifferentDay(a: string, b: string): boolean {
+  const da = new Date(a), db = new Date(b);
+  return (
+    da.getFullYear() !== db.getFullYear() ||
+    da.getMonth()    !== db.getMonth()    ||
+    da.getDate()     !== db.getDate()
+  );
+}
+
 function ModalAvatar({ src, name, className = "h-full w-full" }: { src?: string, name: string, className?: string }) {
   const [error, setError] = useState(false);
   const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2) : '?';
