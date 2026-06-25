@@ -147,9 +147,9 @@ const LoginPage = () => {
             <div className="flex lg:hidden justify-center mb-6">
               <AppLogo size={52} />
             </div>
-            <h1 className="text-2xl font-semibold text-[var(--blue)] dark:text-gray-100 tracking-tight mb-1.5">
+            {/* <h1 className="text-2xl font-semibold text-[var(--blue)] dark:text-gray-100 tracking-tight mb-1.5">
               Bon retour 👋
-            </h1>
+            </h1> */}
             <p className="text-sm text-[var(--blue)]/55 dark:text-gray-400">
               Entrez vos identifiants pour continuer.
             </p>
