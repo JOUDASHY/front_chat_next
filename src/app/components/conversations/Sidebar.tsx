@@ -1108,7 +1108,7 @@ export default function Sidebar({
             </div>
           ) : callHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-10 px-4 text-center">
-              <PhoneIcon className="h-10 w-10 color-blue opacity-40" />
+             <PhoneIcon className="h-10 w-10 text-[var(--blue)] opacity-40 dark:text-gray-300 dark:opacity-70" />
               <p className="color-blue/80 text-sm">Aucun appel pour le moment</p>
             </div>
           ) : (
