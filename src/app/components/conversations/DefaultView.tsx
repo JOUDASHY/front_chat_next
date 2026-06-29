@@ -31,6 +31,8 @@ interface SuggestedUser {
     profession: string | null;
     status: string | null;
     is_verified?: boolean;
+    gender?: string | null;
+    language_preference?: string | null;
   };
 }
 
@@ -223,6 +225,8 @@ function DiscoverPage({
   const [users, setUsers] = useState<SuggestedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterGender, setFilterGender] = useState('');
+  const [filterLanguage, setFilterLanguage] = useState('');
   const [starting, setStarting] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null);
   // Surcouche temps réel : map userId → true/false (online)
@@ -297,6 +301,13 @@ function DiscoverPage({
 
   const filtered = users.filter(u => {
     if (u.id === currentUser?.id) return false;
+    
+    // Filtre par genre (sexe)
+    if (filterGender && u.profile?.gender !== filterGender) return false;
+    
+    // Filtre par langue
+    if (filterLanguage && u.profile?.language_preference !== filterLanguage) return false;
+
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -377,6 +388,39 @@ function DiscoverPage({
             <button onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
           )}
         </div>
+      </div>
+
+      {/* Filtres par genre (sexe) et par langue */}
+      <div className="px-4 mt-3 flex gap-2 shrink-0">
+        <select
+          value={filterGender}
+          onChange={e => setFilterGender(e.target.value)}
+          className="flex-1 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-200 rounded-xl px-3 py-2 border border-[#f3f4f6] dark:border-[#374151] shadow-sm outline-none"
+        >
+          <option value="">Tous les genres</option>
+          <option value="M">Masculin</option>
+          <option value="F">Féminin</option>
+          <option value="O">Autre</option>
+        </select>
+        <select
+          value={filterLanguage}
+          onChange={e => setFilterLanguage(e.target.value)}
+          className="flex-1 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-200 rounded-xl px-3 py-2 border border-[#f3f4f6] dark:border-[#374151] shadow-sm outline-none"
+        >
+          <option value="">Toutes les langues</option>
+          <option value="fr">Français</option>
+          <option value="en">Anglais</option>
+          <option value="es">Espagnol</option>
+          <option value="mg">Malgache</option>
+          <option value="de">Allemand</option>
+          <option value="it">Italien</option>
+          <option value="pt">Portugais</option>
+          <option value="ru">Russe</option>
+          <option value="zh">Chinois</option>
+          <option value="ja">Japonais</option>
+          <option value="ko">Coréen</option>
+          <option value="ar">Arabe</option>
+        </select>
       </div>
 
       {/* Liste */}
