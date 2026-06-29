@@ -95,11 +95,6 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
       }) => {
         if (data.lastMessageIsRead) {
           playReadSound();
-          addToast({
-            type: 'read',
-            title: `${data.conversation_name || 'Contact'} a vu votre message`,
-            avatar: data.conversation_avatar,
-          });
         }
       });
 
@@ -114,11 +109,6 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
       }) => {
         if (data.isTyping) {
           playTypingSound();
-          addToast({
-            type: 'typing',
-            title: `${data.display_name || data.username} est en train d'écrire…`,
-            avatar: data.avatar,
-          });
         }
       });
     };

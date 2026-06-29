@@ -10,6 +10,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@heroicons/react": "^2.2.0",
     "@nextui-org/react": "^2.6.11",
     "axios": "^1.9.0",

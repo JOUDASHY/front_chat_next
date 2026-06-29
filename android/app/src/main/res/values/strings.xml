@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chat Beast</string>
+    <string name="title_activity_main">Chat Beast</string>
+    <string name="package_name">com.chatbeast.app</string>
+    <string name="custom_url_scheme">com.chatbeast.app</string>
+</resources>

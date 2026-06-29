@@ -8,6 +8,7 @@ import AppLogo from "@/components/AppLogo";
 import LoadingOverlay from "@/components/LoadingOverlay";
 
 import { IconAt, IconLock, IconEye, IconArrow, IconAlert, GoogleIcon, LeftPanel, Field } from "@/components/AuthShared";
+import { Browser } from "@capacitor/browser";
 
 /* ─────────────────────────────────────────────
    Page principale
@@ -65,46 +66,181 @@ const LoginPage = () => {
   };
 
   /* ── Connexion Google ── */
-  const handleGoogleLogin = async (code?: string) => {
-    setError("");
-    setIsLoading(true);
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const handleGoogleLogin = async (code?: string) => {
+  setError("");
+  setIsLoading(true);
 
-    if (!code) {
-      try {
-        const res = await fetch(`${apiBase}/auth/google/`);
-        if (!res.ok) throw new Error();
-        const { authorization_url } = await res.json();
-        if (typeof window !== "undefined") window.location.href = authorization_url;
-      } catch {
-        setError("Impossible de se connecter à Google. Veuillez réessayer.");
-      } finally {
-        setIsLoading(false);
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  // ============================
+  // 1) Demande connexion Google
+  // ============================
+  if (!code) {
+    try {
+      const isCapacitor =
+        typeof window !== "undefined" &&
+        !!(window as any).Capacitor;
+
+      const redirectUri = isCapacitor
+        ? "com.chatbeast.app://auth"
+        : `${window.location.origin}/auth/google/callback`;
+
+      const res = await fetch(
+        `${apiBase}/auth/google/?redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}`
+      );
+
+      if (!res.ok) {
+        throw new Error("Impossible de récupérer URL Google");
       }
-    } else {
-      try {
-        const res  = await fetch(`${apiBase}/auth/google/callback/?code=${code}`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        if (!data.access_token || !data.user) throw new Error();
 
-        localStorage.setItem("accessToken",  data.access_token);
-        if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        window.dispatchEvent(new Event("auth-changed"));
+      const { authorization_url } = await res.json();
 
-        setIsSuccess(true);
-        await new Promise((r) => setTimeout(r, 2000));
-        router.replace("/chat");
-      } catch {
-        setError("La connexion avec Google a échoué. Veuillez réessayer.");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-      } finally {
-        setIsLoading(false);
+      if (!authorization_url) {
+        throw new Error("URL Google manquante");
       }
+
+
+      // Android Capacitor
+      if (isCapacitor) {
+        await Browser.open({
+          url: authorization_url,
+        });
+
+      } 
+      // Web normal
+      else {
+        window.location.href = authorization_url;
+      }
+
+
+    } catch (error) {
+
+      console.error(
+        "Google Login Error:",
+        error
+      );
+
+      setError(
+        "Impossible de se connecter à Google. Veuillez réessayer."
+      );
+
+    } finally {
+
+      setIsLoading(false);
+
     }
-  };
+
+
+  // ============================
+  // 2) Retour Google avec code
+  // ============================
+  } else {
+
+    try {
+
+      const res = await fetch(
+        `${apiBase}/auth/google/callback/?code=${encodeURIComponent(code)}`
+      );
+
+
+      if (!res.ok) {
+        throw new Error(
+          "Erreur callback Google"
+        );
+      }
+
+
+      const data = await res.json();
+
+
+      if (
+        !data.access_token ||
+        !data.user
+      ) {
+        throw new Error(
+          "Token utilisateur absent"
+        );
+      }
+
+
+      localStorage.setItem(
+        "accessToken",
+        data.access_token
+      );
+
+
+      if (data.refresh_token) {
+
+        localStorage.setItem(
+          "refreshToken",
+          data.refresh_token
+        );
+
+      }
+
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(data.user)
+      );
+
+
+      window.dispatchEvent(
+        new Event("auth-changed")
+      );
+
+
+      setIsSuccess(true);
+
+
+      await new Promise(
+        (resolve) =>
+          setTimeout(resolve, 2000)
+      );
+
+
+      router.replace("/chat");
+
+
+    } catch (error) {
+
+
+      console.error(
+        "Google Callback Error:",
+        error
+      );
+
+
+      setError(
+        "La connexion avec Google a échoué. Veuillez réessayer."
+      );
+
+
+      localStorage.removeItem(
+        "accessToken"
+      );
+
+      localStorage.removeItem(
+        "refreshToken"
+      );
+
+      localStorage.removeItem(
+        "user"
+      );
+
+
+    } finally {
+
+
+      setIsLoading(false);
+
+
+    }
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#f0f2f7] dark:bg-gray-950 flex items-center justify-center p-4 lg:p-8 transition-colors">
