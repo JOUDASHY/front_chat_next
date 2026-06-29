@@ -16,6 +16,7 @@ import {
   showIncomingCallNotification,
 } from '@/lib/callNotifications';
 import { startCallRingtone, stopCallRingtone } from '@/lib/callRingtone';
+import { Capacitor } from '@capacitor/core';
 
 export type CallType = 'audio' | 'video';
 export type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'active';
@@ -58,6 +59,11 @@ interface CallContextValue {
   isCameraOff: boolean;
   toggleMute: () => void;
   toggleCamera: () => void;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
+  activeAudioInput: string | null;
+  activeAudioOutput: string | null;
+  switchDevice: (kind: 'audioinput' | 'audiooutput', deviceId: string) => Promise<void>;
 }
 
 const CallContext = createContext<CallContextValue | null>(null);
@@ -77,6 +83,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [incoming, setIncoming] = useState<IncomingCallPayload | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+
+  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [activeAudioInput, setActiveAudioInput] = useState<string | null>(null);
+  const [activeAudioOutput, setActiveAudioOutput] = useState<string | null>(null);
 
   const roomRef = useRef<import('livekit-client').Room | null>(null);
   const pusherRef = useRef<any>(null);
@@ -127,6 +138,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsMuted(false);
     setIsCameraOff(false);
+    setAudioInputDevices([]);
+    setAudioOutputDevices([]);
+    setActiveAudioInput(null);
+    setActiveAudioOutput(null);
   }, [detachRoom]);
 
   const notifyCallHistoryChanged = useCallback(() => {
@@ -151,6 +166,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
     },
     [notifyCallHistoryChanged]
   );
+
+  const switchDevice = useCallback(async (kind: 'audioinput' | 'audiooutput', deviceId: string) => {
+    const room = roomRef.current;
+    if (!room) return;
+    await room.switchActiveDevice(kind, deviceId);
+    if (kind === 'audioinput') setActiveAudioInput(deviceId);
+    if (kind === 'audiooutput') setActiveAudioOutput(deviceId);
+  }, []);
 
   const attachTrack = useCallback(
     (
@@ -251,6 +274,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await room.localParticipant.setCameraEnabled(true);
       } else {
         await room.localParticipant.setCameraEnabled(false);
+      }
+
+      // Fetch and set devices
+      try {
+        const aIn = await Room.getLocalDevices('audioinput');
+        const aOut = await Room.getLocalDevices('audiooutput');
+        setAudioInputDevices(aIn);
+        setAudioOutputDevices(aOut);
+        setActiveAudioInput(room.getActiveDevice('audioinput') ?? null);
+        setActiveAudioOutput(room.getActiveDevice('audiooutput') ?? null);
+
+        // Auto-select earpiece on mobile for voice calls
+        if (type === 'audio' && Capacitor.isNativePlatform()) {
+          const earpiece = aOut.find(d => 
+            d.label.toLowerCase().includes('earpiece') || 
+            d.label.toLowerCase().includes('écouteur') ||
+            d.deviceId === 'default'
+          );
+          if (earpiece) {
+             await room.switchActiveDevice('audiooutput', earpiece.deviceId);
+             setActiveAudioOutput(earpiece.deviceId);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching devices:', err);
       }
 
       await waitForVideoElements();
@@ -525,6 +573,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
         isCameraOff,
         toggleMute,
         toggleCamera,
+        audioInputDevices,
+        audioOutputDevices,
+        activeAudioInput,
+        activeAudioOutput,
+        switchDevice,
       }}
     >
       {children}

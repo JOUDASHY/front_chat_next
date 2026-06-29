@@ -8,6 +8,7 @@ import {
   MicrophoneIcon,
   NoSymbolIcon,
   SpeakerWaveIcon,
+  XMarkIcon,
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/solid';
 import { useCall, type CallPeer } from '@/context/CallContext';
@@ -98,6 +99,74 @@ function CtrlBtn({
   );
 }
 
+// ── Modal de sélection de périphérique ──────────────────────────────────────
+function DeviceSettingsModal({
+  onClose,
+  audioInputDevices,
+  audioOutputDevices,
+  activeAudioInput,
+  activeAudioOutput,
+  switchDevice
+}: {
+  onClose: () => void;
+  audioInputDevices: MediaDeviceInfo[];
+  audioOutputDevices: MediaDeviceInfo[];
+  activeAudioInput: string | null;
+  activeAudioOutput: string | null;
+  switchDevice: (kind: 'audioinput' | 'audiooutput', deviceId: string) => Promise<void>;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm bg-slate-900 rounded-2xl p-5 shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-white font-semibold text-lg">Périphériques</h3>
+          <button onClick={onClose} className="text-white/50 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors">
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+        </div>
+        
+        {audioOutputDevices.length > 0 && (
+          <div className="mb-5">
+            <label className="block text-white/50 text-xs font-semibold uppercase tracking-wider mb-3">Sortie Audio</label>
+            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+              {audioOutputDevices.map(d => (
+                <button
+                  key={d.deviceId}
+                  onClick={() => switchDevice('audiooutput', d.deviceId)}
+                  className={`text-left px-4 py-2.5 rounded-xl text-sm transition-colors truncate ${
+                    activeAudioOutput === d.deviceId ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 text-white/80 hover:bg-white/10'
+                  }`}
+                >
+                  {d.label || 'Haut-parleur par défaut'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {audioInputDevices.length > 0 && (
+          <div>
+            <label className="block text-white/50 text-xs font-semibold uppercase tracking-wider mb-3">Microphone</label>
+            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+              {audioInputDevices.map(d => (
+                <button
+                  key={d.deviceId}
+                  onClick={() => switchDevice('audioinput', d.deviceId)}
+                  className={`text-left px-4 py-2.5 rounded-xl text-sm transition-colors truncate ${
+                    activeAudioInput === d.deviceId ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 text-white/80 hover:bg-white/10'
+                  }`}
+                >
+                  {d.label || 'Microphone par défaut'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Barre de contrôles ────────────────────────────────────────────────────────
 function CallControls({
   isVideo,
@@ -114,8 +183,18 @@ function CallControls({
   toggleCamera: () => void;
   endCall: () => void;
 }) {
+  const { 
+    audioInputDevices, 
+    audioOutputDevices, 
+    activeAudioInput, 
+    activeAudioOutput, 
+    switchDevice 
+  } = useCall();
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
-    <div className="flex justify-center items-center gap-5">
+    <>
+      <div className="flex justify-center items-center gap-5">
       <CtrlBtn
         icon={isMuted ? NoSymbolIcon : MicrophoneIcon}
         label="Micro"
@@ -149,9 +228,20 @@ function CallControls({
       <CtrlBtn
         icon={EllipsisHorizontalIcon}
         label="Plus d'options"
-        onClick={() => {}}
+        onClick={() => setShowSettings(true)}
       />
     </div>
+    {showSettings && (
+      <DeviceSettingsModal
+        onClose={() => setShowSettings(false)}
+        audioInputDevices={audioInputDevices}
+        audioOutputDevices={audioOutputDevices}
+        activeAudioInput={activeAudioInput}
+        activeAudioOutput={activeAudioOutput}
+        switchDevice={switchDevice}
+      />
+    )}
+    </>
   );
 }
 
