@@ -83,7 +83,7 @@ const handleGoogleLogin = async (code?: string) => {
         !!(window as any).Capacitor;
 
       const redirectUri = isCapacitor
-        ? "com.chatbeast.app://auth"
+        ? "com.chatbeast.app://auth/google/callback"
         : `${window.location.origin}/auth/google/callback`;
 
       const res = await fetch(

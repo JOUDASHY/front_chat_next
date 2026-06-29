@@ -1253,10 +1253,10 @@ export default function Sidebar({
                     </div>
                     <div className="flex items-center justify-between">
                       {showTyping ? (
-                        <p className="text-sm truncate pr-2 text-[var(--blue)] font-medium italic flex items-center">
-                          <span>{getSidebarTypingText(typingUsers, conversation.isGroup)}</span>
-                          <TypingDots />
-                        </p>
+                        <p className="text-sm truncate pr-2 font-medium italic flex items-center text-[var(--blue)] dark:text-white">
+  <span>{getSidebarTypingText(typingUsers, conversation.isGroup)}</span>
+  <TypingDots />
+</p>
                       ) : (
                         <p className={`text-sm leading-relaxed truncate pr-2 ${!conversation.lastMessageSeen ? 'font-bold text-black dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
                           {conversation.lastMessageSenderId === user?.id 
