@@ -10,6 +10,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { IconAt, IconLock, IconEye, IconArrow, IconAlert, GoogleIcon, LeftPanel, Field } from "@/components/AuthShared";
 import { Browser } from "@capacitor/browser";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
+import { Capacitor } from "@capacitor/core";
 
 /* ─────────────────────────────────────────────
    Page principale
@@ -79,12 +80,10 @@ const handleGoogleLogin = async (code?: string) => {
   // ============================
   if (!code) {
     try {
-      const isCapacitor =
-        typeof window !== "undefined" &&
-        !!(window as any).Capacitor;
+      const isNative = Capacitor.isNativePlatform();
 
       // Android Capacitor
-      if (isCapacitor) {
+      if (isNative) {
         try {
           GoogleAuth.initialize();
           const googleUser = await GoogleAuth.signIn();
