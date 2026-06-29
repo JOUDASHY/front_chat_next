@@ -9,6 +9,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 
 import { IconAt, IconLock, IconEye, IconArrow, IconAlert, GoogleIcon, LeftPanel, Field } from "@/components/AuthShared";
 import { Browser } from "@capacitor/browser";
+import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 
 /* ─────────────────────────────────────────────
    Page principale
@@ -82,55 +83,65 @@ const handleGoogleLogin = async (code?: string) => {
         typeof window !== "undefined" &&
         !!(window as any).Capacitor;
 
-      const redirectUri = isCapacitor
-        ? "com.chatbeast.app://auth/google/callback"
-        : `${window.location.origin}/auth/google/callback`;
-
-      const res = await fetch(
-        `${apiBase}/auth/google/?redirect_uri=${encodeURIComponent(
-          redirectUri
-        )}`
-      );
-
-      if (!res.ok) {
-        throw new Error("Impossible de récupérer URL Google");
-      }
-
-      const { authorization_url } = await res.json();
-
-      if (!authorization_url) {
-        throw new Error("URL Google manquante");
-      }
-
-
       // Android Capacitor
       if (isCapacitor) {
-        await Browser.open({
-          url: authorization_url,
-        });
+        try {
+          GoogleAuth.initialize();
+          const googleUser = await GoogleAuth.signIn();
+          const serverAuthCode = googleUser.serverAuthCode;
 
+          if (!serverAuthCode) {
+             throw new Error("Impossible de récupérer le code depuis Google.");
+          }
+
+          // Exchange code with backend immediately without redirect
+          const exchangeRes = await fetch(
+            `${apiBase}/auth/google/callback/?code=${encodeURIComponent(serverAuthCode)}`
+          );
+
+          if (!exchangeRes.ok) {
+            throw new Error("Erreur lors de l'échange du jeton avec le backend");
+          }
+
+          const data = await exchangeRes.json();
+          if (!data.access_token || !data.user) throw new Error("Token absent");
+
+          localStorage.setItem("accessToken", data.access_token);
+          if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+
+          router.push("/chat");
+        } catch (e) {
+          console.error("Native Google Login Error:", e);
+          setError("Impossible de se connecter avec Google sur mobile.");
+        }
       } 
       // Web normal
       else {
+        const redirectUri = `${window.location.origin}/auth/google/callback`;
+
+        const res = await fetch(
+          `${apiBase}/auth/google/?redirect_uri=${encodeURIComponent(redirectUri)}`
+        );
+
+        if (!res.ok) {
+          throw new Error("Impossible de récupérer URL Google");
+        }
+
+        const { authorization_url } = await res.json();
+
+        if (!authorization_url) {
+          throw new Error("URL Google manquante");
+        }
+
         window.location.href = authorization_url;
       }
 
-
     } catch (error) {
-
-      console.error(
-        "Google Login Error:",
-        error
-      );
-
-      setError(
-        "Impossible de se connecter à Google. Veuillez réessayer."
-      );
-
+      console.error("Google Login Error:", error);
+      setError("Impossible de se connecter à Google. Veuillez réessayer.");
     } finally {
-
       setIsLoading(false);
-
     }
 
 

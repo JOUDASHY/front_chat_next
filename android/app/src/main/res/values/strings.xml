@@ -4,4 +4,5 @@
     <string name="title_activity_main">Chat Beast</string>
     <string name="package_name">com.chatbeast.app</string>
     <string name="custom_url_scheme">com.chatbeast.app</string>
+    <string name="server_client_id">870239830870-qni4cj84t3ij4ggte221jfedob1jmvl4.apps.googleusercontent.com</string>
 </resources>
