@@ -1743,11 +1743,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   >
                     {!imageOnlyMessage && !isVoiceMessage && !isStickerMessage && (
                     <>
-                    {/* En-tête du message */}
+                    {/* En-tête du message — nom uniquement en groupe */}
                     <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
-                      <span className={`text-xs md:text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800 dark:text-gray-300'}`}>
-                        {isCurrentUser ? 'Vous' : msg.sender}
-                      </span>
+                      {conversation?.isGroup && (
+                        <span className={`text-xs md:text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800 dark:text-gray-300'}`}>
+                          {isCurrentUser ? 'Vous' : msg.sender}
+                        </span>
+                      )}
                       <div className="flex items-center gap-1 shrink-0">
                           <div className="relative">
                             <button
