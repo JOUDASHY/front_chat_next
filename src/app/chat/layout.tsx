@@ -1,8 +1,8 @@
 // app/chat/layout.tsx
 'use client';
 
-import { ReactNode, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { ReactNode, useState, useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import useUserPresence from '../../hooks/useUserPresence';
 import { useTokenExpiry } from '../../hooks/useTokenExpiry';
 import { CallProvider } from '@/context/CallContext';
@@ -16,6 +16,12 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
   const [recipientOnline, setRecipientOnline] = useState(false);
   const [toasts, setToasts] = useState<ChatToastData[]>([]);
   const router = useRouter();
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   const addToast = (t: Omit<ChatToastData, 'id'>) => {
     const id = `${Date.now()}-${Math.random()}`;
@@ -77,12 +83,17 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
       }) => {
         if (data.conversation.incrementUnread) {
           playMessageSound();
-          addToast({
-            type: 'message',
-            title: data.conversation.name || 'Nouveau message',
-            body: data.conversation.lastMessage || '',
-            avatar: data.conversation.user?.profile?.image,
-          });
+          
+          // On n'affiche le visuel (toast) QUE si on n'est pas déjà dans la discussion
+          const isCurrentChat = pathnameRef.current.includes(`/chat/${data.conversation.id}`);
+          if (!isCurrentChat) {
+            addToast({
+              type: 'message',
+              title: data.conversation.name || 'Nouveau message',
+              body: data.conversation.lastMessage || '',
+              avatar: data.conversation.user?.profile?.image,
+            });
+          }
         }
       });
 
