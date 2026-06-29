@@ -320,21 +320,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setAudioOutputDevices(aOut);
         setActiveAudioInput(room.getActiveDevice('audioinput') ?? null);
         setActiveAudioOutput(room.getActiveDevice('audiooutput') ?? null);
-
-        // Auto-select earpiece on mobile for voice calls
-        if (type === 'audio' && Capacitor.isNativePlatform()) {
-          const earpiece = aOut.find(d => 
-            d.label.toLowerCase().includes('earpiece') || 
-            d.label.toLowerCase().includes('écouteur') ||
-            d.deviceId === 'default'
-          );
-          if (earpiece) {
-             await room.switchActiveDevice('audiooutput', earpiece.deviceId);
-             setActiveAudioOutput(earpiece.deviceId);
-          }
-        }
       } catch (err) {
         console.error('Error fetching devices:', err);
+      }
+
+      // Force earpiece on Android for voice calls — must happen AFTER WebRTC starts
+      // (WebRTC overrides AudioManager, so we wait 500ms for it to settle first)
+      if (type === 'audio' && Capacitor.isNativePlatform()) {
+        setTimeout(async () => {
+          try {
+            const { AudioRouterPlugin } = await import('@/plugins/AudioRouterPlugin');
+            await AudioRouterPlugin.setSpeakerOn({ enabled: false });
+          } catch (err) {
+            console.warn('AudioRouterPlugin not available:', err);
+          }
+        }, 500);
       }
 
       await waitForVideoElements();
