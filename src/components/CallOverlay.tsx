@@ -14,6 +14,7 @@ import {
 import { useCall, type CallPeer } from '@/context/CallContext';
 import { useAdaptiveVideoFit } from '@/hooks/useAdaptiveVideoFit';
 import { formatCallTimer } from '@/lib/callUtils';
+import { Capacitor } from '@capacitor/core';
 
 // ── Avatar avec anneaux de pulsation ─────────────────────────────────────────
 function CallPeerAvatar({
@@ -191,6 +192,20 @@ function CallControls({
     switchDevice 
   } = useCall();
   const [showSettings, setShowSettings] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const isNative = Capacitor.isNativePlatform();
+
+  const handleSpeakerToggle = async () => {
+    if (isNative) {
+      // On Android native: toggle between earpiece and speaker
+      const newState = !isSpeakerOn;
+      setIsSpeakerOn(newState);
+      await switchDevice('audiooutput', newState ? 'speaker' : 'earpiece');
+    } else {
+      // On PC Web: open the device menu to pick output
+      setShowSettings(true);
+    }
+  };
 
   return (
     <>
@@ -220,16 +235,20 @@ function CallControls({
       >
         <PhoneXMarkIcon className="h-7 w-7 text-white" />
       </button>
+      {/* Haut-parleur: toggle sur mobile, menu sur desktop */}
       <CtrlBtn
         icon={SpeakerWaveIcon}
         label="Haut-parleur"
-        onClick={() => {}}
+        active={isNative ? isSpeakerOn : false}
+        onClick={handleSpeakerToggle}
       />
-      <CtrlBtn
-        icon={EllipsisHorizontalIcon}
-        label="Plus d'options"
-        onClick={() => setShowSettings(true)}
-      />
+      {!isNative && (
+        <CtrlBtn
+          icon={EllipsisHorizontalIcon}
+          label="Plus d'options"
+          onClick={() => setShowSettings(true)}
+        />
+      )}
     </div>
     {showSettings && (
       <DeviceSettingsModal

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
+import useUserPresence from '@/hooks/useUserPresence';
 import {
   ArrowLeftIcon, PencilSquareIcon, ChatBubbleLeftRightIcon,
   MapPinIcon, CalendarDaysIcon, PhoneIcon, GlobeAltIcon,
@@ -86,6 +87,7 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const [activeTab, setActiveTab] = useState<'about' | 'info'>('about');
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isOnlinePresence, setIsOnlinePresence] = useState<boolean | null>(null);
 
   const goToChat = () => router.replace('/chat');
 
@@ -96,6 +98,8 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
       .catch(() => setError('Impossible de charger le profil'))
       .finally(() => setIsLoading(false));
   }, [isSelf, userId]);
+
+  useUserPresence(user?.id ? Number(user.id) : null, setIsOnlinePresence);
 
   const handleStartConversation = async () => {
     if (!user) return;
@@ -115,7 +119,19 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
     );
   }
 
-  const status = STATUS_MAP[user.profile?.status || 'offline'];
+  // Dynamic status logic
+  const baseStatus = user.profile?.status || 'offline';
+  let effectiveStatus = baseStatus;
+  
+  if (isOnlinePresence === true) {
+    effectiveStatus = 'online';
+  } else if (isOnlinePresence === false) {
+    // Si Pusher dit offline mais que le baseStatus était 'online', on le force offline.
+    // Sinon on garde le 'busy' / 'away' éventuel.
+    if (baseStatus === 'online') effectiveStatus = 'offline';
+  }
+
+  const status = STATUS_MAP[effectiveStatus] || STATUS_MAP['offline'];
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
   const memberSince = user.profile?.created_at
     ? new Date(user.profile.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })

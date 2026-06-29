@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
+import useUserPresence from '@/hooks/useUserPresence';
 
 interface UserProfileViewProps {
   userId: string;
@@ -14,6 +15,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isOnlinePresence, setIsOnlinePresence] = useState<boolean | null>(null);
 
   const router = useRouter();
   const handleBack = () => router.replace('/chat');
@@ -33,6 +35,8 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
     fetchUser();
   }, [userId]);
 
+  useUserPresence(user?.id ? Number(user.id) : null, setIsOnlinePresence);
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -40,6 +44,15 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
   if (error) {
     return <div>{error}</div>;
   }
+
+  const baseStatus = user.profile.status || 'offline';
+  let effectiveStatus = baseStatus;
+  if (isOnlinePresence === true) effectiveStatus = 'online';
+  else if (isOnlinePresence === false && baseStatus === 'online') effectiveStatus = 'offline';
+
+  const statusLabel = effectiveStatus === 'online' ? 'En ligne' :
+                      effectiveStatus === 'away' ? 'Absent' :
+                      effectiveStatus === 'busy' ? 'Occupé' : 'Hors ligne';
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -125,15 +138,15 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                   { label: 'Date de naissance', value: user.profile.date_naiv ? new Date(user.profile.date_naiv).toLocaleDateString('fr-FR') : undefined },
                   { label: 'Genre', value: user.profile.gender || undefined },
                   { label: 'Téléphone', value: user.profile.phone_number || undefined },
-                  { label: 'Statut', value: user.profile.status || undefined }
+                  { label: 'Statut', value: statusLabel }
                 ]}
               />
               
               <ProfileCard
-                title="Statut"
+                title="Statut en temps réel"
                 icon="💫"
                 items={[
-                  { label: 'En ligne', value: user.profile.status || 'Non disponible' }
+                  { label: 'Présence', value: statusLabel }
                 ]}
               />
             </div>

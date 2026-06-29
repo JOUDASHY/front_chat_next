@@ -93,11 +93,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const pusherRef = useRef<any>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
   const userIdRef = useRef<number | null>(null);
   const phaseRef = useRef<CallPhase>('idle');
   const sessionRef = useRef<ActiveCallSession | null>(null);
   const incomingRef = useRef<IncomingCallPayload | null>(null);
   const endedRoomsRef = useRef<Set<string>>(new Set());
+  const activeAudioOutputRef = useRef<string | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -110,6 +112,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     incomingRef.current = incoming;
   }, [incoming]);
+
+  useEffect(() => {
+    activeAudioOutputRef.current = activeAudioOutput;
+  }, [activeAudioOutput]);
 
   const detachRoom = useCallback(async () => {
     const room = roomRef.current;
@@ -138,6 +144,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsMuted(false);
     setIsCameraOff(false);
+    audioElementsRef.current = [];
     setAudioInputDevices([]);
     setAudioOutputDevices([]);
     setActiveAudioInput(null);
@@ -170,9 +177,32 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const switchDevice = useCallback(async (kind: 'audioinput' | 'audiooutput', deviceId: string) => {
     const room = roomRef.current;
     if (!room) return;
-    await room.switchActiveDevice(kind, deviceId);
-    if (kind === 'audioinput') setActiveAudioInput(deviceId);
-    if (kind === 'audiooutput') setActiveAudioOutput(deviceId);
+    
+    if (kind === 'audiooutput') {
+      // On Android native, use AudioManager via the native plugin
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const { AudioRouterPlugin } = await import('@/plugins/AudioRouterPlugin');
+          const isSpeaker = deviceId === 'speaker';
+          await AudioRouterPlugin.setSpeakerOn({ enabled: isSpeaker });
+        } catch (err) {
+          console.warn('AudioRouterPlugin not available, falling back to setSinkId', err);
+        }
+      } else {
+        // On PC Web: apply setSinkId() directly on each tracked audio element
+        for (const el of audioElementsRef.current) {
+          if ('setSinkId' in el) {
+            await (el as any).setSinkId(deviceId).catch(() => {});
+          }
+        }
+        // Also tell LiveKit for future elements
+        await room.switchActiveDevice('audioinput', deviceId).catch(() => {});
+      }
+      setActiveAudioOutput(deviceId);
+    } else {
+      await room.switchActiveDevice(kind, deviceId);
+      setActiveAudioInput(deviceId);
+    }
   }, []);
 
   const attachTrack = useCallback(
@@ -237,7 +267,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
         if (track.kind === Track.Kind.Video) attachTrack(track, 'remote');
         if (track.kind === Track.Kind.Audio) {
-          const audioEl = track.attach();
+          const audioEl = track.attach() as HTMLAudioElement;
+          audioElementsRef.current.push(audioEl);
+          // Apply current output device if one is selected (PC Web)
+          const currentSink = activeAudioOutputRef.current;
+          if (currentSink && 'setSinkId' in audioEl) {
+            (audioEl as any).setSinkId(currentSink).catch(() => {});
+          }
           void room.startAudio().then(() => audioEl.play()).catch(() => {});
         }
       };
