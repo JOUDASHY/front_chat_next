@@ -136,6 +136,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
     stopCallRingtone();
     closeIncomingCallNotification();
     await detachRoom();
+
+    // Reset Android audio mode back to normal after call ends
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { AudioRouterPlugin } = await import('@/plugins/AudioRouterPlugin');
+        await AudioRouterPlugin.setSpeakerOn({ enabled: false });
+      } catch { /* ignore */ }
+    }
+
     setPhase('idle');
     setCallType(null);
     setPeer(null);

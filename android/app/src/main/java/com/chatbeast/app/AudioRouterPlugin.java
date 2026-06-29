@@ -17,8 +17,15 @@ public class AudioRouterPlugin extends Plugin {
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
         if (audioManager != null) {
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-            audioManager.setSpeakerphoneOn(enabled);
+            if (enabled) {
+                // Route to external loudspeaker
+                audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+                audioManager.setSpeakerphoneOn(true);
+            } else {
+                // Route to earpiece (internal speaker for private calls)
+                audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+                audioManager.setSpeakerphoneOn(false);
+            }
         }
 
         call.resolve();
