@@ -334,16 +334,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
 
       // Force earpiece on Android for voice calls — must happen AFTER WebRTC starts
-      // (WebRTC overrides AudioManager, so we wait 500ms for it to settle first)
+      // (WebRTC overrides AudioManager, so we wait for it to settle first)
       if (type === 'audio' && Capacitor.isNativePlatform()) {
-        setTimeout(async () => {
+        const forceEarpiece = async () => {
           try {
             const { AudioRouterPlugin } = await import('@/plugins/AudioRouterPlugin');
             await AudioRouterPlugin.setSpeakerOn({ enabled: false });
           } catch (err) {
             console.warn('AudioRouterPlugin not available:', err);
           }
-        }, 500);
+        };
+        // Call at 800ms and again at 2000ms to be sure WebRTC doesn't override us
+        setTimeout(forceEarpiece, 800);
+        setTimeout(forceEarpiece, 2000);
       }
 
       await waitForVideoElements();
