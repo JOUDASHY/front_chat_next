@@ -1180,29 +1180,53 @@ export default function Sidebar({
               </div>
             </div>
           ) : conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-6">
-              <div className="w-full max-w-sm text-center rounded-2xl border border-[#000b31]/15 bg-gradient-to-b from-[var(--blue)]/5 to-white p-6 shadow-sm">
-                <div className="mx-auto mb-4 p-4 bg-[var(--blue)]/10 rounded-full w-fit">
-                  <ChatBubbleLeftRightIcon className="h-10 w-10 text-[var(--blue)]" />
-                </div>
-                <h3 className="text-lg font-bold text-[var(--blue)] mb-2">
-                  Aucune conversation
-                </h3>
-                <p className="text-[var(--blue)] text-sm font-medium leading-relaxed mb-6">
-                  Commencez une nouvelle conversation en recherchant un utilisateur ci-dessus, ou découvrez des personnes à contacter.
-                </p>
-                {onDiscover && (
-                  <button
-                    type="button"
-                    onClick={onDiscover}
-                    className="w-full flex items-center justify-center gap-2 bg-[var(--jaune)] hover:bg-[var(--jaune)]/90 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-md"
-                  >
-                    <UserGroupIcon className="h-5 w-5" />
-                    Découvrir des personnes
-                  </button>
-                )}
-              </div>
-            </div>
+           <div className="flex flex-col items-center justify-center h-full p-6">
+  <div className="
+    w-full max-w-sm text-center rounded-2xl p-6 shadow-sm
+    border border-[#000b31]/15 dark:border-gray-700/60
+    bg-gradient-to-b from-[var(--blue)]/5 to-white
+    dark:from-slate-800 dark:to-slate-900
+    dark:shadow-black/20
+  ">
+    <div className="
+      mx-auto mb-4 p-4 rounded-full w-fit
+      bg-[var(--blue)]/10 dark:bg-blue-500/15
+    ">
+      <ChatBubbleLeftRightIcon className="h-10 w-10 text-[var(--blue)] dark:text-blue-400" />
+    </div>
+
+    <h3 className="text-lg font-bold text-[var(--blue)] dark:text-white mb-2">
+      Aucune conversation
+    </h3>
+
+    <p className="
+      text-[var(--blue)] dark:text-gray-300
+      text-sm font-medium leading-relaxed mb-6
+    ">
+      Commencez une nouvelle conversation en recherchant un utilisateur
+      ci-dessus, ou découvrez des personnes à contacter.
+    </p>
+
+    {onDiscover && (
+      <button
+        type="button"
+        onClick={onDiscover}
+        className="
+          w-full flex items-center justify-center gap-2
+          bg-[var(--jaune)]
+          hover:bg-[var(--jaune)]/90
+          text-white font-semibold
+          py-3 px-4 rounded-xl
+          transition-all duration-200
+          shadow-md hover:shadow-lg
+        "
+      >
+        <UserGroupIcon className="h-5 w-5" />
+        Découvrir des personnes
+      </button>
+    )}
+  </div>
+</div>
           ) : (
             <div className="space-y-0 p-2">
               {conversations.map((conversation) => {
