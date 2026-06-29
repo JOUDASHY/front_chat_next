@@ -61,11 +61,11 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
           <div className="h-[350px] w-full relative overflow-hidden">
             <div className="absolute inset-0">
               <img
-                src={user.profile?.cover_image || "https://thumbs.dreamstime.com/z/b%C3%A2timents-d-une-ville-avec-un-march%C3%A9-en-plein-air-antananarivo-dans-le-jour-ensoleill%C3%A9-vue-a%C3%A9rienne-de-madagascar-190866592.jpg"}
+                src={user.profile?.cover_image || "https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg"}
                 alt="Cover"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://thumbs.dreamstime.com/z/b%C3%A2timents-d-une-ville-avec-un-march%C3%A9-en-plein-air-antananarivo-dans-le-jour-ensoleill%C3%A9-vue-a%C3%A9rienne-de-madagascar-190866592.jpg";
+                  (e.target as HTMLImageElement).src = "https://jenmansafaris.com/wp-content/uploads/2023/12/Antsiranana-Diego-Suarez-Madagascar-Cities.jpg";
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
