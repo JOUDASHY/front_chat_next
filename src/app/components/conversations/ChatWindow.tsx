@@ -56,6 +56,14 @@ interface Message {
   read_at?: string;
   call_event?: CallEvent | null;
   reactions?: MessageReactionGroup[];
+  parent?: number | null;
+  parent_message?: {
+    id: number;
+    sender: string;
+    content: string;
+    sender_profile?: { image: string | null } | null;
+  } | null;
+  replies_count?: number;
   recipient?: {
     id: number;
     username: string;
@@ -250,6 +258,9 @@ function ModalAvatar({ src, name, className = "h-full w-full" }: { src?: string,
   return <img src={src} alt={name} onError={() => setError(true)} className={`${className} object-cover`} />;
 }
 
+const AI_ID = -1;
+const AI_USERNAME = 'assistant';
+
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
   const { startCall, phase: callPhase } = useCall();
@@ -267,6 +278,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [user, setUser] = useState<User | null>(null);
   const [recipientOnline, setRecipientOnline] = useState(false);
   const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
+  const isAssistantRecipient = useRef(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [recipientId, setRecipientId] = useState<number | null>(null);
@@ -276,6 +289,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [openMenuMessageId, setOpenMenuMessageId] = useState<number | null>(null);
   const [openReactionPickerId, setOpenReactionPickerId] = useState<number | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
   const [savingMessageId, setSavingMessageId] = useState<number | null>(null);
   // Block state
@@ -350,9 +364,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+  const [navProgress, setNavProgress] = useState(false);
+
+  // Timeout de sécurité pour la barre de progression
+  useEffect(() => {
+    if (!navProgress) return;
+    const t = setTimeout(() => setNavProgress(false), 8000);
+    return () => clearTimeout(t);
+  }, [navProgress]);
+
   const handleProfileClick = () => {
     if (conversation && !conversation.isGroup && recipientId) {
+      setNavProgress(true);
       router.push(`/profile/${recipientId}`);
     }
   };
@@ -429,6 +452,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           
           if (data.recipient) {
             setRecipient(data.recipient);
+            isAssistantRecipient.current = data.recipient.username === 'assistant';
             setRecipientLastSeen(data.recipient?.profile?.last_online ?? null);
           }
         } else if (Array.isArray(data)) {
@@ -574,20 +598,20 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       const presenceChannel = pusherRef.current.subscribe('presence-channel');
       
       presenceChannel.bind('pusher:subscription_succeeded', (data: any) => {
-        if (recipientId && data && data.members) {
+        if (recipientId && data && data.members && !isAssistantRecipient.current) {
           const isOnline = Object.keys(data.members).includes(String(recipientId));
           setRecipientOnline(isOnline);
         }
       });
       
       presenceChannel.bind('pusher:member_added', (member: any) => {
-        if (recipientId && member.id == recipientId) {
+        if (recipientId && member.id == recipientId && !isAssistantRecipient.current) {
           setRecipientOnline(true);
         }
       });
       
       presenceChannel.bind('pusher:member_removed', (member: any) => {
-        if (recipientId && member.id == recipientId) {
+        if (recipientId && member.id == recipientId && !isAssistantRecipient.current) {
           setRecipientOnline(false);
           // Refetch last_online depuis l'API pour avoir la valeur à jour
           api.get(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/users/${recipientId}/`)
@@ -601,7 +625,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       // Écouter les mises à jour de last_online (quand le destinataire se déconnecte)
       presenceChannel.bind('user-status-changed', (data: { userId: number; isOnline: boolean; lastOnline?: string }) => {
         if (!isMounted) return;
-        if (recipientId && data.userId === recipientId) {
+        if (recipientId && data.userId === recipientId && !isAssistantRecipient.current) {
           setRecipientOnline(data.isOnline);
           if (!data.isOnline && data.lastOnline) {
             setRecipientLastSeen(data.lastOnline);
@@ -784,6 +808,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
   };
 
+  const scrollToMessage = (messageId: number) => {
+    const element = messageRefs.current.get(messageId);
+    if (!element) return;
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   // Garder le dernier message visible au-dessus du clavier (mobile)
   useEffect(() => {
     if (!isMobile || !conversation?.id) return;
@@ -904,7 +934,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   const uploadSingleMessage = async (
     content: string,
-    attachment?: File
+    attachment?: File,
+    parentId?: number | null
   ): Promise<Message | null> => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL!;
     const endpoint = conversation!.isGroup
@@ -916,6 +947,10 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
     if (!conversation!.isGroup && recipientId) {
       formData.append('recipient', String(recipientId));
+    }
+
+    if (parentId) {
+      formData.append('parent', String(parentId));
     }
 
     if (attachment) {
@@ -982,7 +1017,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
     try {
       for (const pending of pendingBatch) {
-        const data = await uploadSingleMessage(pending.content, pending.file);
+        const data = await uploadSingleMessage(pending.content, pending.file, replyingTo?.id ?? null);
 
         if (data) {
           setMessages((prev) => {
@@ -993,6 +1028,39 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         }
 
         setPendingMessages((prev) => prev.filter((msg) => msg.id !== pending.id));
+      }
+      clearReply();
+
+      // AI assistant : si le message contient @ai ou @assistant
+      if (text && conversation && !conversation.isGroup && (
+        text.toLowerCase().includes('@ai') || text.toLowerCase().includes('@assistant')
+      )) {
+        setAiLoading(true);
+        try {
+          const history = messages.slice(-20).map((msg) => ({
+            role: msg.sender === user?.username ? 'user' as const : 'assistant' as const,
+            content: msg.content,
+          }));
+          history.push({ role: 'user', content: text });
+
+          const { data: aiData } = await axios.post('/api/ai', { messages: history });
+          const aiReply: string = aiData.reply;
+
+          if (aiReply) {
+            const aiMsg: Message = {
+              id: AI_ID,
+              content: aiReply,
+              sender: AI_USERNAME,
+              sender_profile: { image: null },
+              timestamp: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, aiMsg]);
+          }
+        } catch {
+          console.error('❌ AI error');
+        } finally {
+          setAiLoading(false);
+        }
       }
     } catch (err) {
       setPendingMessages((prev) =>
@@ -1051,6 +1119,17 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     setEditingMessage(null);
   };
 
+  const clearReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleReplyToMessage = (msg: Message) => {
+    setReplyingTo(msg);
+    setOpenMenuMessageId(null);
+    setOpenReactionPickerId(null);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
   const handleSaveEditMessage = async () => {
     if (!editingMessage || savingMessageId !== null) return;
     const trimmed = editingMessage.content.trim();
@@ -1079,9 +1158,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     const checkOnlineStatus = async () => {
       try {
         const { data } = await api.get(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/users/${recipientId}/`);
-        setRecipientOnline(data.is_online || false);
-        if (!data.is_online && data.profile?.last_online) {
-          setRecipientLastSeen(data.profile.last_online);
+        if (data.username === 'assistant') {
+          isAssistantRecipient.current = true;
+          setRecipientOnline(true);
+        } else {
+          setRecipientOnline(data.is_online || false);
+          if (!data.is_online && data.profile?.last_online) {
+            setRecipientLastSeen(data.profile.last_online);
+          }
         }
       } catch (err) {
         console.error('Error checking online status:', err);
@@ -1368,6 +1452,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden min-h-0">
+      {/* Barre de progression navigation */}
+      {navProgress && (
+        <div className="fixed top-0 left-0 right-0 z-[200] h-1 bg-[var(--blue)]/20">
+          <div className="h-full bg-[var(--jaune)] rounded-full animate-progress" />
+        </div>
+      )}
       {/* Header fixe */}
       <div
         className="shrink-0 sticky top-0 z-10 px-3 py-2 md:p-3 bg-white dark:bg-gray-950 border-b border-[#f3f4f6] dark:border-transparent flex items-center gap-2 md:gap-3 shadow-md cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -1396,11 +1486,16 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               </svg>
             </div>
           ) : (
-            <ImageWithFallback
-              src={recipient?.profile?.image}
-              alt={conversation.name || getDisplayName(recipient) || ''}
-              className="h-full w-full"
-            />
+            <div className="relative h-full w-full">
+              <ImageWithFallback
+                src={recipient?.profile?.image}
+                alt={conversation.name || getDisplayName(recipient) || ''}
+                className="h-full w-full"
+              />
+              {recipient?.username === 'assistant' && (
+                <span className="absolute -top-1 -right-1 text-sm bg-white dark:bg-gray-800 rounded-full p-0.5 shadow-sm">🤖</span>
+              )}
+            </div>
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -1685,12 +1780,16 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 {/* Avatar pour les messages reçus */}
                 {!isCurrentUser && (
                   <div className="mr-1.5 md:mr-2 mt-0.5 md:mt-1 shrink-0">
-                    <div className="h-7 w-7 md:h-8 md:w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
-                      <ImageWithFallback
-                        src={msg.sender_profile?.image ?? recipient?.profile?.image ?? undefined}
-                        alt={msg.sender}
-                        className="h-full w-full"
-                      />
+                    <div className="h-7 w-7 md:h-8 md:w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm flex items-center justify-center">
+                      {msg.sender === AI_USERNAME ? (
+                        <span className="text-lg md:text-xl">🤖</span>
+                      ) : (
+                        <ImageWithFallback
+                          src={msg.sender_profile?.image ?? recipient?.profile?.image ?? undefined}
+                          alt={msg.sender}
+                          className="h-full w-full"
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -1751,91 +1850,107 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         </span>
                       )}
                       <div className="flex items-center gap-1 shrink-0">
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuMessageId(openMenuMessageId === msg.id ? null : msg.id);
-                              }}
-                              className={`p-1 rounded-full transition-opacity hover:bg-black/10 ${
-                                isMobile || openMenuMessageId === msg.id
-                                  ? 'opacity-100'
-                                  : 'opacity-0 group-hover:opacity-70'
-                              }`}
-                              aria-label="Options du message"
-                            >
-                              <EllipsisVerticalIcon className={`h-4 w-4 ${isCurrentUser ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
-                            </button>
-                            {openMenuMessageId === msg.id && (
-                              <div
-                                className="absolute right-0 top-full mt-1 z-30 min-w-[150px] rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenReactionPickerId(msg.id);
-                                    setOpenMenuMessageId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                  <FaceSmileIcon className="h-4 w-4" />
-                                  Réagir
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openForwardModal(msg.id);
-                                    setOpenMenuMessageId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                  <PaperAirplaneIcon className="h-4 w-4" />
-                                  Transférer
-                                </button>
-                                {msg.content && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setTranslatingMessage({ id: msg.id, content: msg.content });
-                                      setOpenMenuMessageId(null);
-                                    }}
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50"
-                                  >
-                                    <LanguageIcon className="h-4 w-4" />
-                                    Traduire
-                                  </button>
-                                )}
-                                {isCurrentUser && msg.content && !msg.attachment && (
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditMessage(msg)}
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                  >
-                                    <PencilIcon className="h-4 w-4" />
-                                    Modifier
-                                  </button>
-                                )}
-                                {isCurrentUser && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteMessage(msg.id)}
-                                  disabled={deletingMessageId === msg.id}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                                >
-                                  {deletingMessageId === msg.id ? (
-                                    <span className="h-4 w-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
-                                  ) : (
-                                    <TrashIcon className="h-4 w-4" />
-                                  )}
-                                  Supprimer
-                                </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                        <div className="relative">
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      setOpenMenuMessageId(openMenuMessageId === msg.id ? null : msg.id);
+    }}
+    className={`p-1 rounded-full transition-opacity hover:bg-black/10 ${
+      isMobile || openMenuMessageId === msg.id
+        ? 'opacity-100'
+        : 'opacity-0 group-hover:opacity-70'
+    }`}
+    aria-label="Options du message"
+  >
+    <EllipsisVerticalIcon className={`h-4 w-4 ${isCurrentUser ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
+  </button>
+
+  {openMenuMessageId === msg.id && (
+    <div
+      className={`absolute top-full mt-1 z-30 min-w-[150px] rounded-xl border border-[#f3f4f6] bg-white dark:bg-gray-800 dark:border-gray-700 py-1 shadow-lg
+        ${isCurrentUser ? 'right-0' : 'left-0'}
+      `}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpenReactionPickerId(msg.id);
+          setOpenMenuMessageId(null);
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        <FaceSmileIcon className="h-4 w-4" />
+        Réagir
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          openForwardModal(msg.id);
+          setOpenMenuMessageId(null);
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        <PaperAirplaneIcon className="h-4 w-4" />
+        Transférer
+      </button>
+
+      {msg.content && (
+        <button
+          type="button"
+          onClick={() => {
+            setTranslatingMessage({ id: msg.id, content: msg.content });
+            setOpenMenuMessageId(null);
+          }}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+        >
+          <LanguageIcon className="h-4 w-4" />
+          Traduire
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={() => handleReplyToMessage(msg)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+        Répondre
+      </button>
+
+      {isCurrentUser && msg.content && !msg.attachment && (
+        <button
+          type="button"
+          onClick={() => startEditMessage(msg)}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+        >
+          <PencilIcon className="h-4 w-4" />
+          Modifier
+        </button>
+      )}
+
+      {isCurrentUser && (
+        <button
+          type="button"
+          onClick={() => handleDeleteMessage(msg.id)}
+          disabled={deletingMessageId === msg.id}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+        >
+          {deletingMessageId === msg.id ? (
+            <span className="h-4 w-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+          ) : (
+            <TrashIcon className="h-4 w-4" />
+          )}
+          Supprimer
+        </button>
+      )}
+    </div>
+  )}
+</div>
                         <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
                           {messageTime}
                         </span>
@@ -1890,6 +2005,14 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 <PaperAirplaneIcon className="h-4 w-4" />
                                 Transférer
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReplyToMessage(msg)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                Répondre
+                              </button>
                               {msg.content && (
                                 <button
                                   type="button"
@@ -1924,51 +2047,90 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                       </div>
                     )}
                     
-                    {/* Contenu du message */}
-                    {editingMessage?.id === msg.id ? (
-                      <div className="space-y-2">
-                        <textarea
-                          value={editingMessage.content}
-                          onChange={(e) =>
-                            setEditingMessage({ ...editingMessage, content: e.target.value })
-                          }
-                          rows={2}
-                          className="w-full rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 resize-none"
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={cancelEditMessage}
-                            className="rounded-lg px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
-                          >
-                            Annuler
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSaveEditMessage}
-                            disabled={!editingMessage.content.trim() || savingMessageId === msg.id}
-                            className="rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/30 disabled:opacity-50"
-                          >
-                            {savingMessageId === msg.id ? 'Enregistrement…' : 'Enregistrer'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      msg.content && (
-                        isStickerMessage ? (
-                          <div className="flex flex-col items-end gap-0.5">
-                            <span className={`${stickerSize} leading-none select-none`}>{msg.content}</span>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{messageTime}</span>
-                          </div>
-                        ) : (
-                          <MessageContent content={msg.content} isCurrentUser={isCurrentUser} translatedContent={translations[msg.id]} />
-                        )
-                      )
-                    )}
-                    
-                    {/* Pièce jointe */}
-                    {msg.attachment && (
+{/* Contenu du message */}
+{editingMessage?.id === msg.id ? (
+  <div className="space-y-1.5">
+    <textarea
+      value={editingMessage.content}
+      onChange={(e) =>
+        setEditingMessage({ ...editingMessage, content: e.target.value })
+      }
+      rows={2}
+      className="w-full rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40 resize-none"
+      autoFocus
+    />
+    <div className="flex justify-end gap-2">
+      <button
+        type="button"
+        onClick={cancelEditMessage}
+        className="rounded-lg px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+      >
+        Annuler
+      </button>
+      <button
+        type="button"
+        onClick={handleSaveEditMessage}
+        disabled={!editingMessage.content.trim() || savingMessageId === msg.id}
+        className="rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/30 disabled:opacity-50"
+      >
+        {savingMessageId === msg.id ? 'Enregistrement…' : 'Enregistrer'}
+      </button>
+    </div>
+  </div>
+) : (
+  <>
+    {/* Citation — AU-DESSUS du contenu, comme WhatsApp */}
+    {msg.parent_message && (
+      <div
+        onClick={() => msg.parent_message && scrollToMessage(msg.parent_message.id)}
+        className={`
+          flex items-center gap-2 mb-[5px] px-2 py-[5px]
+          rounded-[10px] rounded-l-none
+          border-l-[3px] cursor-pointer overflow-hidden
+          transition-opacity hover:opacity-80
+          ${isCurrentUser
+            ? 'bg-white/15 border-white/70'
+            : 'bg-black/[0.06] dark:bg-white/10 border-indigo-500'}
+        `}
+      >
+        <div className="flex-1 min-w-0">
+          <span className={`block text-[11px] font-medium mb-px truncate
+            ${isCurrentUser
+              ? 'text-white/90'
+              : 'text-indigo-600 dark:text-indigo-400'}
+          `}>
+            {msg.parent_message.sender === user?.username
+              ? 'Vous'
+              : msg.parent_message.sender}
+          </span>
+          <span className={`block text-[12px] leading-[1.3] line-clamp-2
+            ${isCurrentUser
+              ? 'text-white/65'
+              : 'text-gray-500 dark:text-gray-400'}
+          `}>
+            {msg.parent_message.content || 'Message multimédia'}
+          </span>
+        </div>
+      </div>
+    )}
+
+    {/* Texte / sticker */}
+    {msg.content && (
+      isStickerMessage ? (
+        <div className="flex flex-col items-end gap-0.5">
+          <span className={`${stickerSize} leading-none select-none`}>{msg.content}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">{messageTime}</span>
+        </div>
+      ) : (
+        <MessageContent
+          content={msg.content}
+          isCurrentUser={isCurrentUser}
+          translatedContent={translations[msg.id]}
+        />
+      )
+    )}
+  </>
+)}                 {msg.attachment && (
                       <div className={imageOnlyMessage ? 'm-0 p-0' : msg.content ? 'mt-1.5 md:mt-2' : ''}>
                         {(() => {
                           const fileUrl = msg.attachment;
@@ -2098,6 +2260,12 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   </div>
                   </div>
 
+                  {msg.replies_count ? (
+                    <div className="mt-2 text-[11px] text-indigo-600 dark:text-indigo-400">
+                      {msg.replies_count} réponse{msg.replies_count > 1 ? 's' : ''}
+                    </div>
+                  ) : null}
+
                   <MessageReactionsBar
                     reactions={msg.reactions}
                     isCurrentUser={isCurrentUser}
@@ -2194,7 +2362,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
       {/* Bas de page : frappe + saisie (reste au-dessus du clavier) */}
       <div className="shrink-0 z-10">
-        {typingUsers.length > 0 && (
+        {(typingUsers.length > 0 || aiLoading) && (
           <div className="px-3 md:px-4 pb-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-900">
             <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 rounded-full px-3 py-1.5">
               <div className="flex items-center gap-[3px]">
@@ -2203,7 +2371,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce [animation-delay:300ms]" />
               </div>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {typingUsers.length === 1
+                {aiLoading ? '🤖 Assistant réfléchit...' : typingUsers.length === 1
                   ? `${typingUsers[0]} est en train d'écrire...`
                   : typingUsers.length === 2
                   ? `${typingUsers[0]} et ${typingUsers[1]} écrivent...`
@@ -2215,7 +2383,24 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
         <div className="bg-white dark:bg-gray-950 rounded-3xl">
 
-          {selectedFiles.length > 0 && (
+          {replyingTo && (
+          <div className="px-3 pt-3 pb-2 md:px-4 md:pt-4 bg-indigo-50 dark:bg-indigo-900 rounded-t-3xl border-b border-indigo-200 dark:border-indigo-700 text-sm text-gray-800 dark:text-gray-100 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-semibold text-indigo-700 dark:text-indigo-300 text-xs uppercase tracking-[0.08em] mb-1">Répondre à {replyingTo.sender === user?.username ? 'Vous' : replyingTo.sender}</p>
+              <p className="text-xs text-gray-700 dark:text-gray-200 truncate">
+                {replyingTo.content || 'Message multimédia'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearReply}
+              className="text-xs font-semibold text-indigo-700 dark:text-indigo-200 hover:underline"
+            >
+              X
+            </button>
+          </div>
+        )}
+        {selectedFiles.length > 0 && (
             <div className="px-3 pt-3 pb-2 md:px-4 md:pt-4 bg-gray-50 dark:bg-gray-900 rounded-t-3xl">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-violet-600 dark:text-violet-400">

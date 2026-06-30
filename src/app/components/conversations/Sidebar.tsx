@@ -13,7 +13,6 @@ import {
   MagnifyingGlassIcon,
   ArrowLeftOnRectangleIcon,
   XMarkIcon,
-  PlusIcon,
   PhoneIcon,
   ShieldCheckIcon,
   ChevronRightIcon,
@@ -40,7 +39,7 @@ export interface Conversation {
   lastMessageSeen: boolean;
   lastMessageSenderId?: number;
   lastMessageIsRead?: boolean;
-  user: { id?: number; profile?: { image?: string } } | null;
+  user: { id?: number; username?: string; profile?: { image?: string } } | null;
   participants?: { id: number; username: string; profile?: { image?: string } }[];
 }
 
@@ -235,7 +234,15 @@ export default function Sidebar({
   const [typingInConversations, setTypingInConversations] = useState<Map<number, TypingUser[]>>(new Map());
   const [isStaff, setIsStaff] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
   const router = useRouter();
+
+  // Nettoyer l'overlay de navigation si la page ne change pas (sécurité)
+  useEffect(() => {
+    if (!navigatingTo) return;
+    const t = setTimeout(() => setNavigatingTo(null), 8000);
+    return () => clearTimeout(t);
+  }, [navigatingTo]);
 
   // Initialiser l'état du son depuis localStorage
   useEffect(() => {
@@ -375,6 +382,11 @@ export default function Sidebar({
       try {
         const { data } = await api.get<User[]>('/api/chat/users/');
         setAllUsers(data);
+        // Assistant toujours en ligne
+        const assistant = data.find(u => u.username === 'assistant');
+        if (assistant) {
+          setOnlineUsers(prev => new Map(prev).set(assistant.id, true));
+        }
       } catch (err) {
         console.error('Failed to fetch users:', err);
       }
@@ -797,8 +809,9 @@ export default function Sidebar({
     setShowLogoutModal(false);
   };
 
-  const handleProfileClick = () => {
-    router.push('/profile');
+  const handleAdminClick = () => {
+    setNavigatingTo('Administration');
+    router.push('/admin');
   };
 
   // Fonction pour formater la date du dernier message
@@ -840,6 +853,12 @@ export default function Sidebar({
     <div className="w-full bg-white dark:bg-gray-900 h-[100dvh] flex flex-col shadow-xl border-r border-[#000b31]/20 dark:border-gray-800">
       {/* Overlay déconnexion */}
       <LoadingOverlay visible={isLoggingOut} message="Déconnexion en cours…" />
+      {/* Barre de progression en haut (feedback immédiat avant transition) */}
+      {navigatingTo && (
+        <div className="fixed top-0 left-0 right-0 z-[200] h-1 bg-[var(--blue)]/20">
+          <div className="h-full bg-[var(--jaune)] rounded-full animate-progress" />
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 md:p-4 bg-blue dark:bg-gray-950 border-b border-gray-800">
         <div className="flex items-center gap-2 md:gap-3">
@@ -856,7 +875,7 @@ export default function Sidebar({
         <div className="flex items-center gap-2">
           {isStaff && (
             <button
-              onClick={() => router.push('/admin')}
+              onClick={handleAdminClick}
               className="p-1.5 rounded-full hover:bg-blue-ciel/10 transition-colors"
               title="Administration"
               aria-label="Administration"
@@ -877,8 +896,8 @@ export default function Sidebar({
           {user && (
             <div
               className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={handleProfileClick}
-              title="Voir mon profil"
+              onClick={() => { setNavigatingTo('Profil'); router.push('/profile'); }}
+              title="Mon profil"
             >
               <Avatar
                 src={user.profile?.image}
@@ -1004,6 +1023,7 @@ export default function Sidebar({
       <div className="px-4 py-1 border-b border-[#000b31]/20 dark:border-gray-800">
          <div className="flex items-center justify-between gap-2 mb-2.5">
           <h3 className="text-xs font-semibold text-[var(--blue)] dark:text-gray-100">En ligne</h3>
+          {Array.from(onlineUsers).filter(([id]) => id !== user?.id && (allUsers.find(u => u.id === id) || searchResults.find(u => u.id === id)) && allUsers.find(u => u.id === id)?.username !== 'assistant').length > 0 ? (
           <button
             type="button"
             onClick={onViewOnlineUsers}
@@ -1011,13 +1031,20 @@ export default function Sidebar({
           >
             Voir tout
           </button>
+          ) : (
+          <span className="text-[11px] text-gray-400 italic">Aucun</span>
+          )}
         </div> 
         <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-blue/10 scrollbar-track-transparent hover:scrollbar-thumb-blue/20 max-h-[80px] transition-all">
-          {Array.from(onlineUsers).map(([userId]) => {
+          {Array.from(onlineUsers).filter(([id]) => id !== user?.id && (allUsers.find(u => u.id === id) || searchResults.find(u => u.id === id)) && allUsers.find(u => u.id === id)?.username !== 'assistant').length === 0 ? (
+            <div className="flex items-center justify-center w-full py-3">
+              <span className="text-[11px] text-gray-400">Aucun utilisateur en ligne</span>
+            </div>
+          ) : Array.from(onlineUsers).map(([userId]) => {
             const onlineUser = allUsers.find(u => u.id === userId) ||
                                searchResults.find(u => u.id === userId);
             
-            if (!onlineUser || userId === user?.id) return null;
+            if (!onlineUser || userId === user?.id || onlineUser.username === 'assistant') return null;
 
             return (
               <div 
@@ -1042,6 +1069,7 @@ export default function Sidebar({
               </div>
             );
           })}
+          {Array.from(onlineUsers).filter(([id]) => id !== user?.id && (allUsers.find(u => u.id === id) || searchResults.find(u => u.id === id)) && allUsers.find(u => u.id === id)?.username !== 'assistant').length > 0 && (
           <button
             type="button"
             onClick={onViewOnlineUsers}
@@ -1055,6 +1083,7 @@ export default function Sidebar({
               Voir tout
             </span>
           </button>
+          )}
         </div>
       </div>
       )}
@@ -1070,12 +1099,17 @@ export default function Sidebar({
                 onClick={() => handleStartConversation(Number(user.id))}
                 className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer rounded-lg transition-colors group"
               >
-                <Avatar
-                  src={user.profile?.image}
-                  alt={user.name}
-                  className="h-9 w-9 bg-blue/10"
-                  isOnline={onlineUsers.get(user.id) || false}
-                />
+                <div className="relative shrink-0">
+                  <Avatar
+                    src={user.profile?.image}
+                    alt={user.name}
+                    className="h-9 w-9 bg-blue/10"
+                    isOnline={onlineUsers.get(user.id) || false}
+                  />
+                  {user.username === 'assistant' && (
+                    <span className="absolute -top-1.5 -right-1.5 text-[10px]" title="Assistant IA">🤖</span>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm font-medium color-blue truncate">{getDisplayName(user)}</p>
                   <p className="text-xs color-blue/80 truncate">@{user.username}</p>
@@ -1259,12 +1293,17 @@ export default function Sidebar({
                       name={conversation.name}
                     />
                   ) : (
-                    <Avatar
-                      src={conversation.user?.profile?.image}
-                      alt={conversation.name || 'Utilisateur'}
-                      className="h-11 w-11 bg-blue/20"
-                      isOnline={onlineUsers.get(conversation.userId ?? 0) === true}
-                    />
+                    <div className="relative shrink-0">
+                      <Avatar
+                        src={conversation.user?.profile?.image}
+                        alt={conversation.name || 'Utilisateur'}
+                        className="h-11 w-11 bg-blue/20"
+                        isOnline={onlineUsers.get(conversation.userId ?? 0) === true}
+                      />
+                      {conversation.user?.username === 'assistant' && (
+                        <span className="absolute -top-1 -right-1 text-xs" title="Assistant IA">🤖</span>
+                      )}
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1.5">

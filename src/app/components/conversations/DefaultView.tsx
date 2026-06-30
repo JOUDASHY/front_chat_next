@@ -8,7 +8,6 @@ import {
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
   UserGroupIcon,
-  SparklesIcon,
   ArrowRightIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -227,10 +226,18 @@ function DiscoverPage({
   const [search, setSearch] = useState('');
   const [filterGender, setFilterGender] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
+  const [filterOnlineOnly, setFilterOnlineOnly] = useState(false);
   const [starting, setStarting] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null);
+  const [navProgress, setNavProgress] = useState(false);
   // Surcouche temps réel : map userId → true/false (online)
   const [onlineOverride, setOnlineOverride] = useState<Map<number, boolean>>(new Map());
+
+  useEffect(() => {
+    if (!navProgress) return;
+    const t = setTimeout(() => setNavProgress(false), 8000);
+    return () => clearTimeout(t);
+  }, [navProgress]);
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -239,7 +246,13 @@ function DiscoverPage({
 
   useEffect(() => {
     api.get('/api/chat/users/')
-      .then(({ data }) => setUsers(data))
+      .then(({ data }) => {
+        setUsers(data);
+        const assistant = data.find((u: any) => u.username === 'assistant');
+        if (assistant) {
+          setOnlineOverride(prev => new Map(prev).set(assistant.id, true));
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -322,8 +335,7 @@ function DiscoverPage({
   // true = Pusher confirme en ligne | false/absent = hors ligne
   const isOnlineRealtime = (id: number) => onlineOverride.get(id) === true;
 
-  const online = filtered.filter(u => isOnlineRealtime(u.id));
-  const others = filtered.filter(u => !isOnlineRealtime(u.id));
+  const displayed = filterOnlineOnly ? filtered.filter(u => isOnlineRealtime(u.id)) : filtered;
 
   const handleStart = async (user: SuggestedUser) => {
     if (starting) return;
@@ -340,6 +352,13 @@ function DiscoverPage({
 
   return (
     <div className="h-full flex flex-col bg-[#f0f2f5] dark:bg-gray-900 overflow-hidden">
+
+      {/* Barre de progression navigation */}
+      {navProgress && (
+        <div className="fixed top-0 left-0 right-0 z-[200] h-1 bg-[var(--blue)]/20">
+          <div className="h-full bg-[var(--jaune)] rounded-full animate-progress" />
+        </div>
+      )}
 
       {/* Header */}
       <div className="relative bg-[var(--blue)] px-5 pt-6 pb-12 shrink-0 overflow-hidden">
@@ -363,9 +382,6 @@ function DiscoverPage({
 
           {/* Stats */}
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">
-              🟢 {online.length} en ligne
-            </span>
             <span className="text-[11px] bg-white/10 text-white/60 px-2 py-0.5 rounded-full font-semibold">
               👥 {users.length} membres
             </span>
@@ -390,8 +406,18 @@ function DiscoverPage({
         </div>
       </div>
 
-      {/* Filtres par genre (sexe) et par langue */}
+      {/* Filtres */}
       <div className="px-4 mt-3 flex gap-2 shrink-0">
+        <button
+          onClick={() => setFilterOnlineOnly(!filterOnlineOnly)}
+          className={`shrink-0 text-xs font-semibold rounded-xl px-3 py-2 border shadow-sm outline-none transition-all ${
+            filterOnlineOnly
+              ? 'bg-emerald-500 text-white border-emerald-500'
+              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-[#f3f4f6] dark:border-[#374151]'
+          }`}
+        >
+          🟢 En ligne
+        </button>
         <select
           value={filterGender}
           onChange={e => setFilterGender(e.target.value)}
@@ -433,26 +459,11 @@ function DiscoverPage({
             <p className="text-gray-400 text-sm">Aucun résultat{search ? ` pour "${search}"` : ''}</p>
           </div>
         ) : (
-          <>
-            {online.length > 0 && (
-              <Section title="En ligne maintenant" icon={<SparklesIcon className="h-4 w-4 text-emerald-500" />}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {online.map((u, i) => (
-                    <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} isOnline={true} />
-                  ))}
-                </div>
-              </Section>
-            )}
-            {others.length > 0 && (
-              <Section title="Autres membres" icon={<UserGroupIcon className="h-4 w-4 text-[var(--blue)]" />}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {others.map((u, i) => (
-                    <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} isOnline={false} />
-                  ))}
-                </div>
-              </Section>
-            )}
-          </>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {displayed.map((u, i) => (
+              <UserCard key={u.id} user={u} index={i} onStart={handleStart} loading={starting === u.id} isOnline={isOnlineRealtime(u.id)} onNavigate={(url) => { setNavProgress(true); router.push(url); }} />
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -462,15 +473,23 @@ function DiscoverPage({
 /* ─────────────────────────────────────────────
    UserCard
 ───────────────────────────────────────────── */
-function UserCard({ user, index, onStart, loading, isOnline }: {
+function UserCard({ user, index, onStart, loading, isOnline, onNavigate }: {
   user: SuggestedUser;
   index: number;
   onStart: (u: SuggestedUser) => void;
   loading: boolean;
   isOnline: boolean;
+  onNavigate?: (url: string) => void;
 }) {
   const router = useRouter();
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `/profile/${user.id}`;
+    if (onNavigate) onNavigate(url);
+    else router.push(url);
+  };
 
   return (
     <motion.div
@@ -481,7 +500,7 @@ function UserCard({ user, index, onStart, loading, isOnline }: {
                  hover:shadow-md hover:border-[var(--blue-ciel)]/40 transition-all"
     >
       <div className="flex items-start gap-3">
-        <button onClick={() => router.push(`/profile/${user.id}`)} className="relative shrink-0 focus:outline-none">
+        <button onClick={handleProfileClick} className="relative shrink-0 focus:outline-none">
           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#f3f4f6] bg-gray-100">
             <img
               src={user.profile?.image || '/default-avatar.svg'}
@@ -496,7 +515,7 @@ function UserCard({ user, index, onStart, loading, isOnline }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
             <button
-              onClick={() => router.push(`/profile/${user.id}`)}
+              onClick={handleProfileClick}
               className="text-xs md:text-sm font-bold text-[var(--blue)] dark:text-gray-100 hover:underline truncate max-w-[130px]"
             >
               {fullName || user.username}
@@ -553,18 +572,6 @@ function UserCard({ user, index, onStart, loading, isOnline }: {
 /* ─────────────────────────────────────────────
    Helpers
 ───────────────────────────────────────────── */
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        {icon}
-        <h2 className="text-sm font-bold text-[var(--blue)] dark:text-gray-200">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function SkeletonGrid() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

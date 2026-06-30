@@ -47,7 +47,9 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
 
   const baseStatus = user.profile.status || 'offline';
   let effectiveStatus = baseStatus;
-  if (isOnlinePresence === true) effectiveStatus = 'online';
+  if (user.username === 'assistant') {
+    effectiveStatus = 'online';
+  } else if (isOnlinePresence === true) effectiveStatus = 'online';
   else if (isOnlinePresence === false && baseStatus === 'online') effectiveStatus = 'offline';
 
   const statusLabel = effectiveStatus === 'online' ? 'En ligne' :

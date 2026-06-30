@@ -31,6 +31,7 @@ export default function EditProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -93,22 +94,39 @@ export default function EditProfilePage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const uploadImage = async (file: File, field: 'profile.image' | 'profile.cover_image', inputRef: React.RefObject<HTMLInputElement | null>) => {
+    setIsUploading(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append(field, file);
+      await api.put('/api/chat/profile/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (inputRef.current) inputRef.current.value = '';
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Échec du téléchargement');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreviewImage(reader.result as string);
-      reader.readAsDataURL(file);
-    }
+    if (!file || !user) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setPreviewImage(reader.result as string);
+    reader.readAsDataURL(file);
+    uploadImage(file, 'profile.image', fileInputRef);
   };
 
   const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreviewCoverImage(reader.result as string);
-      reader.readAsDataURL(file);
-    }
+    if (!file || !user) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setPreviewCoverImage(reader.result as string);
+    reader.readAsDataURL(file);
+    uploadImage(file, 'profile.cover_image', coverImageRef);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -204,6 +222,11 @@ export default function EditProfilePage() {
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/40" />
+          {isUploading && (
+            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+              <span className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
 
           {/* Bouton modifier cover */}
           <button
@@ -235,6 +258,11 @@ export default function EditProfilePage() {
                     (e.target as HTMLImageElement).src = '/default-avatar.svg';
                   }}
                 />
+                {isUploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -408,14 +436,14 @@ export default function EditProfilePage() {
               </div>
             )}
 
-            {/* Boutons */}
-            <div className="flex gap-3 justify-end pt-2">
+            {/* Boutons flottants en bas */}
+            <div className="sticky bottom-0 bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 -mx-4 sm:mx-0 sm:rounded-b-2xl px-4 sm:px-6 py-4 flex gap-3 justify-end">
               <motion.button
                 type="button"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => router.push('/profile')}
-                disabled={isSaving}
+                disabled={isSaving || isUploading}
                 className="px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
               >
                 Annuler
@@ -424,7 +452,7 @@ export default function EditProfilePage() {
                 type="submit"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                disabled={isSaving}
+                disabled={isSaving || isUploading}
                 className="px-6 py-2.5 rounded-xl bg-[var(--blue)] text-white hover:bg-[var(--blue-ciel)] transition-colors font-medium disabled:opacity-60 flex items-center gap-2"
               >
                 {isSaving ? (

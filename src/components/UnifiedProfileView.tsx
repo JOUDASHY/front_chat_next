@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
@@ -10,6 +10,7 @@ import {
   BriefcaseIcon, HeartIcon, ClockIcon, SparklesIcon,
   UserIcon, EnvelopeIcon,
 } from '@heroicons/react/24/outline';
+import { CameraIcon } from '@heroicons/react/24/solid';
 import { CheckBadgeIcon as CheckBadgeSolid } from '@heroicons/react/24/solid';
 
 interface Profile {
@@ -84,12 +85,61 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'about' | 'info'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'info' | 'photos'>('about');
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isOnlinePresence, setIsOnlinePresence] = useState<boolean | null>(null);
+  const [dropdownType, setDropdownType] = useState<'avatar' | 'cover' | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const goToChat = () => router.replace('/chat');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState<'avatar' | 'cover' | null>(null);
+  const [confirmFile, setConfirmFile] = useState<{ file: File; preview: string; type: 'avatar' | 'cover' } | null>(null);
+
+  useEffect(() => {
+    if (!dropdownType) return;
+    const close = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownType(null);
+      }
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [dropdownType]);
+
+  const handleImageUpload = async (file: File, field: 'profile.image' | 'profile.cover_image') => {
+    setUploading(field === 'profile.image' ? 'avatar' : 'cover');
+    setConfirmFile(null);
+    try {
+      const fd = new FormData();
+      fd.append(field, file);
+      const { data } = await api.put('/api/chat/profile/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setUser(data);
+    } catch {
+      setError('Échec du téléchargement');
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleConfirmUpload = () => {
+    if (!confirmFile) return;
+    handleImageUpload(confirmFile.file, confirmFile.type === 'avatar' ? 'profile.image' : 'profile.cover_image');
+  };
+
+  const handleCancelUpload = () => {
+    if (confirmFile) URL.revokeObjectURL(confirmFile.preview);
+    setConfirmFile(null);
+  };
+
+  const handleFileSelected = (file: File, type: 'avatar' | 'cover') => {
+    const preview = URL.createObjectURL(file);
+    setConfirmFile({ file, preview, type });
+  };
 
   useEffect(() => {
     const url = isSelf ? '/api/chat/me' : `/api/chat/users/${userId}`;
@@ -123,7 +173,9 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   const baseStatus = user.profile?.status || 'offline';
   let effectiveStatus = baseStatus;
   
-  if (isOnlinePresence === true) {
+  if (user.username === 'assistant') {
+    effectiveStatus = 'online';
+  } else if (isOnlinePresence === true) {
     effectiveStatus = 'online';
   } else if (isOnlinePresence === false) {
     // Si Pusher dit offline mais que le baseStatus était 'online', on le force offline.
@@ -176,32 +228,134 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
 
       <div className="pt-14">
         {/* Cover */}
-        <div className="relative h-[280px] sm:h-[360px] w-full overflow-hidden">
+        <div className="relative h-[280px] sm:h-[360px] w-full overflow-hidden group">
           <motion.img
             initial={{ scale: 1.05, opacity: 0 }}
             animate={{ scale: 1, opacity: imgLoaded ? 1 : 0 }}
             transition={{ duration: 0.6 }}
             src={user.profile?.cover_image || DEFAULT_COVER}
             alt="Couverture"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover cursor-pointer"
+            onClick={() => setDropdownType(dropdownType === 'cover' ? null : 'cover')}
             onLoad={() => setImgLoaded(true)}
             onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_COVER; setImgLoaded(true); }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+          {isSelf && (
+            <>
+              {uploading === 'cover' && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                  <span className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                </div>
+              )}
+              <button
+                onClick={() => setDropdownType(dropdownType === 'cover' ? null : 'cover')}
+                className="absolute bottom-4 right-4 z-10 bg-black/40 hover:bg-black/60 text-white text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5"
+              >
+                <CameraIcon className="h-3.5 w-3.5" />
+                Changer la couverture
+              </button>
+              {dropdownType === 'cover' && (
+                <div ref={dropdownRef}
+                  className="absolute bottom-14 right-4 z-50 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setDropdownType(null); window.open(user.profile?.cover_image || DEFAULT_COVER, '_blank'); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                  >
+                    <span className="text-base">👁️</span>
+                    Voir la couverture
+                  </button>
+                  {isSelf && (
+                    <>
+                      <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                      <button
+                        onClick={() => { setDropdownType(null); coverInputRef.current?.click(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                      >
+                        <CameraIcon className="h-4 w-4 text-gray-400" />
+                        Modifier la couverture
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileSelected(file, 'cover');
+                  e.target.value = '';
+                }}
+              />
+            </>
+          )}
         </div>
 
         <div className="max-w-5xl mx-auto px-4">
           {/* Avatar flottant */}
           <div className="flex justify-start -mt-14 sm:-mt-18 pl-2 sm:pl-6 relative z-10">
             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
-              className="relative shrink-0">
+              className="relative shrink-0 group/avatar">
               <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-[5px] border-white dark:border-gray-900
                               shadow-2xl overflow-hidden bg-white dark:bg-gray-800 ring-2 ring-[var(--blue-ciel)]/30">
                 <img src={user.profile?.image || '/default-avatar.svg'} alt={user.username}
-                  className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition-transform duration-300"
-                  onClick={() => setIsFullScreen(true)}
+                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                  onClick={() => setDropdownType(dropdownType === 'avatar' ? null : 'avatar')}
                   onError={(e) => { (e.target as HTMLImageElement).src = '/default-avatar.svg'; }} />
+                {isSelf && uploading === 'avatar' && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
+              {isSelf && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDropdownType(dropdownType === 'avatar' ? null : 'avatar'); }}
+                  className="absolute inset-0 rounded-full bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer"
+                >
+                  <CameraIcon className="h-6 w-6 text-white drop-shadow-lg" />
+                </button>
+              )}
+              {dropdownType === 'avatar' && (
+                <div ref={dropdownRef}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 overflow-hidden"
+                >
+                  <button
+                    onClick={() => { setDropdownType(null); setIsFullScreen(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                  >
+                    <span className="text-base">👁️</span>
+                    Voir la photo
+                  </button>
+                  {isSelf && (
+                    <>
+                      <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                      <button
+                        onClick={() => { setDropdownType(null); avatarInputRef.current?.click(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                      >
+                        <CameraIcon className="h-4 w-4 text-gray-400" />
+                        Modifier la photo
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileSelected(file, 'avatar');
+                  e.target.value = '';
+                }}
+              />
               <span className={`absolute bottom-2 right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-md ${status.dot}`} />
             </motion.div>
           </div>
@@ -280,11 +434,11 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
           {/* Tabs */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
             className="flex gap-1 mt-5 bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-1.5">
-            {(['about', 'info'] as const).map((tab) => (
+            {(['about', 'info', 'photos'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all
                   ${activeTab === tab ? 'bg-[var(--blue)] text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                {tab === 'about' ? '📝 À propos' : 'ℹ️ Informations'}
+                {tab === 'about' ? '📝 À propos' : tab === 'info' ? 'ℹ️ Informations' : '📸 Photos'}
               </button>
             ))}
           </motion.div>
@@ -295,11 +449,60 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
               className="mt-4 pb-10">
-              {activeTab === 'about' ? <AboutTab user={user} /> : <InfoTab user={user} isSelf={isSelf} />}
+              {activeTab === 'about' ? <AboutTab user={user} /> : activeTab === 'info' ? <InfoTab user={user} isSelf={isSelf} /> : <PhotosTab user={user} isSelf={isSelf} />}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
+
+
+
+      {/* Confirmation avant upload */}
+      <AnimatePresence>
+        {confirmFile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={handleCancelUpload}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
+            >
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-[var(--blue)] dark:text-gray-100 mb-2">
+                  {confirmFile.type === 'avatar' ? 'Changer la photo de profil' : 'Changer la photo de couverture'}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Êtes-vous sûr de vouloir utiliser cette photo ?
+                </p>
+                <div className={`overflow-hidden bg-gray-100 dark:bg-gray-700 mb-4 ${confirmFile.type === 'avatar' ? 'w-32 h-32 rounded-full mx-auto' : 'w-full h-32 rounded-xl'}`}>
+                  <img src={confirmFile.preview} alt="Aperçu" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <div className="flex border-t border-gray-100 dark:border-gray-700">
+                <button
+                  onClick={handleCancelUpload}
+                  className="flex-1 py-3 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleConfirmUpload}
+                  className="flex-1 py-3 text-sm font-semibold text-white bg-[var(--blue)] hover:bg-[var(--blue-ciel)] transition-colors"
+                >
+                  Confirmer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Full screen image modal */}
       <AnimatePresence>
@@ -442,6 +645,251 @@ function InfoTab({ user, isSelf }: { user: UserData; isSelf: boolean }) {
           </GlassCard>
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+/* ─── Photos Tab ─── */
+function PhotosTab({ user, isSelf }: { user: UserData; isSelf: boolean }) {
+  const [images, setImages] = useState<{ id: number; image_url: string; caption?: string; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [confirmImage, setConfirmImage] = useState<{ file: File; preview: string } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [fullScreenImg, setFullScreenImg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const userId = user.id;
+        const url = isSelf ? '/api/chat/profile/images/' : `/api/chat/profile/images/${userId}/`;
+        const { data } = await api.get(url);
+        setImages(Array.isArray(data) ? data : []);
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchImages();
+  }, [user.id, isSelf]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    setConfirmImage({ file, preview });
+    e.target.value = '';
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!confirmImage) return;
+    setUploading(true);
+    const preview = confirmImage.preview;
+    try {
+      const fd = new FormData();
+      fd.append('image', confirmImage.file);
+      const { data } = await api.post('/api/chat/profile/images/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setImages((prev) => [data, ...prev]);
+      setConfirmImage(null);
+      URL.revokeObjectURL(preview);
+    } catch {
+      // ignore
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCancelUpload = () => {
+    if (confirmImage) URL.revokeObjectURL(confirmImage.preview);
+    setConfirmImage(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (confirmDeleteId === null) return;
+    try {
+      await api.delete(`/api/chat/profile/images/delete/${confirmDeleteId}/`);
+      setImages((prev) => prev.filter((img) => img.id !== confirmDeleteId));
+    } catch {
+      // ignore
+    } finally {
+      setConfirmDeleteId(null);
+    }
+  };
+
+  return (
+    <div>
+      {isSelf && (
+        <div className="mb-4">
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--blue)] text-white text-sm font-semibold rounded-xl hover:bg-[var(--blue-ciel)] transition-all disabled:opacity-50"
+          >
+            {uploading ? (
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <CameraIcon className="h-4 w-4" />
+            )}
+            {uploading ? 'Upload...' : 'Ajouter une photo'}
+          </button>
+        </div>
+      )}
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <span className="w-6 h-6 border-2 border-[var(--blue)]/30 border-t-[var(--blue)] rounded-full animate-spin" />
+        </div>
+      ) : images.length === 0 || images.every((img) => !img.image_url) ? (
+        <EmptyState text={isSelf ? 'Vous n\'avez pas encore ajouté de photos' : 'Aucune photo'} />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {images.map((img) => (
+            <div key={img.id} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
+              {img.image_url ? (
+                <img src={img.image_url} alt="" className="w-full h-full object-cover cursor-pointer" onClick={() => setFullScreenImg(img.image_url)} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Image invalide</div>
+              )}
+              {isSelf && (
+                <button
+                  onClick={() => setConfirmDeleteId(img.id)}
+                  className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Confirmation modale */}
+      <AnimatePresence>
+        {confirmImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={handleCancelUpload}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
+            >
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-[var(--blue)] dark:text-gray-100 mb-2">
+                  Ajouter une photo
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Êtes-vous sûr de vouloir ajouter cette photo à votre collection ?
+                </p>
+                <div className="overflow-hidden bg-gray-100 dark:bg-gray-700 mb-4 rounded-xl aspect-square max-h-48 mx-auto">
+                  <img src={confirmImage.preview} alt="Aperçu" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <div className="flex border-t border-gray-100 dark:border-gray-700">
+                <button
+                  onClick={handleCancelUpload}
+                  className="flex-1 py-3 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleConfirmUpload}
+                  disabled={uploading}
+                  className="flex-1 py-3 text-sm font-semibold text-white bg-[var(--blue)] hover:bg-[var(--blue-ciel)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {uploading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                  Confirmer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation suppression */}
+      <AnimatePresence>
+        {confirmDeleteId !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setConfirmDeleteId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
+            >
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
+                  Supprimer la photo
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible.
+                </p>
+              </div>
+              <div className="flex border-t border-gray-100 dark:border-gray-700">
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 py-3 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="flex-1 py-3 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full screen gallery image */}
+      <AnimatePresence>
+        {fullScreenImg && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setFullScreenImg(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 cursor-zoom-out"
+          >
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              src={fullScreenImg}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setFullScreenImg(null)}
+              className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              aria-label="Fermer"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

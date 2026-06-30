@@ -155,15 +155,12 @@ function ChatPageContent() {
   }, [isMobile, showChat]);
 
   const handleDiscover = () => {
+    setSelectedUserId(null);
+    setSelectedConversation(null);
+    setShowDiscover(true);
+    pushChatLayer('discover');
     if (isMobile) {
       setShowChat(true);
-      setSelectedUserId(null);
-      setSelectedConversation(null);
-      setShowDiscover(true);
-      pushChatLayer('discover');
-    } else {
-      setShowDiscover(true);
-      pushChatLayer('discover');
     }
   };
 
