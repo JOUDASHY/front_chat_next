@@ -21,6 +21,7 @@ import {
   MoonIcon,
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
+  StarIcon,
 } from '@heroicons/react/24/outline';
 import CreateGroupModal from './CreateGroupModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
@@ -1008,6 +1009,13 @@ export default function Sidebar({
               </svg>
           </button>
         )}
+        <button
+          onClick={() => router.push('/saved')}
+          title="Messages favoris"
+          className="p-2.5 bg-[var(--blue)] text-white rounded-xl hover:bg-[var(--blue-ciel)] transition-colors flex-shrink-0"
+        >
+          <StarIcon className="h-5 w-5" />
+        </button>
         <button
           onClick={() => setShowCreateGroupModal(true)}
           title="Novo grupo"

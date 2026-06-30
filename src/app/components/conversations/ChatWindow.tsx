@@ -24,6 +24,7 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   LanguageIcon,
+  StarIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -64,6 +65,8 @@ interface Message {
     sender_profile?: { image: string | null } | null;
   } | null;
   replies_count?: number;
+  is_favorite?: boolean;
+  is_pinned?: boolean;
   recipient?: {
     id: number;
     username: string;
@@ -258,7 +261,6 @@ function ModalAvatar({ src, name, className = "h-full w-full" }: { src?: string,
   return <img src={src} alt={name} onError={() => setError(true)} className={`${className} object-cover`} />;
 }
 
-const AI_ID = -1;
 const AI_USERNAME = 'assistant';
 
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
@@ -356,6 +358,34 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     }
   };
   
+  const toggleFavorite = async (msgId: number) => {
+    setSavingMessageId(msgId);
+    try {
+      const { data } = await api.post(`/api/chat/messages/${msgId}/favorite/`);
+      setMessages((prev) =>
+        prev.map((m) => m.id === msgId ? { ...m, is_favorite: data.is_favorite, is_pinned: data.is_pinned } : m)
+      );
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setSavingMessageId(null);
+    }
+  };
+
+  const togglePin = async (msgId: number) => {
+    setSavingMessageId(msgId);
+    try {
+      const { data } = await api.post(`/api/chat/messages/${msgId}/pin/`);
+      setMessages((prev) =>
+        prev.map((m) => m.id === msgId ? { ...m, is_favorite: data.is_favorite, is_pinned: data.is_pinned } : m)
+      );
+    } catch (err) {
+      console.error('Error toggling pin:', err);
+    } finally {
+      setSavingMessageId(null);
+    }
+  };
+
   // Typing indicator
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1048,15 +1078,13 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
 
           if (aiReply) {
             const aiMsg: Message = {
-              id: AI_ID,
+              id: -Date.now(),
               content: aiReply,
               sender: AI_USERNAME,
               sender_profile: { image: null },
               timestamp: new Date().toISOString(),
             };
             setMessages((prev) => [...prev, aiMsg]);
-            // Sauvegarder aussi dans Django (persistance)
-            api.post('/api/chat/ai/save/', { content: aiReply }).catch(() => {});
           }
         } catch {
           console.error('❌ AI error');
@@ -1915,16 +1943,44 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={() => handleReplyToMessage(msg)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-      >
-        <ArrowLeftIcon className="h-4 w-4 rotate-180" />
-        Répondre
-      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReplyToMessage(msg)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                        Répondre
+                      </button>
 
-      {isCurrentUser && msg.content && !msg.attachment && (
+                      <button
+                        type="button"
+                        onClick={() => { toggleFavorite(msg.id); setOpenMenuMessageId(null); }}
+                        disabled={savingMessageId === msg.id}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 ${
+                          msg.is_favorite
+                            ? 'text-yellow-600 dark:text-yellow-400'
+                            : 'text-gray-700 dark:text-gray-200'
+                        }`}
+                      >
+                        <StarIcon className="h-4 w-4" />
+                        {msg.is_favorite ? 'Retirer favori' : 'Favori'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { togglePin(msg.id); setOpenMenuMessageId(null); }}
+                        disabled={savingMessageId === msg.id}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 ${
+                          msg.is_pinned
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : 'text-gray-700 dark:text-gray-200'
+                        }`}
+                      >
+                        <span className="h-4 w-4 flex items-center justify-center">📌</span>
+                        {msg.is_pinned ? 'Désépingler' : 'Épingler'}
+                      </button>
+
+                      {isCurrentUser && msg.content && !msg.attachment && (
         <button
           type="button"
           onClick={() => startEditMessage(msg)}
@@ -1954,6 +2010,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   )}
 </div>
                         <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
+                          {msg.is_pinned && <span className="mr-1" title="Épinglé">📌</span>}
+                          {msg.is_favorite && <span className="mr-1" title="Favori">⭐</span>}
                           {messageTime}
                         </span>
                       </div>
@@ -2014,6 +2072,28 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                               >
                                 <ArrowLeftIcon className="h-4 w-4 rotate-180" />
                                 Répondre
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { toggleFavorite(msg.id); setOpenMenuMessageId(null); }}
+                                disabled={savingMessageId === msg.id}
+                                className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 ${
+                                  msg.is_favorite ? 'text-yellow-600' : 'text-gray-700'
+                                }`}
+                              >
+                                <StarIcon className="h-4 w-4" />
+                                {msg.is_favorite ? 'Retirer favori' : 'Favori'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { togglePin(msg.id); setOpenMenuMessageId(null); }}
+                                disabled={savingMessageId === msg.id}
+                                className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 ${
+                                  msg.is_pinned ? 'text-blue-600' : 'text-gray-700'
+                                }`}
+                              >
+                                <span className="h-4 w-4 flex items-center justify-center">📌</span>
+                                {msg.is_pinned ? 'Désépingler' : 'Épingler'}
                               </button>
                               {msg.content && (
                                 <button
