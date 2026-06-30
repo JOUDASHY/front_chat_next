@@ -72,6 +72,13 @@ const useUserPresence = (userId: number | null, setRecipientOnline: (isOnline: b
       
       // Subscribe to the presence channel
       presenceChannel = pusherInstance.subscribe('presence-channel');
+
+      presenceChannel.bind('pusher:subscription_succeeded', (data: any) => {
+        if (!isMounted || !userId) return;
+        const isOnline = Object.keys(data.members).some(k => Number(data.members[k].id) === userId);
+        setRecipientOnline(isOnline);
+      });
+
       presenceChannel.bind('user-status-changed', handleUserStatusChanged);
       
       window.addEventListener('beforeunload', handleDisconnect);

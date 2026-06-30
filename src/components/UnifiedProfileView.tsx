@@ -144,7 +144,10 @@ export default function UnifiedProfileView({ isSelf, userId }: Props) {
   useEffect(() => {
     const url = isSelf ? '/api/chat/me' : `/api/chat/users/${userId}`;
     api.get(url)
-      .then(({ data }) => setUser(data))
+      .then(({ data }) => {
+        setUser(data);
+        setIsOnlinePresence(data.is_online === true);
+      })
       .catch(() => setError('Impossible de charger le profil'))
       .finally(() => setIsLoading(false));
   }, [isSelf, userId]);
