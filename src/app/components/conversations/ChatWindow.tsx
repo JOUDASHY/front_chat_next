@@ -1085,6 +1085,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               timestamp: new Date().toISOString(),
             };
             setMessages((prev) => [...prev, aiMsg]);
+            api.post('/api/chat/ai/save/', { content: aiReply }).catch(() => {});
           }
         } catch {
           console.error('❌ AI error');
