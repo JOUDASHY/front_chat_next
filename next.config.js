@@ -26,6 +26,20 @@ const nextConfig = {
   },
   async rewrites() {
     return [
+      // Ne pas rediriger /api/ai/* vers le backend Django
+      {
+        source: '/api/ai',
+        destination: '/api/ai',
+      },
+      {
+        source: '/api/ai/',
+        destination: '/api/ai/',
+      },
+      {
+        source: '/api/ai/:path*',
+        destination: '/api/ai/:path*',
+      },
+      // Tout autre /api/* va vers le backend Django
       {
         source: '/api/:path*',
         destination: 'https://back.brine.pro/api/:path*',
