@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   PhoneIcon,
   PhoneXMarkIcon,
@@ -10,13 +10,13 @@ import {
   SpeakerWaveIcon,
   XMarkIcon,
   EllipsisHorizontalIcon,
+  UsersIcon,
 } from '@heroicons/react/24/solid';
 import { useCall, type CallPeer } from '@/context/CallContext';
 import { useAdaptiveVideoFit } from '@/hooks/useAdaptiveVideoFit';
 import { formatCallTimer } from '@/lib/callUtils';
 import { Capacitor } from '@capacitor/core';
 
-// ── Avatar avec anneaux de pulsation ─────────────────────────────────────────
 function CallPeerAvatar({
   peer,
   size = 'lg',
@@ -26,7 +26,7 @@ function CallPeerAvatar({
   size?: 'md' | 'lg';
   pulse?: boolean;
 }) {
-  const dim = size === 'lg' ? 'h-24 w-24 text-4xl' : 'h-20 w-20 text-3xl';
+  const dim = size === 'lg' ? 'h-24 w-24 text-4xl' : 'h-14 w-14 text-xl';
 
   const inner = peer?.image ? (
     <img
@@ -42,7 +42,6 @@ function CallPeerAvatar({
 
   return (
     <div className="relative flex items-center justify-center shrink-0">
-      {/* Anneaux animés */}
       {pulse && (
         <>
           <span
@@ -66,7 +65,6 @@ function CallPeerAvatar({
   );
 }
 
-// ── Bouton de contrôle générique ──────────────────────────────────────────────
 function CtrlBtn({
   icon: Icon,
   label,
@@ -100,7 +98,6 @@ function CtrlBtn({
   );
 }
 
-// ── Modal de sélection de périphérique ──────────────────────────────────────
 function DeviceSettingsModal({
   onClose,
   audioInputDevices,
@@ -125,7 +122,7 @@ function DeviceSettingsModal({
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
-        
+
         {audioOutputDevices.length > 0 && (
           <div className="mb-5">
             <label className="block text-white/50 text-xs font-semibold uppercase tracking-wider mb-3">Sortie Audio</label>
@@ -168,7 +165,6 @@ function DeviceSettingsModal({
   );
 }
 
-// ── Barre de contrôles ────────────────────────────────────────────────────────
 function CallControls({
   isVideo,
   isMuted,
@@ -184,12 +180,12 @@ function CallControls({
   toggleCamera: () => void;
   endCall: () => void;
 }) {
-  const { 
-    audioInputDevices, 
-    audioOutputDevices, 
-    activeAudioInput, 
-    activeAudioOutput, 
-    switchDevice 
+  const {
+    audioInputDevices,
+    audioOutputDevices,
+    activeAudioInput,
+    activeAudioOutput,
+    switchDevice
   } = useCall();
   const [showSettings, setShowSettings] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
@@ -197,12 +193,10 @@ function CallControls({
 
   const handleSpeakerToggle = async () => {
     if (isNative) {
-      // On Android native: toggle between earpiece and speaker
       const newState = !isSpeakerOn;
       setIsSpeakerOn(newState);
       await switchDevice('audiooutput', newState ? 'speaker' : 'earpiece');
     } else {
-      // On PC Web: open the device menu to pick output
       setShowSettings(true);
     }
   };
@@ -224,7 +218,6 @@ function CallControls({
           onClick={toggleCamera}
         />
       )}
-      {/* Bouton fin d'appel — plus grand, rouge avec glow */}
       <button
         type="button"
         onClick={() => void endCall()}
@@ -235,7 +228,6 @@ function CallControls({
       >
         <PhoneXMarkIcon className="h-7 w-7 text-white" />
       </button>
-      {/* Haut-parleur: toggle sur mobile, menu sur desktop */}
       <CtrlBtn
         icon={SpeakerWaveIcon}
         label="Haut-parleur"
@@ -264,7 +256,6 @@ function CallControls({
   );
 }
 
-// ── Timer pill ────────────────────────────────────────────────────────────────
 function TimerPill({ seconds }: { seconds: number }) {
   return (
     <span
@@ -277,18 +268,61 @@ function TimerPill({ seconds }: { seconds: number }) {
   );
 }
 
-// ── Composant principal ───────────────────────────────────────────────────────
+function ParticipantTile({
+  peer,
+  isLocal = false,
+  videoRef,
+  muted = false,
+}: {
+  peer: CallPeer;
+  isLocal?: boolean;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  muted?: boolean;
+}) {
+  const hasVideo = videoRef !== undefined;
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center min-h-0">
+      {hasVideo ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={muted}
+          className="h-full w-full object-cover scale-x-[-1]"
+        />
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <CallPeerAvatar peer={peer} size="md" />
+          <span className="text-white/80 text-sm font-medium truncate max-w-[120px]">
+            {peer.display_name}
+          </span>
+        </div>
+      )}
+      {isLocal && (
+        <span className="absolute bottom-2 left-2 text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded-full">
+          Moi
+        </span>
+      )}
+      <span className="absolute bottom-2 right-2 text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded-full truncate max-w-[100px]">
+        {peer.display_name}
+      </span>
+    </div>
+  );
+}
+
 export default function CallOverlay() {
   const {
     phase,
     callType,
     peer,
+    peers,
     error,
+    isGroupCall,
     acceptCall,
     rejectCall,
     endCall,
     localVideoRef,
-    remoteVideoRef,
     isMuted,
     isCameraOff,
     toggleMute,
@@ -296,6 +330,7 @@ export default function CallOverlay() {
   } = useCall();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const localGridVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (phase !== 'active') { setElapsedSeconds(0); return; }
@@ -308,39 +343,87 @@ export default function CallOverlay() {
 
   const isVideo = callType === 'video';
   const showActive = phase === 'active' || phase === 'outgoing';
-  const remoteVideoFit = useAdaptiveVideoFit(
-    remoteVideoRef,
-    showActive && isVideo && phase === 'active'
-  );
+
+  // Build participant list
+  const allParticipants: CallPeer[] = [];
+  if (isGroupCall && peers.length > 0) {
+    allParticipants.push(...peers);
+  } else if (peer) {
+    allParticipants.push(peer);
+  }
 
   if (phase === 'idle' && !error) return null;
 
-  // ── Appel vidéo actif / outgoing ─────────────────────────────────────────
+  // ── Group video call grid ──────────────────────────────────────────────
+  if (showActive && isVideo && isGroupCall) {
+    const gridCols = allParticipants.length <= 1 ? 'grid-cols-1'
+      : allParticipants.length <= 4 ? 'grid-cols-2'
+      : 'grid-cols-3';
+
+    return (
+      <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+        {/* Main video grid */}
+        <div className="flex-1 p-2 overflow-hidden">
+          <div className={`grid ${gridCols} gap-2 h-full`}>
+            {/* Local video */}
+            <div className="relative rounded-2xl overflow-hidden bg-slate-800">
+              <video
+                ref={localGridVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="h-full w-full object-cover scale-x-[-1]"
+              />
+              <span className="absolute bottom-2 left-2 text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded-full">
+                Moi
+              </span>
+            </div>
+            {/* Remote participants */}
+            {allParticipants.map((p) => (
+              <div key={p.id} className="relative rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <CallPeerAvatar peer={p} size="md" />
+                  <span className="text-white/80 text-sm font-medium">{p.display_name}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Controls overlay */}
+        <div
+          className="z-10 pt-4 pb-6 px-6 bg-gradient-to-t from-black/80 to-transparent"
+          style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="flex justify-center mb-3">
+            <TimerPill seconds={elapsedSeconds} />
+          </div>
+          <CallControls
+            isVideo
+            isMuted={isMuted}
+            isCameraOff={isCameraOff}
+            toggleMute={toggleMute}
+            toggleCamera={toggleCamera}
+            endCall={endCall}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── 1-to-1 video call active / outgoing ────────────────────────────────
   if (showActive && isVideo) {
     return (
       <div className="fixed inset-0 z-[100] bg-black">
-        {/* Flux distant */}
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className={`absolute inset-0 h-full w-full
-            ${remoteVideoFit === 'cover' ? 'object-cover' : 'object-contain'}
-            ${phase === 'active' ? 'block' : 'hidden'}`}
-        />
-
-        {/* Placeholder outgoing */}
-        {phase === 'outgoing' && (
-          <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center
-            text-white px-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-            <CallPeerAvatar peer={peer} size="lg" pulse />
-            <p className="text-2xl font-semibold mt-6 text-center">{peer?.display_name}</p>
-            <p className="text-white/50 text-sm mt-2 flex items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-              Sonnerie…
-            </p>
-          </div>
-        )}
+        {/* Remote video placeholder when no video yet */}
+        <div className={`absolute inset-0 ${phase === 'active' ? 'hidden' : 'flex'} flex-col items-center justify-center text-white px-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900`}>
+          <CallPeerAvatar peer={peer} size="lg" pulse />
+          <p className="text-2xl font-semibold mt-6 text-center">{peer?.display_name}</p>
+          <p className="text-white/50 text-sm mt-2 flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+            Sonnerie…
+          </p>
+        </div>
 
         {/* PiP local */}
         <div
@@ -362,7 +445,6 @@ export default function CallOverlay() {
           />
         </div>
 
-        {/* Overlay haut */}
         <div
           className="absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-2 pb-16
             bg-gradient-to-b from-black/65 via-black/30 to-transparent"
@@ -374,7 +456,6 @@ export default function CallOverlay() {
           </p>
         </div>
 
-        {/* Overlay bas — contrôles */}
         <div
           className="absolute inset-x-0 bottom-0 z-10 pt-16 pb-6 px-6
             bg-gradient-to-t from-black/75 via-black/40 to-transparent"
@@ -393,12 +474,11 @@ export default function CallOverlay() {
     );
   }
 
-  // ── Appel vocal ou incoming / erreur : carte centrée ─────────────────────
+  // ── Audio call (1-to-1 or group) ───────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4
       bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
 
-      {/* Toast d'erreur */}
       {error && phase === 'idle' && (
         <div className="absolute top-6 inset-x-4 mx-auto max-w-sm
           rounded-2xl bg-red-500/20 border border-red-400/30
@@ -408,7 +488,6 @@ export default function CallOverlay() {
       )}
 
       <div className="w-full max-w-xs">
-
         {/* ── Incoming ─────────────────────────────────────────────────── */}
         {phase === 'incoming' && peer && (
           <div className="text-center text-white flex flex-col items-center gap-8">
@@ -416,14 +495,46 @@ export default function CallOverlay() {
               <CallPeerAvatar peer={peer} size="lg" pulse />
               <div>
                 <p className="text-xs text-white/50 uppercase tracking-widest mb-1">
-                  {isVideo ? 'Appel vidéo entrant' : 'Appel vocal entrant'}
+                  {isGroupCall
+                    ? 'Appel de groupe entrant'
+                    : isVideo
+                      ? 'Appel vidéo entrant'
+                      : 'Appel vocal entrant'}
                 </p>
-                <h2 className="text-2xl font-semibold">{peer.display_name}</h2>
+                <h2 className="text-2xl font-semibold">
+                  {isGroupCall ? `De ${peer.display_name}` : peer.display_name}
+                </h2>
+                {isGroupCall && peers.length > 0 && (
+                  <p className="text-white/40 text-sm mt-1">
+                    {peers.length + 1} participants
+                  </p>
+                )}
               </div>
             </div>
 
+            {/* Participant avatars for group incoming */}
+            {isGroupCall && peers.length > 0 && (
+              <div className="flex -space-x-3">
+                {peers.slice(0, 5).map((p) => (
+                  <div key={p.id} className="h-10 w-10 rounded-full border-2 border-slate-800 overflow-hidden bg-blue-600">
+                    {p.image ? (
+                      <img src={p.image} alt={p.display_name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-white text-xs font-bold">
+                        {p.display_name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {peers.length > 5 && (
+                  <div className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">+{peers.length - 5}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-center gap-12">
-              {/* Refuser */}
               <div className="flex flex-col items-center gap-2">
                 <button
                   type="button"
@@ -438,7 +549,6 @@ export default function CallOverlay() {
                 <span className="text-xs text-white/50">Refuser</span>
               </div>
 
-              {/* Accepter */}
               <div className="flex flex-col items-center gap-2">
                 <button
                   type="button"
@@ -456,8 +566,8 @@ export default function CallOverlay() {
           </div>
         )}
 
-        {/* ── Outgoing / actif vocal ────────────────────────────────────── */}
-        {showActive && !isVideo && (
+        {/* ── Outgoing / actif vocal (1-to-1) ──────────────────────────── */}
+        {showActive && !isVideo && !isGroupCall && (
           <div className="flex flex-col items-center gap-8">
             <div className="flex flex-col items-center gap-4 mt-8">
               <CallPeerAvatar peer={peer} size="lg" pulse={phase === 'outgoing'} />
@@ -475,6 +585,56 @@ export default function CallOverlay() {
                 </p>
               </div>
             </div>
+
+            <CallControls
+              isVideo={false}
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+              toggleMute={toggleMute}
+              toggleCamera={toggleCamera}
+              endCall={endCall}
+            />
+          </div>
+        )}
+
+        {/* ── Outgoing / actif vocal (group) ───────────────────────────── */}
+        {showActive && !isVideo && isGroupCall && (
+          <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4 mt-8">
+              <div className="flex items-center justify-center">
+                <UsersIcon className="h-16 w-16 text-white/60" />
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-semibold text-white">Appel de groupe</p>
+                <p className="text-white/50 text-sm mt-1">
+                  {allParticipants.length + 1} participants
+                </p>
+                <p className="text-white/50 text-sm mt-2">
+                  {phase === 'outgoing' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                      Sonnerie…
+                    </span>
+                  ) : (
+                    <TimerPill seconds={elapsedSeconds} />
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Participant list */}
+            {phase === 'active' && allParticipants.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-3 max-w-xs">
+                {allParticipants.map((p) => (
+                  <div key={p.id} className="flex flex-col items-center gap-1">
+                    <CallPeerAvatar peer={p} size="md" />
+                    <span className="text-white/60 text-xs truncate max-w-[80px]">
+                      {p.display_name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <CallControls
               isVideo={false}

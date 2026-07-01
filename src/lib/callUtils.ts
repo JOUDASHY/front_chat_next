@@ -29,10 +29,12 @@ export interface CallEvent {
   status: 'completed' | 'missed' | 'rejected' | 'cancelled';
   duration_seconds?: number;
   initiator_id: number;
+  is_group?: boolean;
 }
 
 export function getCallEventLabel(callEvent: CallEvent, currentUserId: number): string {
-  const typeLabel = callEvent.type === 'video' ? 'Appel vidéo' : 'Appel vocal';
+  const baseLabel = callEvent.type === 'video' ? 'Appel vidéo' : 'Appel vocal';
+  const typeLabel = callEvent.is_group ? `${baseLabel} de groupe` : baseLabel;
   const outgoing = callEvent.initiator_id === currentUserId;
   const duration = formatCallDuration(callEvent.duration_seconds || 0);
 

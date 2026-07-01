@@ -1,6 +1,6 @@
 'use client';
 
-import { PhoneArrowDownLeftIcon, PhoneArrowUpRightIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
+import { PhoneArrowDownLeftIcon, PhoneArrowUpRightIcon, VideoCameraIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { CallEvent, getCallEventLabel, isCallMissedForUser } from '@/lib/callUtils';
 
 interface CallEventBubbleProps {
@@ -14,12 +14,15 @@ export default function CallEventBubble({ callEvent, currentUserId, timestamp }:
   const outgoing = callEvent.initiator_id === currentUserId;
   const missed = isCallMissedForUser(callEvent, currentUserId);
   const isVideo = callEvent.type === 'video';
+  const isGroup = callEvent.is_group;
 
-  const Icon = isVideo
-    ? VideoCameraIcon
-    : outgoing
-      ? PhoneArrowUpRightIcon
-      : PhoneArrowDownLeftIcon;
+  const Icon = isGroup
+    ? UsersIcon
+    : isVideo
+      ? VideoCameraIcon
+      : outgoing
+        ? PhoneArrowUpRightIcon
+        : PhoneArrowDownLeftIcon;
 
   const colorClass = missed || callEvent.status === 'rejected'
     ? 'text-red-500'

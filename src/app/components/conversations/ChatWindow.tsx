@@ -268,7 +268,7 @@ const AI_USERNAME = 'assistant';
 
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
-  const { startCall, phase: callPhase } = useCall();
+  const { startCall, startGroupCall, phase: callPhase, isGroupCall } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [translations, setTranslations] = useState<Record<number, string>>({});
@@ -1642,7 +1642,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             )}
           </p>
         </div>
-        {!conversation.isGroup && recipientId && callPhase === 'idle' && (
+        {callPhase === 'idle' && (
           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
@@ -1653,38 +1653,63 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             >
               <MagnifyingGlassIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
-            <button
-              type="button"
-              disabled={iBlockedThem || theyBlockedMe}
-              onClick={() =>
-                void startCall(recipientId, 'audio', {
-                  display_name: getDisplayName(recipient) || conversation.name,
-                  image: recipient?.profile?.image ?? null,
-                  username: recipient?.username,
-                })
-              }
-              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Appel vocal"
-              aria-label="Appel vocal"
-            >
-              <PhoneIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
-            <button
-              type="button"
-              disabled={iBlockedThem || theyBlockedMe}
-              onClick={() =>
-                void startCall(recipientId, 'video', {
-                  display_name: getDisplayName(recipient) || conversation.name,
-                  image: recipient?.profile?.image ?? null,
-                  username: recipient?.username,
-                })
-              }
-              className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Appel vidéo"
-              aria-label="Appel vidéo"
-            >
-              <VideoCameraIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
+            {conversation.isGroup ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void startGroupCall(conversation.id, 'audio')}
+                  className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+                  title="Appel vocal de groupe"
+                  aria-label="Appel vocal de groupe"
+                >
+                  <PhoneIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void startGroupCall(conversation.id, 'video')}
+                  className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+                  title="Appel vidéo de groupe"
+                  aria-label="Appel vidéo de groupe"
+                >
+                  <VideoCameraIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+              </>
+            ) : recipientId && (
+              <>
+                <button
+                  type="button"
+                  disabled={iBlockedThem || theyBlockedMe}
+                  onClick={() =>
+                    void startCall(recipientId, 'audio', {
+                      display_name: getDisplayName(recipient) || conversation.name,
+                      image: recipient?.profile?.image ?? null,
+                      username: recipient?.username,
+                    })
+                  }
+                  className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Appel vocal"
+                  aria-label="Appel vocal"
+                >
+                  <PhoneIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={iBlockedThem || theyBlockedMe}
+                  onClick={() =>
+                    void startCall(recipientId, 'video', {
+                      display_name: getDisplayName(recipient) || conversation.name,
+                      image: recipient?.profile?.image ?? null,
+                      username: recipient?.username,
+                    })
+                  }
+                  className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Appel vidéo"
+                  aria-label="Appel vidéo"
+                >
+                  <VideoCameraIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+              </>
+            )}
           </div>
         )}
         {!conversation.isGroup && recipientId && (
