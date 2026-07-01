@@ -1122,12 +1122,12 @@ export default function Sidebar({
       {sidebarView === 'chats' && searchResults.length > 0 && (
         <div className="flex-1 overflow-y-auto px-2">
           <div className="space-y-1 p-2">
-            <h3 className="text-xs font-semibold color-blue px-2 py-1">Résultats de recherche</h3>
+            <h3 className="text-xs font-semibold text-[var(--blue)] dark:text-white px-2 py-1">Résultats de recherche</h3>
             {searchResults.map(user => (
               <div
                 key={user.id}
                 onClick={() => handleStartConversation(Number(user.id))}
-                className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer rounded-lg transition-colors group"
+                className="flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-800/50 cursor-pointer rounded-lg transition-colors group"
               >
                 <div className="relative shrink-0">
                   <Avatar
@@ -1141,8 +1141,8 @@ export default function Sidebar({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs md:text-sm font-medium color-blue truncate">{getDisplayName(user)}</p>
-                  <p className="text-xs color-blue/80 truncate">@{user.username}</p>
+                  <p className="text-xs md:text-sm font-medium text-[var(--blue)] dark:text-white group-hover:text-[var(--jaune)] dark:group-hover:text-[var(--jaune)] truncate transition-colors">{getDisplayName(user)}</p>
+                  <p className="text-xs text-[var(--blue)]/80 dark:text-gray-300 group-hover:text-[var(--jaune)] dark:group-hover:text-[var(--jaune)] truncate transition-colors">@{user.username}</p>
                 </div>
               </div>
             ))}
@@ -1155,8 +1155,8 @@ export default function Sidebar({
         <div className="flex-1 overflow-y-auto p-2">
           {callsLoading ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
-              <ClockIcon className="h-8 w-8 color-blue animate-spin" />
-              <p className="color-blue/80 text-sm">Chargement des appels…</p>
+              <ClockIcon className="h-8 w-8 text-[var(--blue)] dark:text-white animate-spin" />
+              <p className="text-[var(--blue)]/80 dark:text-gray-300 text-sm">Chargement des appels…</p>
             </div>
           ) : callsError ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-10 px-4 text-center">
@@ -1173,7 +1173,7 @@ export default function Sidebar({
           ) : callHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-10 px-4 text-center">
              <PhoneIcon className="h-10 w-10 text-[var(--blue)] opacity-40 dark:text-gray-300 dark:opacity-70" />
-              <p className="color-blue/80 text-sm">Aucun appel pour le moment</p>
+              <p className="text-[var(--blue)]/80 dark:text-gray-300 text-sm">Aucun appel pour le moment</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -1237,7 +1237,7 @@ export default function Sidebar({
                 <span className="text-jaune text-sm font-medium mb-2">⚠️ {error}</span>
                 <button
                   onClick={() => window.location.reload()}
-                  className="color-blue hover:color-blue-ciel text-sm font-medium"
+                  className="text-[var(--blue)] dark:text-white hover:text-[var(--blue-ciel)] dark:hover:text-blue-300 text-sm font-medium"
                 >
                   Réessayer
                 </button>
@@ -1379,7 +1379,7 @@ export default function Sidebar({
                           </span>
                         )}
                         {conversation.isGroup && (
-                          <span className="px-2 py-0.5 bg-blue-ciel/20 color-blue text-xs font-medium rounded-full">
+                          <span className="px-2 py-0.5 bg-blue-ciel/20 text-[var(--blue)] dark:text-white text-xs font-medium rounded-full">
                             Groupe
                           </span>
                         )}
