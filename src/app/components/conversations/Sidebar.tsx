@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axiosClient';
 import { getDisplayName } from '@/lib/userUtils';
@@ -42,6 +42,7 @@ export interface Conversation {
   lastMessageIsRead?: boolean;
   user: { id?: number; username?: string; profile?: { image?: string } } | null;
   participants?: { id: number; username: string; profile?: { image?: string } }[];
+  is_favorite?: boolean;
 }
 
 interface User {
@@ -216,6 +217,7 @@ export default function Sidebar({
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<number, boolean>>(new Map());  // Changed from Map<string | number, boolean>
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const allUsersRef = useRef<User[]>([]);
@@ -304,22 +306,23 @@ export default function Sidebar({
   }, []);
 
   // Charger les conversations
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const { data } = await api.get<Conversation[]>('/api/chat/conversations/');
-        setConversations(data);
-        setError(null);
-      } catch (err) {
-        setError('Échec du chargement des conversations');
-        console.error('Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConversations();
+  const fetchConversations = useCallback(async (favoritesOnly = false) => {
+    try {
+      const params = favoritesOnly ? { favorites: 'true' } : {};
+      const { data } = await api.get<Conversation[]>('/api/chat/conversations/', { params });
+      setConversations(data);
+      setError(null);
+    } catch (err) {
+      setError('Échec du chargement des conversations');
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchConversations(showFavoritesOnly);
+  }, [fetchConversations, showFavoritesOnly]);
 
   const fetchCallHistory = async () => {
     setCallsLoading(true);
@@ -340,6 +343,21 @@ export default function Sidebar({
       setCallHistory([]);
     } finally {
       setCallsLoading(false);
+    }
+  };
+
+  const toggleConversationFavorite = async (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const payload = conv.isGroup
+        ? { room_id: conv.id }
+        : { user_id: conv.userId };
+      const { data } = await api.post('/api/chat/conversations/favorite/', payload);
+      setConversations((prev) =>
+        prev.map((c) => c.id === conv.id ? { ...c, is_favorite: data.is_favorite } : c)
+      );
+    } catch (err) {
+      console.error('Error toggling conversation favorite:', err);
     }
   };
 
@@ -1010,11 +1028,15 @@ export default function Sidebar({
           </button>
         )}
         <button
-          onClick={() => router.push('/saved')}
-          title="Messages favoris"
-          className="p-2.5 bg-[var(--blue)] text-white rounded-xl hover:bg-[var(--blue-ciel)] transition-colors flex-shrink-0"
+          onClick={() => setShowFavoritesOnly((v) => !v)}
+          title={showFavoritesOnly ? 'Afficher toutes les conversations' : 'Afficher uniquement les favoris'}
+          className={`p-2.5 rounded-xl transition-colors flex-shrink-0 ${
+            showFavoritesOnly
+              ? 'bg-amber-500 text-white'
+              : 'bg-[var(--blue)] text-white hover:bg-[var(--blue-ciel)]'
+          }`}
         >
-          <StarIcon className="h-5 w-5" />
+          <StarIcon className={`h-5 w-5 ${showFavoritesOnly ? 'fill-white' : ''}`} />
         </button>
         <button
           onClick={() => setShowCreateGroupModal(true)}
@@ -1271,6 +1293,7 @@ export default function Sidebar({
 </div>
           ) : (
             <div className="space-y-0 p-2">
+              
               {conversations.map((conversation) => {
                 let peerUserId = conversation.userId ?? conversation.user?.id;
                 if (
@@ -1318,9 +1341,23 @@ export default function Sidebar({
                       <h3 className="text-sm md:text-[15px] font-semibold text-[var(--blue)] dark:text-gray-200 truncate">
                         {conversation.name}
                       </h3>
-                      <span className="text-xs text-[var(--blue)] dark:text-gray-400 font-medium">
-                        {formatTimestamp(conversation.timestamp)}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleConversationFavorite(conversation, e)}
+                          className={`p-0.5 rounded transition-colors ${
+                            conversation.is_favorite
+                              ? 'text-amber-500 hover:text-amber-600'
+                              : 'text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 hover:text-amber-400'
+                          }`}
+                          title={conversation.is_favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                        >
+                          <StarIcon className={`h-4 w-4 ${conversation.is_favorite ? 'fill-amber-500' : ''}`} />
+                        </button>
+                        <span className="text-xs text-[var(--blue)] dark:text-gray-400 font-medium">
+                          {formatTimestamp(conversation.timestamp)}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       {showTyping ? (

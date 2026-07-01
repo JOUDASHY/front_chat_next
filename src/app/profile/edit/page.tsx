@@ -165,6 +165,12 @@ export default function EditProfilePage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
+      // Sync localStorage with updated profile (so ChatWindow reads fresh language_preference)
+      try {
+        const { data: freshUser } = await api.get('/api/chat/me/');
+        localStorage.setItem('user', JSON.stringify(freshUser));
+      } catch {}
+
       setSuccessMsg('Profil mis à jour avec succès !');
       setTimeout(() => router.push('/profile'), 1200);
     } catch (err: any) {

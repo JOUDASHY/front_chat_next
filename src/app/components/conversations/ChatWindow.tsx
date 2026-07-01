@@ -65,8 +65,8 @@ interface Message {
     sender_profile?: { image: string | null } | null;
   } | null;
   replies_count?: number;
-  is_favorite?: boolean;
   is_pinned?: boolean;
+  is_ai_response?: boolean;
   recipient?: {
     id: number;
     username: string;
@@ -108,6 +108,9 @@ interface Conversation {
   timestamp: string;
   isGroup: boolean;
   userId?: number;
+  is_favorite?: boolean;
+  user?: { id?: number; username?: string; profile?: { image?: string } } | null;
+  participants?: { id: number; username: string; profile?: { image?: string } }[];
 }
 
 interface ChatWindowProps {
@@ -269,6 +272,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [translations, setTranslations] = useState<Record<number, string>>({});
+  const [translatingAll, setTranslatingAll] = useState(false);
   const [draftLang, setDraftLang] = useState<string>('');
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const [showTranslateMenu, setShowTranslateMenu] = useState(false);
@@ -358,27 +362,57 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     }
   };
   
-  const toggleFavorite = async (msgId: number) => {
-    setSavingMessageId(msgId);
+  // Charger les messages épinglés de cette conversation
+  useEffect(() => {
+    if (!conversation?.id || !userId) return;
+    const params = conversation.isGroup
+      ? { room_id: conversation.id }
+      : { user_id: userId };
+    api.get('/api/chat/pinned/', { params })
+      .then(({ data }) => setPinnedMessages(data))
+      .catch(() => setPinnedMessages([]));
+  }, [conversation?.id, userId, conversation?.isGroup]);
+
+  // Arrêter la synthèse vocale quand on change de conversation
+  useEffect(() => {
+    return () => { try { speechSynthesis.cancel(); } catch {} };
+  }, [conversation?.id]);
+
+  const toggleConversationFavorite = async () => {
+    if (!conversation) return;
     try {
-      const { data } = await api.post(`/api/chat/messages/${msgId}/favorite/`);
-      setMessages((prev) =>
-        prev.map((m) => m.id === msgId ? { ...m, is_favorite: data.is_favorite, is_pinned: data.is_pinned } : m)
-      );
+      const payload = conversation.isGroup
+        ? { room_id: conversation.id }
+        : { user_id: conversation.userId };
+      const { data } = await api.post('/api/chat/conversations/favorite/', payload);
+      setLocalConversation((prev) => prev ? { ...prev, is_favorite: data.is_favorite } : prev);
     } catch (err) {
-      console.error('Error toggling favorite:', err);
-    } finally {
-      setSavingMessageId(null);
+      console.error('Error toggling conversation favorite:', err);
     }
   };
+
+  // Copie locale de la conversation pour pouvoir modifier is_favorite
+  const [localConversation, setLocalConversation] = useState(conversation);
+  useEffect(() => {
+    setLocalConversation(conversation);
+  }, [conversation]);
 
   const togglePin = async (msgId: number) => {
     setSavingMessageId(msgId);
     try {
       const { data } = await api.post(`/api/chat/messages/${msgId}/pin/`);
       setMessages((prev) =>
-        prev.map((m) => m.id === msgId ? { ...m, is_favorite: data.is_favorite, is_pinned: data.is_pinned } : m)
+        prev.map((m) => m.id === msgId ? { ...m, is_pinned: data.is_pinned } : m)
       );
+      // Rafraîchir les épinglés
+      if (conversation) {
+        const params = conversation.isGroup
+          ? { room_id: conversation.id }
+          : { user_id: userId };
+        api.get('/api/chat/pinned/', { params })
+          .then(({ data: d }) => setPinnedMessages(d))
+          .catch(() => {});
+      }
     } catch (err) {
       console.error('Error toggling pin:', err);
     } finally {
@@ -411,6 +445,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   };
 
   // Ajoutez ces fonctions utilitaires au début du composant
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [imageLoadError, setImageLoadError] = useState<{[key: string]: boolean}>({});
 
   const handleImageError = (imageUrl: string) => {
@@ -440,14 +475,18 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     );
   };
 
-  // Chargement des données utilisateur
-  useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-
-  }, []);
+    // Chargement des données utilisateur
+    useEffect(() => {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+      // Rafraîchir depuis l'API pour avoir la dernière langue préférée
+      api.get('/api/chat/me/').then(({ data }) => {
+        setUser(data);
+        localStorage.setItem('user', JSON.stringify(data));
+      }).catch(() => {});
+    }, []);
   const currentUser= user?.id;
 
   // Déterminer l'ID du destinataire pour les conversations privées
@@ -731,10 +770,21 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     return conversation.isGroup ? `group_${conversation.id}` : `private_${recipientId}`;
   };
 
+  const getAutoTranslatePrefs = () => {
+    const raw = user?.profile?.notification_preferences;
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+    return raw as Record<string, any>;
+  };
+
   const isAutoTranslateEnabled = () => {
     const key = getConversationKey();
-    if (!key || !user?.profile?.notification_preferences?.auto_translate) return false;
-    return !!user.profile.notification_preferences.auto_translate[key];
+    if (!key) return false;
+    const prefs = getAutoTranslatePrefs();
+    if (!prefs?.auto_translate) return false;
+    return !!prefs.auto_translate[key];
   };
 
   const handleToggleAutoTranslate = async () => {
@@ -742,30 +792,39 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     const key = getConversationKey();
     if (!key) return;
 
-    const currentPrefs = user.profile?.notification_preferences || {};
-    const currentAutoTranslate = currentPrefs.auto_translate || {};
+    const rawPrefs = user.profile?.notification_preferences;
+    const currentPrefs: Record<string, any> = rawPrefs
+      ? (typeof rawPrefs === 'string' ? (() => { try { return JSON.parse(rawPrefs); } catch { return {}; } })() : rawPrefs as Record<string, any>)
+      : {};
+    const currentAutoTranslate: Record<string, boolean> = currentPrefs.auto_translate || {};
     const isCurrentlyEnabled = !!currentAutoTranslate[key];
+    const enabling = !isCurrentlyEnabled;
 
     const updatedPrefs = {
       ...currentPrefs,
       auto_translate: {
         ...currentAutoTranslate,
-        [key]: !isCurrentlyEnabled
+        [key]: enabling
       }
     };
-
-    setUser(prev => prev ? {
-      ...prev,
-      profile: {
-        ...prev.profile,
-        notification_preferences: updatedPrefs
-      }
-    } : prev);
 
     try {
       const formData = new FormData();
       formData.append('profile.notification_preferences', JSON.stringify(updatedPrefs));
-      await api.put('/api/chat/profile/', formData);
+      const { data: freshUser } = await api.put('/api/chat/profile/', formData);
+      // Mettre à jour l'état avec les données fraîches (inclut language_preference)
+      if (freshUser?.profile) {
+        setUser(freshUser);
+        localStorage.setItem('user', JSON.stringify(freshUser));
+      } else {
+        const { data: me } = await api.get('/api/chat/me/');
+        setUser(me);
+        localStorage.setItem('user', JSON.stringify(me));
+      }
+      if (!enabling) {
+        setTranslations({});
+        setTranslatingAll(false);
+      }
     } catch (e) {
       console.error('Error saving translation preference', e);
     }
@@ -789,22 +848,26 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     }
   };
 
-  // Auto-translate incoming messages
+  // Auto-translate ALL messages
   useEffect(() => {
     if (!user || !user.profile?.language_preference || messages.length === 0) return;
     if (!isAutoTranslateEnabled()) return;
     
     const prefLang = user.profile.language_preference;
-    
-    messages.forEach(msg => {
-      if (msg.sender !== user.username && msg.content && !translations[msg.id]) {
-        translateText(msg.content, prefLang).then(translated => {
-          if (translated && translated.toLowerCase() !== msg.content.toLowerCase()) {
+    const untranslated = messages.filter(msg => msg.content && !translations[msg.id]);
+    if (untranslated.length === 0) return;
+
+    setTranslatingAll(true);
+
+    Promise.allSettled(
+      untranslated.map(msg =>
+        translateText(msg.content!, prefLang).then(translated => {
+          if (translated && translated.toLowerCase() !== msg.content!.toLowerCase()) {
             setTranslations(prev => ({ ...prev, [msg.id]: translated }));
           }
-        });
-      }
-    });
+        })
+      )
+    ).finally(() => setTranslatingAll(false));
   }, [messages, user, translations]);
 
   const handleTranslateDraft = async () => {
@@ -959,6 +1022,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         mediaRecorderRef.current?.stream?.getTracks().forEach((t) => t.stop());
       }
       if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+
+      try { speechSynthesis.cancel(); } catch {}
     };
   }, []);
 
@@ -1077,15 +1142,17 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           const aiReply: string = aiData.reply;
 
           if (aiReply) {
-            const aiMsg: Message = {
-              id: -Date.now(),
+            const { data } = await api.post('/api/chat/ai/send-to-conversation/', {
               content: aiReply,
-              sender: AI_USERNAME,
-              sender_profile: { image: null },
-              timestamp: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, aiMsg]);
-            api.post('/api/chat/ai/save/', { content: aiReply }).catch(() => {});
+              recipient_id: userId,
+            });
+            if (data) {
+              setMessages((prev) => {
+                const isDup = prev.some((m) => m.id === data.id);
+                if (isDup) return prev;
+                return [...prev, data];
+              });
+            }
           }
         } catch {
           console.error('❌ AI error');
@@ -1307,6 +1374,25 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   };
 
   // ── Voice recording ──────────────────────────────────────────────
+  const [readingMessageId, setReadingMessageId] = useState<number | null>(null);
+
+  const speakText = (msgId: number, text: string) => {
+    try {
+      if (readingMessageId === msgId) {
+        speechSynthesis.cancel();
+        setReadingMessageId(null);
+        return;
+      }
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'fr-FR';
+      utterance.onend = () => setReadingMessageId(null);
+      utterance.onerror = () => setReadingMessageId(null);
+      speechSynthesis.speak(utterance);
+      setReadingMessageId(msgId);
+    } catch { }
+  };
+
   const formatRecordingTime = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');
     const s = (secs % 60).toString().padStart(2, '0');
@@ -1348,7 +1434,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         value: (v: boolean) => { cancelled = v; },
       });
 
-      recorder.start(250); // collect chunks every 250ms
+      recorder.start(250);
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
       setRecordingSeconds(0);
@@ -1536,23 +1622,28 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           {/* {!conversation.isGroup && recipient?.username && (
             <p className="text-xs text-gray-400">@{recipient.username}</p>
           )} */}
-          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 flex items-center leading-tight mt-0.5">
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 flex items-center leading-tight mt-0.5 gap-1.5">
             {conversation.isGroup ? (
               <>
-                <span className="h-2 w-2 rounded-full bg-indigo-400 mr-2"></span>
+                <span className="h-2 w-2 rounded-full bg-indigo-400 mr-1"></span>
                 Groupe
               </>
             ) : (
               <>
-                <span className={`h-2 w-2 rounded-full ${recipientOnline ? 'bg-green-500' : 'bg-gray-400'} mr-2`}></span>
+                <span className={`h-2 w-2 rounded-full ${recipientOnline ? 'bg-green-500' : 'bg-gray-400'} mr-1`}></span>
                 {recipientOnline ? 'En ligne' : (recipientLastSeen ? formatLastSeen(recipientLastSeen) : 'Hors ligne')}
               </>
+            )}
+            {translatingAll && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-indigo-500">
+                <span className="h-2.5 w-2.5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+                Traduction…
+              </span>
             )}
           </p>
         </div>
         {!conversation.isGroup && recipientId && callPhase === 'idle' && (
           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {/* Recherche dans la conversation */}
             <button
               type="button"
               onClick={() => setShowSearch(v => !v)}
@@ -1608,6 +1699,22 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </button>
             {showHeaderMenu && (
               <div className="absolute right-0 top-full mt-1 z-30 min-w-[200px] rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleConversationFavorite();
+                    setShowHeaderMenu(false);
+                  }}
+                  className={`flex w-full items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 ${
+                    localConversation?.is_favorite
+                      ? 'text-amber-600 font-semibold'
+                      : 'text-gray-700'
+                  }`}
+                >
+                  <StarIcon className={`h-4 w-4 ${localConversation?.is_favorite ? 'fill-amber-500' : ''}`} />
+                  {localConversation?.is_favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                </button>
+                <div className="h-px bg-gray-100 my-1"></div>
                 <button
                   type="button"
                   onClick={() => {
@@ -1703,6 +1810,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         </div>
       )}
 
+
       {/* Bannière de blocage */}
       {(iBlockedThem || theyBlockedMe) && !conversation.isGroup && (
         <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-sm text-amber-800">
@@ -1720,6 +1828,30 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
               Débloquer
             </button>
           )}
+        </div>
+      )}
+
+      {/* Messages épinglés */}
+      {pinnedMessages.length > 0 && (
+        <div className="px-4 py-2 bg-blue-50/80 dark:bg-blue-900/30 border-b border-blue-100 dark:border-blue-800/50 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+            <span>📌</span> Épinglés
+          </div>
+          <div className="space-y-1 max-h-24 overflow-y-auto">
+            {pinnedMessages.map((pm) => (
+              <button
+                key={pm.id}
+                onClick={() => {
+                  const el = messageRefs.current.get(pm.id);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                className="w-full text-left text-xs text-gray-600 dark:text-gray-300 line-clamp-1 opacity-70 hover:opacity-100 hover:bg-blue-100/50 dark:hover:bg-blue-800/30 rounded px-1.5 py-0.5 transition-opacity"
+              >
+                <span className="font-medium">{pm.sender} : </span>
+                {pm.content || '(pièce jointe)'}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1761,7 +1893,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 ].filter(Boolean);
               }
 
-              const isCurrentUser = msg.sender === user?.username;
+              const isCurrentUser = msg.is_ai_response ? false : msg.sender === user?.username;
               const isLastUserMessage = msg.id === lastUserMessageId;
               const isVoiceMessage = (() => {
                 if (!msg.attachment) return false;
@@ -1812,7 +1944,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 {!isCurrentUser && (
                   <div className="mr-1.5 md:mr-2 mt-0.5 md:mt-1 shrink-0">
                     <div className="h-7 w-7 md:h-8 md:w-8 rounded-full overflow-hidden border border-gray-200 shadow-sm flex items-center justify-center">
-                      {msg.sender === AI_USERNAME ? (
+                      {msg.sender === AI_USERNAME || msg.is_ai_response ? (
                         <span className="text-lg md:text-xl">🤖</span>
                       ) : (
                         <ImageWithFallback
@@ -1871,7 +2003,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none border border-[#f3f4f6] dark:border-transparent'
                     }`}
                   >
-                    {!imageOnlyMessage && !isVoiceMessage && !isStickerMessage && (
+                    {!imageOnlyMessage && (
                     <>
                     {/* En-tête du message — nom uniquement en groupe */}
                     <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
@@ -1953,19 +2085,20 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                         Répondre
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => { toggleFavorite(msg.id); setOpenMenuMessageId(null); }}
-                        disabled={savingMessageId === msg.id}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 ${
-                          msg.is_favorite
-                            ? 'text-yellow-600 dark:text-yellow-400'
-                            : 'text-gray-700 dark:text-gray-200'
-                        }`}
-                      >
-                        <StarIcon className="h-4 w-4" />
-                        {msg.is_favorite ? 'Retirer favori' : 'Favori'}
-                      </button>
+                      {msg.content && !isVoiceMessage && (
+                        <button
+                          type="button"
+                          onClick={() => { speakText(msg.id, msg.content.replace(/^🎤\s*/, '')); setOpenMenuMessageId(null); }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                            readingMessageId === msg.id
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-gray-700 dark:text-gray-200'
+                          }`}
+                        >
+                          <span className="h-4 w-4 flex items-center justify-center">{readingMessageId === msg.id ? '🔊' : '🔈'}</span>
+                          {readingMessageId === msg.id ? 'Arrêter' : 'Lire'}
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -2010,9 +2143,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     </div>
   )}
 </div>
-                        <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'}`}>
+                        <span className={`text-xs ${isCurrentUser ? 'text-white/70' : 'text-gray-400'} flex items-center gap-1`}>
                           {msg.is_pinned && <span className="mr-1" title="Épinglé">📌</span>}
-                          {msg.is_favorite && <span className="mr-1" title="Favori">⭐</span>}
                           {messageTime}
                         </span>
                       </div>
@@ -2073,17 +2205,6 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                               >
                                 <ArrowLeftIcon className="h-4 w-4 rotate-180" />
                                 Répondre
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { toggleFavorite(msg.id); setOpenMenuMessageId(null); }}
-                                disabled={savingMessageId === msg.id}
-                                className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 ${
-                                  msg.is_favorite ? 'text-yellow-600' : 'text-gray-700'
-                                }`}
-                              >
-                                <StarIcon className="h-4 w-4" />
-                                {msg.is_favorite ? 'Retirer favori' : 'Favori'}
                               </button>
                               <button
                                 type="button"
