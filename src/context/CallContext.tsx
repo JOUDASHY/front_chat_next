@@ -69,9 +69,7 @@ interface CallContextValue {
   rejectCall: () => Promise<void>;
   endCall: () => Promise<void>;
   localVideoRef: React.RefObject<HTMLVideoElement | null>;
-  remoteVideoRefs: Map<number, React.RefObject<HTMLVideoElement | null>>;
-  getRemoteVideoRef: (peerId: number) => React.RefObject<HTMLVideoElement | null> | null;
-  registerRemoteVideoRef: (peerId: number) => void;
+  remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
   isMuted: boolean;
   isCameraOff: boolean;
   toggleMute: () => void;
@@ -91,7 +89,7 @@ export function useCall() {
   return ctx;
 }
 
-const REMOTE_VIDEO_ID_PREFIX = 'remote-video-';
+
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<CallPhase>('idle');
@@ -113,6 +111,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const roomRef = useRef<import('livekit-client').Room | null>(null);
   const pusherRef = useRef<any>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const audioElementsRef = useRef<HTMLAudioElement[]>([]);
   const userIdRef = useRef<number | null>(null);
   const phaseRef = useRef<CallPhase>('idle');
@@ -162,6 +161,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
     }
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     remoteVideoRefsRef.current.forEach((ref) => {
       if (ref.current) ref.current.srcObject = null;
     });
@@ -274,7 +274,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     room.remoteParticipants.forEach((participant) => {
       const peerId = Number(participant.identity);
       const videoRef = remoteVideoRefsRef.current.get(peerId);
-      const videoEl = videoRef?.current ?? null;
+      const videoEl = videoRef?.current ?? remoteVideoRef.current;
 
       participant.trackPublications.forEach((publication) => {
         const track = publication.track;
@@ -317,7 +317,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (track.kind === Track.Kind.Video) {
           const peerId = participant?.identity ? Number(participant.identity) : 0;
           const videoRef = remoteVideoRefsRef.current.get(peerId);
-          const videoEl = videoRef?.current ?? remoteVideoRefsRef.current.values().next().value?.current ?? null;
+          const videoEl = videoRef?.current ?? remoteVideoRef.current;
           if (videoEl) attachTrackToVideo(track, videoEl);
         }
         if (track.kind === Track.Kind.Audio) {
@@ -793,8 +793,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setIsCameraOff(enabled);
   }, [callType]);
 
-  const remoteVideoRefs = remoteVideoRefsRef.current;
-
   return (
     <CallContext.Provider
       value={{
@@ -810,9 +808,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         rejectCall,
         endCall,
         localVideoRef,
-        remoteVideoRefs,
-        getRemoteVideoRef,
-        registerRemoteVideoRef,
+        remoteVideoRef,
         isMuted,
         isCameraOff,
         toggleMute,

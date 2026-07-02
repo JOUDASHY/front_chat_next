@@ -323,6 +323,7 @@ export default function CallOverlay() {
     rejectCall,
     endCall,
     localVideoRef,
+    remoteVideoRef,
     isMuted,
     isCameraOff,
     toggleMute,
@@ -343,6 +344,10 @@ export default function CallOverlay() {
 
   const isVideo = callType === 'video';
   const showActive = phase === 'active' || phase === 'outgoing';
+  const remoteVideoFit = useAdaptiveVideoFit(
+    remoteVideoRef,
+    showActive && isVideo && phase === 'active' && !isGroupCall
+  );
 
   // Build participant list
   const allParticipants: CallPeer[] = [];
@@ -412,18 +417,30 @@ export default function CallOverlay() {
   }
 
   // ── 1-to-1 video call active / outgoing ────────────────────────────────
-  if (showActive && isVideo) {
+  if (showActive && isVideo && !isGroupCall) {
     return (
       <div className="fixed inset-0 z-[100] bg-black">
-        {/* Remote video placeholder when no video yet */}
-        <div className={`absolute inset-0 ${phase === 'active' ? 'hidden' : 'flex'} flex-col items-center justify-center text-white px-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900`}>
-          <CallPeerAvatar peer={peer} size="lg" pulse />
-          <p className="text-2xl font-semibold mt-6 text-center">{peer?.display_name}</p>
-          <p className="text-white/50 text-sm mt-2 flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-            Sonnerie…
-          </p>
-        </div>
+        {/* Remote video */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`absolute inset-0 h-full w-full
+            ${remoteVideoFit === 'cover' ? 'object-cover' : 'object-contain'}
+            ${phase === 'active' ? 'block' : 'hidden'}`}
+        />
+
+        {/* Remote video placeholder when outgoing */}
+        {phase === 'outgoing' && (
+          <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center text-white px-6 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+            <CallPeerAvatar peer={peer} size="lg" pulse />
+            <p className="text-2xl font-semibold mt-6 text-center">{peer?.display_name}</p>
+            <p className="text-white/50 text-sm mt-2 flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+              Sonnerie…
+            </p>
+          </div>
+        )}
 
         {/* PiP local */}
         <div
