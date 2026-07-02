@@ -74,6 +74,8 @@ interface CallContextValue {
   isCameraOff: boolean;
   toggleMute: () => void;
   toggleCamera: () => void;
+  connectedPeers: CallPeer[];
+  getRemoteVideoRef: (peerId: number) => React.RefObject<HTMLVideoElement | null>;
   audioInputDevices: MediaDeviceInfo[];
   audioOutputDevices: MediaDeviceInfo[];
   activeAudioInput: string | null;
@@ -102,6 +104,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isGroupCall, setIsGroupCall] = useState(false);
+  const [connectedPeers, setConnectedPeers] = useState<CallPeer[]>([]);
 
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -120,18 +123,50 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const endedRoomsRef = useRef<Set<string>>(new Set());
   const activeAudioOutputRef = useRef<string | null>(null);
   const remoteVideoRefsRef = useRef<Map<number, React.RefObject<HTMLVideoElement | null>>>(new Map());
-  const [, forceUpdate] = useState(0);
+  const peerInfoByIdRef = useRef<Map<number, CallPeer>>(new Map());
+
+  const rememberPeer = useCallback((peerInfo: CallPeer) => {
+    if (!peerInfo.id || peerInfo.id === userIdRef.current) return;
+    peerInfoByIdRef.current.set(peerInfo.id, peerInfo);
+  }, []);
 
   const getRemoteVideoRef = useCallback((peerId: number) => {
-    return remoteVideoRefsRef.current.get(peerId) ?? null;
-  }, []);
-
-  const registerRemoteVideoRef = useCallback((peerId: number) => {
     if (!remoteVideoRefsRef.current.has(peerId)) {
       remoteVideoRefsRef.current.set(peerId, createRef<HTMLVideoElement>());
-      forceUpdate(n => n + 1);
     }
+    return remoteVideoRefsRef.current.get(peerId)!;
   }, []);
+
+  const syncConnectedPeers = useCallback(() => {
+    const room = roomRef.current;
+    const currentUserId = userIdRef.current;
+    if (!room || !currentUserId) {
+      setConnectedPeers([]);
+      return;
+    }
+
+    const next: CallPeer[] = [];
+    const seen = new Set<number>();
+
+    room.remoteParticipants.forEach((participant) => {
+      const peerId = Number(participant.identity);
+      if (!peerId || peerId === currentUserId || seen.has(peerId)) return;
+      seen.add(peerId);
+
+      getRemoteVideoRef(peerId);
+
+      const known = peerInfoByIdRef.current.get(peerId);
+      next.push(
+        known ?? {
+          id: peerId,
+          display_name: participant.name || `Utilisateur ${peerId}`,
+          image: null,
+        }
+      );
+    });
+
+    setConnectedPeers(next);
+  }, [getRemoteVideoRef]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -166,6 +201,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (ref.current) ref.current.srcObject = null;
     });
     remoteVideoRefsRef.current.clear();
+    peerInfoByIdRef.current.clear();
+    setConnectedPeers([]);
   }, []);
 
   const resetCall = useCallback(async () => {
@@ -190,6 +227,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setIsMuted(false);
     setIsCameraOff(false);
     setIsGroupCall(false);
+    setConnectedPeers([]);
     audioElementsRef.current = [];
     setAudioInputDevices([]);
     setAudioOutputDevices([]);
@@ -292,7 +330,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
       });
     });
-  }, [attachTrackToVideo]);
+
+    syncConnectedPeers();
+  }, [attachTrackToVideo, syncConnectedPeers]);
 
   const waitForVideoElements = () =>
     new Promise<void>((resolve) => {
@@ -316,6 +356,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
         if (track.kind === Track.Kind.Video) {
           const peerId = participant?.identity ? Number(participant.identity) : 0;
+          getRemoteVideoRef(peerId);
           const videoRef = remoteVideoRefsRef.current.get(peerId);
           const videoEl = videoRef?.current ?? remoteVideoRef.current;
           if (videoEl) attachTrackToVideo(track, videoEl);
@@ -333,6 +374,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         handleTrack(track, participant);
+        syncConnectedPeers();
+        void syncRoomTracks();
       });
 
       room.on(RoomEvent.LocalTrackPublished, (publication) => {
@@ -341,7 +384,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
 
       room.on(RoomEvent.ParticipantConnected, () => {
+        syncConnectedPeers();
         void syncRoomTracks();
+      });
+
+      room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+        const peerId = Number(participant.identity);
+        remoteVideoRefsRef.current.delete(peerId);
+        syncConnectedPeers();
       });
 
       room.on(RoomEvent.Disconnected, () => {
@@ -390,9 +440,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
 
       await waitForVideoElements();
+      syncConnectedPeers();
       await syncRoomTracks();
     },
-    [attachTrackToVideo, detachRoom, notifyBackendCallEnd, resetCall, syncRoomTracks]
+    [attachTrackToVideo, detachRoom, getRemoteVideoRef, notifyBackendCallEnd, resetCall, syncConnectedPeers, syncRoomTracks]
   );
 
   const endCall = useCallback(async () => {
@@ -451,12 +502,25 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setCallType(data.call_type);
         setIsGroupCall(true);
 
-        const callerPeers = (data.participants || []).map(p => ({
-          id: p.id,
-          display_name: p.display_name,
-          username: p.username,
-          image: p.image,
-        }));
+        rememberPeer({
+          id: data.caller.id,
+          display_name: data.caller.display_name,
+          username: data.caller.username,
+          image: data.caller.image,
+        });
+
+        const callerPeers = (data.participants || [])
+          .filter((p) => p.id !== user.id)
+          .map((p) => {
+            const peerInfo = {
+              id: p.id,
+              display_name: p.display_name,
+              username: p.username,
+              image: p.image,
+            };
+            rememberPeer(peerInfo);
+            return peerInfo;
+          });
         setPeers(callerPeers);
 
         setPeer({
@@ -497,22 +561,25 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      channel.bind('group-call-joined', (data: { room_name: string; user_id: number; user?: any }) => {
+      channel.bind('group-call-joined', (data: { room_name: string; user_id: number; user?: CallPeer & { image?: string | null } }) => {
         if (sessionRef.current?.roomName === data.room_name) {
           stopCallRingtone();
           closeIncomingCallNotification();
           if (data.user && data.user_id !== userIdRef.current) {
+            const peerInfo = {
+              id: data.user_id,
+              display_name: data.user.display_name,
+              username: data.user.username,
+              image: data.user.image,
+            };
+            rememberPeer(peerInfo);
             setPeers((prev) => {
-              if (prev.some(p => p.id === data.user_id)) return prev;
-              return [...prev, {
-                id: data.user_id,
-                display_name: data.user.display_name,
-                username: data.user.username,
-                image: data.user.image,
-              }];
+              if (prev.some((p) => p.id === data.user_id)) return prev;
+              return [...prev, peerInfo];
             });
           }
           setPhase('active');
+          syncConnectedPeers();
           void syncRoomTracks();
         }
       });
@@ -565,7 +632,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if ((phase === 'active' || phase === 'outgoing') && callType === 'video') {
       void syncRoomTracks();
     }
-  }, [phase, callType, syncRoomTracks]);
+  }, [phase, callType, connectedPeers, syncRoomTracks]);
 
   useEffect(() => {
     if (phase === 'active') {
@@ -648,12 +715,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
           call_type: type,
         });
 
-        const allPeers: CallPeer[] = (data.participants || []).map((p: any) => ({
-          id: p.id,
-          display_name: p.display_name,
-          username: p.username,
-          image: p.image,
-        }));
+        const allPeers: CallPeer[] = (data.participants || [])
+          .filter((p: CallPeer) => p.id !== userIdRef.current)
+          .map((p: CallPeer) => {
+            rememberPeer(p);
+            return p;
+          });
 
         setPeers(allPeers);
 
@@ -688,7 +755,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await resetCall();
       }
     },
-    [connectRoom, resetCall]
+    [connectRoom, rememberPeer, resetCall]
   );
 
   const acceptCall = useCallback(async () => {
@@ -732,12 +799,26 @@ export function CallProvider({ children }: { children: ReactNode }) {
       };
 
       if (isGroup && (incoming as IncomingGroupCallPayload).participants) {
-        setPeers((incoming as IncomingGroupCallPayload).participants.map(p => ({
-          id: p.id,
-          display_name: p.display_name,
-          username: p.username,
-          image: p.image,
-        })));
+        rememberPeer({
+          id: incoming.caller.id,
+          display_name: incoming.caller.display_name,
+          username: incoming.caller.username,
+          image: incoming.caller.image,
+        });
+        setPeers(
+          (incoming as IncomingGroupCallPayload).participants
+            .filter((p) => p.id !== userIdRef.current)
+            .map((p) => {
+              const peerInfo = {
+                id: p.id,
+                display_name: p.display_name,
+                username: p.username,
+                image: p.image,
+              };
+              rememberPeer(peerInfo);
+              return peerInfo;
+            })
+        );
         setIsGroupCall(true);
       }
 
@@ -755,7 +836,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setError(msg);
       await resetCall();
     }
-  }, [connectRoom, incoming, resetCall]);
+  }, [connectRoom, incoming, rememberPeer, resetCall]);
 
   const rejectCall = useCallback(async () => {
     if (!incoming) return;
@@ -813,6 +894,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         isCameraOff,
         toggleMute,
         toggleCamera,
+        connectedPeers,
+        getRemoteVideoRef,
         audioInputDevices,
         audioOutputDevices,
         activeAudioInput,

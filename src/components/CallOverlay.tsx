@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   PhoneIcon,
   PhoneXMarkIcon,
@@ -268,44 +268,35 @@ function TimerPill({ seconds }: { seconds: number }) {
   );
 }
 
-function ParticipantTile({
+function GroupParticipantTile({
   peer,
-  isLocal = false,
   videoRef,
-  muted = false,
+  isLocal = false,
+  isCameraOff = false,
 }: {
   peer: CallPeer;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   isLocal?: boolean;
-  videoRef?: React.RefObject<HTMLVideoElement | null>;
-  muted?: boolean;
+  isCameraOff?: boolean;
 }) {
-  const hasVideo = videoRef !== undefined;
-
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center min-h-0">
-      {hasVideo ? (
+    <div className="relative rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center min-h-[140px]">
+      {!isCameraOff && (
         <video
           ref={videoRef}
           autoPlay
           playsInline
-          muted={muted}
-          className="h-full w-full object-cover scale-x-[-1]"
+          muted={isLocal}
+          className={`absolute inset-0 h-full w-full object-cover ${isLocal ? 'scale-x-[-1]' : ''}`}
         />
-      ) : (
-        <div className="flex flex-col items-center gap-2">
+      )}
+      {isCameraOff && (
+        <div className="flex flex-col items-center gap-2 z-10">
           <CallPeerAvatar peer={peer} size="md" />
-          <span className="text-white/80 text-sm font-medium truncate max-w-[120px]">
-            {peer.display_name}
-          </span>
         </div>
       )}
-      {isLocal && (
-        <span className="absolute bottom-2 left-2 text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded-full">
-          Moi
-        </span>
-      )}
-      <span className="absolute bottom-2 right-2 text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded-full truncate max-w-[100px]">
-        {peer.display_name}
+      <span className="absolute bottom-2 left-2 z-10 text-[10px] text-white/80 bg-black/45 px-2 py-0.5 rounded-full truncate max-w-[80%]">
+        {isLocal ? 'Moi' : peer.display_name}
       </span>
     </div>
   );
@@ -324,6 +315,8 @@ export default function CallOverlay() {
     endCall,
     localVideoRef,
     remoteVideoRef,
+    connectedPeers,
+    getRemoteVideoRef,
     isMuted,
     isCameraOff,
     toggleMute,
@@ -331,7 +324,9 @@ export default function CallOverlay() {
   } = useCall();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const localGridVideoRef = useRef<HTMLVideoElement>(null);
+  const localUser = typeof window !== 'undefined'
+    ? JSON.parse(localStorage.getItem('user') || '{}') as { id?: number; username?: string }
+    : {};
 
   useEffect(() => {
     if (phase !== 'active') { setElapsedSeconds(0); return; }
@@ -349,7 +344,7 @@ export default function CallOverlay() {
     showActive && isVideo && phase === 'active' && !isGroupCall
   );
 
-  // Build participant list
+  // Build participant list for non-video / incoming UI
   const allParticipants: CallPeer[] = [];
   if (isGroupCall && peers.length > 0) {
     allParticipants.push(...peers);
@@ -357,40 +352,40 @@ export default function CallOverlay() {
     allParticipants.push(peer);
   }
 
+  const localPeer: CallPeer = {
+    id: localUser.id ?? 0,
+    display_name: 'Moi',
+    username: localUser.username,
+    image: null,
+  };
+
   if (phase === 'idle' && !error) return null;
 
   // ── Group video call grid ──────────────────────────────────────────────
   if (showActive && isVideo && isGroupCall) {
-    const gridCols = allParticipants.length <= 1 ? 'grid-cols-1'
-      : allParticipants.length <= 4 ? 'grid-cols-2'
+    const remoteTiles = connectedPeers;
+    const tileCount = 1 + remoteTiles.length;
+    const gridCols =
+      tileCount <= 1 ? 'grid-cols-1'
+      : tileCount <= 4 ? 'grid-cols-2'
       : 'grid-cols-3';
 
     return (
       <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-        {/* Main video grid */}
         <div className="flex-1 p-2 overflow-hidden">
-          <div className={`grid ${gridCols} gap-2 h-full`}>
-            {/* Local video */}
-            <div className="relative rounded-2xl overflow-hidden bg-slate-800">
-              <video
-                ref={localGridVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="h-full w-full object-cover scale-x-[-1]"
+          <div className={`grid ${gridCols} gap-2 h-full auto-rows-fr`}>
+            <GroupParticipantTile
+              peer={localPeer}
+              videoRef={localVideoRef}
+              isLocal
+              isCameraOff={isCameraOff}
+            />
+            {remoteTiles.map((p) => (
+              <GroupParticipantTile
+                key={p.id}
+                peer={p}
+                videoRef={getRemoteVideoRef(p.id)}
               />
-              <span className="absolute bottom-2 left-2 text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded-full">
-                Moi
-              </span>
-            </div>
-            {/* Remote participants */}
-            {allParticipants.map((p) => (
-              <div key={p.id} className="relative rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <CallPeerAvatar peer={p} size="md" />
-                  <span className="text-white/80 text-sm font-medium">{p.display_name}</span>
-                </div>
-              </div>
             ))}
           </div>
         </div>
@@ -403,6 +398,12 @@ export default function CallOverlay() {
           <div className="flex justify-center mb-3">
             <TimerPill seconds={elapsedSeconds} />
           </div>
+          <p className="text-center text-white/70 text-sm mb-3">
+            {(() => {
+              const count = 1 + remoteTiles.length;
+              return `${count} participant${count > 1 ? 's' : ''} connecté${count > 1 ? 's' : ''}`;
+            })()}
+          </p>
           <CallControls
             isVideo
             isMuted={isMuted}
