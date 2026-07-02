@@ -1449,6 +1449,7 @@ export default function Sidebar({
         onClose={() => setShowCreateGroupModal(false)}
         allUsers={allUsers}
         currentUserId={user?.id}
+        onGroupCreated={() => fetchConversations(showFavoritesOnly)}
       />
     </div>
   );

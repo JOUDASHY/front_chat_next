@@ -25,6 +25,7 @@ import {
   ChevronDownIcon,
   LanguageIcon,
   StarIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -40,6 +41,7 @@ import { translateText } from '@/lib/translationService';
 import { CallEvent } from '@/lib/callUtils';
 import type { MessageReactionGroup } from '@/lib/messageReactions';
 import { useCall } from '@/context/CallContext';
+import ManageGroupModal from '@/app/components/conversations/ManageGroupModal';
 
 // Chargement lazy du picker (lourd ~200kb)
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -304,6 +306,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [blockLoading, setBlockLoading] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
+  const [showManageGroupModal, setShowManageGroupModal] = useState(false);
 
   // Emoji picker
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -1673,6 +1676,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                 >
                   <VideoCameraIcon className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowManageGroupModal(true); }}
+                  className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+                  title="Gérer le groupe"
+                  aria-label="Gérer le groupe"
+                >
+                  <Cog6ToothIcon className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
               </>
             ) : recipientId && (
               <>
@@ -2934,6 +2946,19 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de gestion du groupe */}
+      {conversation?.isGroup && (
+        <ManageGroupModal
+          isOpen={showManageGroupModal}
+          onClose={() => setShowManageGroupModal(false)}
+          roomId={conversation.id}
+          currentUserId={user?.id}
+          onGroupUpdated={() => {
+            setShowManageGroupModal(false);
+          }}
+        />
       )}
 
       {/* Modal de traduction */}
