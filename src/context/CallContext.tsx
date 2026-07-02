@@ -57,6 +57,18 @@ interface IncomingGroupCallPayload {
   participants: (CallPeer & { image?: string | null })[];
 }
 
+export interface OngoingGroupCall {
+  active?: boolean;
+  room_name: string;
+  call_type: CallType;
+  caller: CallPeer & { image?: string | null };
+  room_id: number;
+  status?: 'ringing' | 'active';
+  livekit_url?: string;
+  joined_count?: number;
+  participants?: (CallPeer & { image?: string | null })[];
+}
+
 interface CallContextValue {
   phase: CallPhase;
   callType: CallType | null;
@@ -66,6 +78,7 @@ interface CallContextValue {
   isGroupCall: boolean;
   startCall: (recipientId: number, callType: CallType, peerHint?: Partial<CallPeer>) => Promise<void>;
   startGroupCall: (roomId: number, callType: CallType) => Promise<void>;
+  joinGroupCall: (call: OngoingGroupCall) => Promise<void>;
   acceptCall: () => Promise<void>;
   rejectCall: () => Promise<void>;
   endCall: () => Promise<void>;
@@ -845,6 +858,104 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [connectRoom, getRemoteVideoRef, rememberPeer, resetCall]
   );
 
+  const setupGroupCallFromPayload = useCallback(
+    (
+      payload: IncomingGroupCallPayload,
+      token: string,
+      livekitUrl: string,
+      isOutgoing: boolean
+    ): ActiveCallSession => {
+      rememberPeer({
+        id: payload.caller.id,
+        display_name: payload.caller.display_name,
+        username: payload.caller.username,
+        image: payload.caller.image,
+      });
+
+      const allPeers = (payload.participants || [])
+        .filter((p) => p.id !== userIdRef.current)
+        .map((p) => {
+          const peerInfo = {
+            id: p.id,
+            display_name: p.display_name,
+            username: p.username,
+            image: p.image,
+          };
+          rememberPeer(peerInfo);
+          return peerInfo;
+        });
+
+      allPeers.forEach((p) => getRemoteVideoRef(p.id));
+
+      const nextSession: ActiveCallSession = {
+        roomName: payload.room_name,
+        callType: payload.call_type,
+        token,
+        livekitUrl,
+        peer: {
+          id: payload.caller.id,
+          display_name: payload.caller.display_name,
+          username: payload.caller.username,
+          image: payload.caller.image,
+        },
+        isOutgoing,
+        isGroupCall: true,
+        roomId: payload.room_id,
+        peers: allPeers,
+      };
+
+      setPeers(allPeers);
+      setIsGroupCall(true);
+      setCallType(payload.call_type);
+      setPeer(nextSession.peer);
+      setSession(nextSession);
+
+      return nextSession;
+    },
+    [getRemoteVideoRef, rememberPeer]
+  );
+
+  const joinGroupCall = useCallback(
+    async (call: OngoingGroupCall) => {
+      if (phaseRef.current !== 'idle') {
+        setError('Terminez l\'appel en cours avant d\'en rejoindre un autre.');
+        return;
+      }
+
+      setError(null);
+      stopCallRingtone();
+      closeIncomingCallNotification();
+
+      try {
+        const { data } = await api.post('/api/chat/group-calls/join/', {
+          room_name: call.room_name,
+        });
+
+        const payload: IncomingGroupCallPayload = {
+          room_name: call.room_name,
+          call_type: data.call_type ?? call.call_type,
+          caller: data.caller ?? call.caller,
+          livekit_url: data.livekit_url,
+          room_id: data.room_id ?? call.room_id,
+          participants: data.participants ?? call.participants ?? [],
+        };
+
+        setupGroupCallFromPayload(payload, data.token, data.livekit_url, false);
+        setIncoming(null);
+        setPhase('active');
+        await waitForVideoElements();
+        await connectRoom(data.livekit_url, data.token, payload.call_type, false);
+      } catch (err: unknown) {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          'Impossible de rejoindre l\'appel de groupe.';
+        setError(msg);
+        await resetCall();
+      }
+    },
+    [connectRoom, resetCall, setupGroupCallFromPayload]
+  );
+
   const acceptCall = useCallback(async () => {
     if (!incoming) return;
     setError(null);
@@ -863,6 +974,24 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       const { data } = await api.post(endpoint, payload);
 
+      if (isGroup) {
+        const groupIncoming = incoming as IncomingGroupCallPayload;
+        const joinPayload: IncomingGroupCallPayload = {
+          room_name: groupIncoming.room_name,
+          call_type: groupIncoming.call_type,
+          caller: data.caller ?? groupIncoming.caller,
+          livekit_url: data.livekit_url,
+          room_id: groupIncoming.room_id,
+          participants: data.participants ?? groupIncoming.participants ?? [],
+        };
+        setupGroupCallFromPayload(joinPayload, data.token, data.livekit_url, false);
+        setIncoming(null);
+        setPhase('active');
+        await waitForVideoElements();
+        await connectRoom(data.livekit_url, data.token, groupIncoming.call_type, false);
+        return;
+      }
+
       const nextSession: ActiveCallSession = {
         roomName: incoming.room_name,
         callType: incoming.call_type,
@@ -875,39 +1004,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           image: incoming.caller.image,
         },
         isOutgoing: false,
-        isGroupCall: isGroup,
-        roomId: isGroup ? (incoming as IncomingGroupCallPayload).room_id : undefined,
-        peers: isGroup ? (incoming as IncomingGroupCallPayload).participants?.map(p => ({
-          id: p.id,
-          display_name: p.display_name,
-          username: p.username,
-          image: p.image,
-        })) : undefined,
       };
-
-      if (isGroup && (incoming as IncomingGroupCallPayload).participants) {
-        rememberPeer({
-          id: incoming.caller.id,
-          display_name: incoming.caller.display_name,
-          username: incoming.caller.username,
-          image: incoming.caller.image,
-        });
-        setPeers(
-          (incoming as IncomingGroupCallPayload).participants
-            .filter((p) => p.id !== userIdRef.current)
-            .map((p) => {
-              const peerInfo = {
-                id: p.id,
-                display_name: p.display_name,
-                username: p.username,
-                image: p.image,
-              };
-              rememberPeer(peerInfo);
-              return peerInfo;
-            })
-        );
-        setIsGroupCall(true);
-      }
 
       setSession(nextSession);
       setIncoming(null);
@@ -923,7 +1020,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setError(msg);
       await resetCall();
     }
-  }, [connectRoom, incoming, rememberPeer, resetCall]);
+  }, [connectRoom, incoming, resetCall, setupGroupCallFromPayload]);
 
   const rejectCall = useCallback(async () => {
     if (!incoming) return;
@@ -972,6 +1069,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         isGroupCall,
         startCall,
         startGroupCall,
+        joinGroupCall,
         acceptCall,
         rejectCall,
         endCall,

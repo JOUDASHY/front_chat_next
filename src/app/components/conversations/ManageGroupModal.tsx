@@ -139,10 +139,10 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-blue">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-blue">
           <h2 className="text-lg font-bold text-white">Gérer le Groupe</h2>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition-colors">
             <XMarkIcon className="h-6 w-6 text-white" />
@@ -157,24 +157,24 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
         ) : (
           <div className="p-4 flex flex-col flex-1 overflow-hidden overflow-y-auto">
             {error && (
-              <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-xl">
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-xl">
                 {error}
               </div>
             )}
 
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Nom du groupe</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nom du groupe</label>
               <input
                 type="text"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-jaune outline-none transition-all text-gray-800"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-jaune outline-none transition-all text-gray-800 dark:text-gray-200"
                 maxLength={50}
               />
             </div>
 
             <div className="mb-4 flex items-center justify-between">
-              <label className="block text-sm font-semibold text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Membres ({currentParticipants.length})
               </label>
               <button 
@@ -188,7 +188,7 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
 
             {/* Section Ajouter des membres */}
             {showAddMember && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div className="relative mb-2">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
@@ -198,20 +198,33 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
                     placeholder="Rechercher..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue/30 outline-none"
+                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue/30 outline-none text-gray-800 dark:text-gray-200"
                   />
                 </div>
                 <div className="max-h-32 overflow-y-auto">
                   {availableUsers.length === 0 ? (
-                    <p className="text-xs text-center text-gray-500 py-2">Aucun utilisateur trouvé</p>
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 py-2">Aucun utilisateur trouvé</p>
                   ) : (
-                    <ul className="divide-y divide-gray-100">
+                    <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                       {availableUsers.map(u => (
                         <li key={u.id} className="flex items-center justify-between py-2">
-                          <span className="text-sm text-gray-700">{u.username}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-blue/10 flex items-center justify-center overflow-hidden shrink-0">
+                              <img
+                                src={u.profile?.image ? (u.profile.image.startsWith('http') ? u.profile.image : `${process.env.NEXT_PUBLIC_API_URL}${u.profile.image}`) : ''}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).src = '/default-avatar.svg'; }}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{u.username}</span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500">{u.email}</span>
+                            </div>
+                          </div>
                           <button
                             onClick={() => toggleUserSelection(u.id)}
-                            className="text-xs px-2 py-1 bg-jaune text-white rounded hover:bg-yellow-500"
+                            className="text-xs px-2.5 py-1.5 bg-jaune text-white rounded-lg hover:bg-yellow-500 font-medium transition-colors"
                           >
                             Ajouter
                           </button>
@@ -224,20 +237,21 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
             )}
 
             {/* Liste des membres actuels */}
-            <div className="flex-1 overflow-y-auto border border-gray-100 rounded-xl bg-gray-50/50 p-2">
-              <ul className="divide-y divide-gray-100">
+            <div className="flex-1 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/30 p-2">
+              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                 {currentParticipants.map(u => (
                   <li key={u.id} className="flex items-center justify-between py-2 px-2">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-blue/10 flex items-center justify-center overflow-hidden">
-                        {u.profile?.image ? (
-                          <img src={u.profile.image.startsWith('http') ? u.profile.image : `${process.env.NEXT_PUBLIC_API_URL}${u.profile.image}`} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-bold text-blue">{u.username.charAt(0).toUpperCase()}</span>
-                        )}
+                      <div className="h-8 w-8 rounded-full bg-blue/10 flex items-center justify-center overflow-hidden shrink-0">
+                        <img
+                          src={u.profile?.image ? (u.profile.image.startsWith('http') ? u.profile.image : `${process.env.NEXT_PUBLIC_API_URL}${u.profile.image}`) : ''}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/default-avatar.svg'; }}
+                        />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-gray-800">
+                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                           {u.username} {u.id === currentUserId && "(Moi)"}
                         </span>
                       </div>
@@ -245,7 +259,7 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
                     {u.id !== currentUserId && (
                       <button
                         onClick={() => toggleUserSelection(u.id)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                         title="Retirer du groupe"
                       >
                         <TrashIcon className="h-4 w-4" />
@@ -259,11 +273,11 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
         )}
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
           <button
             onClick={handleLeaveGroup}
             disabled={isSubmitting || isLoading}
-            className="px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+            className="px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-colors disabled:opacity-50"
           >
             Quitter le groupe
           </button>
@@ -271,7 +285,7 @@ export default function ManageGroupModal({ isOpen, onClose, roomId, currentUserI
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               Annuler
             </button>

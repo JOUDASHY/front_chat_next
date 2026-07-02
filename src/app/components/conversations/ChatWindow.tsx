@@ -40,7 +40,7 @@ import { playMessageSound } from '@/hooks/useNotificationSound';
 import { translateText } from '@/lib/translationService';
 import { CallEvent } from '@/lib/callUtils';
 import type { MessageReactionGroup } from '@/lib/messageReactions';
-import { useCall } from '@/context/CallContext';
+import { useCall, type OngoingGroupCall } from '@/context/CallContext';
 import ManageGroupModal from '@/app/components/conversations/ManageGroupModal';
 
 // Chargement lazy du picker (lourd ~200kb)
@@ -270,7 +270,7 @@ const AI_USERNAME = 'assistant';
 
 export default function ChatWindow({ conversation, userId, onBackClick, isMobile }: ChatWindowProps) {
   const router = useRouter();
-  const { startCall, startGroupCall, phase: callPhase, isGroupCall } = useCall();
+  const { startCall, startGroupCall, joinGroupCall, phase: callPhase, isGroupCall } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [translations, setTranslations] = useState<Record<number, string>>({});
@@ -296,6 +296,8 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
   const [openMenuMessageId, setOpenMenuMessageId] = useState<number | null>(null);
   const [openReactionPickerId, setOpenReactionPickerId] = useState<number | null>(null);
+  const [ongoingGroupCall, setOngoingGroupCall] = useState<OngoingGroupCall | null>(null);
+  const [joiningGroupCall, setJoiningGroupCall] = useState(false);
   const [editingMessage, setEditingMessage] = useState<{ id: number; content: string } | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
@@ -549,6 +551,33 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     }
   }, [conversation?.id, userId]);
 
+  useEffect(() => {
+    if (!conversation?.isGroup || !conversation.id) {
+      setOngoingGroupCall(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchActiveGroupCall = async () => {
+      try {
+        const { data } = await api.get('/api/chat/group-calls/active/', {
+          params: { room_id: conversation.id },
+        });
+        if (cancelled) return;
+        setOngoingGroupCall(data.active ? data : null);
+      } catch {
+        if (!cancelled) setOngoingGroupCall(null);
+      }
+    };
+
+    void fetchActiveGroupCall();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversation?.id, conversation?.isGroup]);
+
   // Initialisation de Pusher et abonnement aux canaux
   useEffect(() => {
     if (userId == null || !conversation?.id) return;
@@ -717,6 +746,33 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           )
         );
       });
+
+      if (conversation.isGroup) {
+        channel.bind('group-call-started', (data: OngoingGroupCall) => {
+          if (!isMounted || data.room_id !== conversation.id) return;
+          setOngoingGroupCall({ ...data, active: true, status: 'ringing' });
+        });
+
+        channel.bind('group-call-joined', (data: { room_name: string }) => {
+          if (!isMounted) return;
+          setOngoingGroupCall((prev) =>
+            prev?.room_name === data.room_name
+              ? { ...prev, status: 'active' }
+              : prev
+          );
+        });
+
+        channel.bind('group-call-ended', (data: { room_name: string }) => {
+          if (!isMounted) return;
+          setOngoingGroupCall((prev) =>
+            prev?.room_name === data.room_name ? null : prev
+          );
+        });
+
+        channel.bind('group-call-rejected', () => {
+          // Ne pas masquer la bannière : d'autres membres peuvent encore être en appel.
+        });
+      }
     };
     
     initPusher();
@@ -1847,6 +1903,44 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
         </div>
       )}
 
+
+      {/* Appel de groupe en cours — rejoindre */}
+      {conversation.isGroup && ongoingGroupCall && callPhase === 'idle' && (
+        <button
+          type="button"
+          disabled={joiningGroupCall}
+          onClick={() => {
+            setJoiningGroupCall(true);
+            void joinGroupCall(ongoingGroupCall).finally(() => setJoiningGroupCall(false));
+          }}
+          className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60
+            border-b border-emerald-700 flex items-center gap-3 text-sm text-white transition-colors"
+        >
+          <span className="relative flex h-3 w-3 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+          </span>
+          {ongoingGroupCall.call_type === 'video' ? (
+            <VideoCameraIcon className="h-5 w-5 shrink-0" />
+          ) : (
+            <PhoneIcon className="h-5 w-5 shrink-0" />
+          )}
+          <span className="flex-1 text-left min-w-0">
+            <span className="font-semibold block truncate">
+              {ongoingGroupCall.call_type === 'video' ? 'Appel vidéo' : 'Appel vocal'} en cours
+            </span>
+            <span className="text-emerald-100 text-xs block truncate">
+              Lancé par {ongoingGroupCall.caller.display_name}
+              {ongoingGroupCall.joined_count
+                ? ` · ${ongoingGroupCall.joined_count} connecté${ongoingGroupCall.joined_count > 1 ? 's' : ''}`
+                : ''}
+            </span>
+          </span>
+          <span className="shrink-0 font-semibold text-xs bg-white/20 px-3 py-1 rounded-full">
+            {joiningGroupCall ? 'Connexion…' : 'Rejoindre'}
+          </span>
+        </button>
+      )}
 
       {/* Bannière de blocage */}
       {(iBlockedThem || theyBlockedMe) && !conversation.isGroup && (
