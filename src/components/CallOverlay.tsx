@@ -271,19 +271,26 @@ function TimerPill({ seconds }: { seconds: number }) {
 function GroupParticipantTile({
   peer,
   videoRef,
+  onVideoMount,
   isLocal = false,
   isCameraOff = false,
 }: {
   peer: CallPeer;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  onVideoMount?: (el: HTMLVideoElement | null) => void;
   isLocal?: boolean;
   isCameraOff?: boolean;
 }) {
+  const setVideoRef = (el: HTMLVideoElement | null) => {
+    if (videoRef) videoRef.current = el;
+    onVideoMount?.(el);
+  };
+
   return (
     <div className="relative rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center min-h-[140px]">
       {!isCameraOff && (
         <video
-          ref={videoRef}
+          ref={setVideoRef}
           autoPlay
           playsInline
           muted={isLocal}
@@ -316,7 +323,8 @@ export default function CallOverlay() {
     localVideoRef,
     remoteVideoRef,
     connectedPeers,
-    getRemoteVideoRef,
+    remoteDisplayPeers,
+    registerRemoteVideoElement,
     isMuted,
     isCameraOff,
     toggleMute,
@@ -363,7 +371,8 @@ export default function CallOverlay() {
 
   // ── Group video call grid ──────────────────────────────────────────────
   if (showActive && isVideo && isGroupCall) {
-    const remoteTiles = connectedPeers;
+    const remoteTiles = remoteDisplayPeers;
+    const connectedCount = connectedPeers.length;
     const tileCount = 1 + remoteTiles.length;
     const gridCols =
       tileCount <= 1 ? 'grid-cols-1'
@@ -384,7 +393,7 @@ export default function CallOverlay() {
               <GroupParticipantTile
                 key={p.id}
                 peer={p}
-                videoRef={getRemoteVideoRef(p.id)}
+                onVideoMount={(el) => registerRemoteVideoElement(p.id, el)}
               />
             ))}
           </div>
@@ -400,8 +409,12 @@ export default function CallOverlay() {
           </div>
           <p className="text-center text-white/70 text-sm mb-3">
             {(() => {
-              const count = 1 + remoteTiles.length;
-              return `${count} participant${count > 1 ? 's' : ''} connecté${count > 1 ? 's' : ''}`;
+              const total = 1 + remoteTiles.length;
+              const connected = 1 + connectedCount;
+              if (connectedCount === 0 && phase === 'outgoing') {
+                return `En attente de ${remoteTiles.length} participant${remoteTiles.length > 1 ? 's' : ''}…`;
+              }
+              return `${connected}/${total} connecté${total > 1 ? 's' : ''}`;
             })()}
           </p>
           <CallControls

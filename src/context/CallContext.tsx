@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -75,7 +76,9 @@ interface CallContextValue {
   toggleMute: () => void;
   toggleCamera: () => void;
   connectedPeers: CallPeer[];
+  remoteDisplayPeers: CallPeer[];
   getRemoteVideoRef: (peerId: number) => React.RefObject<HTMLVideoElement | null>;
+  registerRemoteVideoElement: (peerId: number, el: HTMLVideoElement | null) => void;
   audioInputDevices: MediaDeviceInfo[];
   audioOutputDevices: MediaDeviceInfo[];
   activeAudioInput: string | null;
@@ -84,6 +87,14 @@ interface CallContextValue {
 }
 
 const CallContext = createContext<CallContextValue | null>(null);
+
+let livekitModule: typeof import('livekit-client') | null = null;
+async function getLiveKitModule() {
+  if (!livekitModule) {
+    livekitModule = await import('livekit-client');
+  }
+  return livekitModule;
+}
 
 export function useCall() {
   const ctx = useContext(CallContext);
@@ -124,6 +135,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const activeAudioOutputRef = useRef<string | null>(null);
   const remoteVideoRefsRef = useRef<Map<number, React.RefObject<HTMLVideoElement | null>>>(new Map());
   const peerInfoByIdRef = useRef<Map<number, CallPeer>>(new Map());
+  const pendingVideoTracksRef = useRef<Map<number, import('livekit-client').RemoteTrack>>(new Map());
+  const syncRoomTracksRef = useRef<() => Promise<void>>(async () => {});
 
   const rememberPeer = useCallback((peerInfo: CallPeer) => {
     if (!peerInfo.id || peerInfo.id === userIdRef.current) return;
@@ -202,6 +215,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     });
     remoteVideoRefsRef.current.clear();
     peerInfoByIdRef.current.clear();
+    pendingVideoTracksRef.current.clear();
     setConnectedPeers([]);
   }, []);
 
@@ -293,16 +307,46 @@ export function CallProvider({ children }: { children: ReactNode }) {
     ) => {
       if (!videoEl || track.kind !== 'video') return false;
       track.attach(videoEl);
+      void videoEl.play().catch(() => {});
       return true;
     },
     []
+  );
+
+  const registerRemoteVideoElement = useCallback(
+    (peerId: number, el: HTMLVideoElement | null) => {
+      const refObj = getRemoteVideoRef(peerId);
+      refObj.current = el;
+      if (!el) return;
+
+      const pending = pendingVideoTracksRef.current.get(peerId);
+      if (pending) {
+        pending.attach(el);
+        void el.play().catch(() => {});
+        pendingVideoTracksRef.current.delete(peerId);
+      }
+
+      const room = roomRef.current;
+      if (!room) return;
+
+      room.remoteParticipants.forEach((participant) => {
+        if (Number(participant.identity) !== peerId) return;
+        participant.trackPublications.forEach((publication) => {
+          const track = publication.track;
+          if (track?.kind === 'video' && publication.isSubscribed) {
+            attachTrackToVideo(track, el);
+          }
+        });
+      });
+    },
+    [attachTrackToVideo, getRemoteVideoRef]
   );
 
   const syncRoomTracks = useCallback(async () => {
     const room = roomRef.current;
     if (!room) return;
 
-    const { Track } = await import('livekit-client');
+    const { Track } = await getLiveKitModule();
 
     room.localParticipant.videoTrackPublications.forEach((publication) => {
       const track = publication.track;
@@ -318,7 +362,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         const track = publication.track;
         if (!track || !publication.isSubscribed) return;
         if (track.kind === Track.Kind.Video) {
-          if (videoEl) attachTrackToVideo(track, videoEl);
+          getRemoteVideoRef(peerId);
+          if (videoEl) {
+            attachTrackToVideo(track, videoEl);
+          } else {
+            pendingVideoTracksRef.current.set(peerId, track as import('livekit-client').RemoteTrack);
+          }
         } else if (track.kind === Track.Kind.Audio) {
           const audioEl = track.attach();
           audioElementsRef.current.push(audioEl);
@@ -334,6 +383,32 @@ export function CallProvider({ children }: { children: ReactNode }) {
     syncConnectedPeers();
   }, [attachTrackToVideo, syncConnectedPeers]);
 
+  useEffect(() => {
+    syncRoomTracksRef.current = syncRoomTracks;
+  }, [syncRoomTracks]);
+
+  const remoteDisplayPeers = useMemo(() => {
+    const uid = userIdRef.current;
+    const map = new Map<number, CallPeer>();
+
+    for (const p of peers) {
+      if (p.id && p.id !== uid) map.set(p.id, p);
+    }
+    for (const p of connectedPeers) {
+      if (p.id && p.id !== uid) map.set(p.id, p);
+    }
+    if (isGroupCall && peer?.id && peer.id !== uid) {
+      map.set(peer.id, peer);
+    }
+
+    return Array.from(map.values());
+  }, [peers, connectedPeers, peer, isGroupCall]);
+
+  useEffect(() => {
+    if (!isGroupCall) return;
+    remoteDisplayPeers.forEach((p) => getRemoteVideoRef(p.id));
+  }, [isGroupCall, remoteDisplayPeers, getRemoteVideoRef]);
+
   const waitForVideoElements = () =>
     new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
@@ -342,8 +417,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const connectRoom = useCallback(
     async (livekitUrl: string, token: string, type: CallType, activateImmediately = true) => {
       await detachRoom();
-      const { Room, RoomEvent, Track } = await import('livekit-client');
-      const room = new Room({ adaptiveStream: true, dynacast: true });
+      const { Room, RoomEvent, Track } = await getLiveKitModule();
+      const room = new Room({
+        adaptiveStream: false,
+        dynacast: true,
+      });
       roomRef.current = room;
 
       const handleTrack = (
@@ -359,7 +437,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
           getRemoteVideoRef(peerId);
           const videoRef = remoteVideoRefsRef.current.get(peerId);
           const videoEl = videoRef?.current ?? remoteVideoRef.current;
-          if (videoEl) attachTrackToVideo(track, videoEl);
+          if (videoEl) {
+            attachTrackToVideo(track, videoEl);
+          } else if ('mediaStreamTrack' in track) {
+            pendingVideoTracksRef.current.set(peerId, track as import('livekit-client').RemoteTrack);
+          }
+          syncConnectedPeers();
         }
         if (track.kind === Track.Kind.Audio) {
           const audioEl = track.attach() as HTMLAudioElement;
@@ -383,14 +466,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (track) handleTrack(track, { isLocal: true });
       });
 
-      room.on(RoomEvent.ParticipantConnected, () => {
+      room.on(RoomEvent.ParticipantConnected, (participant) => {
+        const peerId = Number(participant.identity);
+        if (peerId) getRemoteVideoRef(peerId);
         syncConnectedPeers();
-        void syncRoomTracks();
+        void syncRoomTracksRef.current();
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
         const peerId = Number(participant.identity);
         remoteVideoRefsRef.current.delete(peerId);
+        pendingVideoTracksRef.current.delete(peerId);
         syncConnectedPeers();
       });
 
@@ -723,6 +809,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           });
 
         setPeers(allPeers);
+        allPeers.forEach((p) => getRemoteVideoRef(p.id));
 
         const peer: CallPeer = allPeers.length > 0 ? allPeers[0] : {
           id: 0,
@@ -755,7 +842,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await resetCall();
       }
     },
-    [connectRoom, rememberPeer, resetCall]
+    [connectRoom, getRemoteVideoRef, rememberPeer, resetCall]
   );
 
   const acceptCall = useCallback(async () => {
@@ -895,7 +982,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
         toggleMute,
         toggleCamera,
         connectedPeers,
+        remoteDisplayPeers,
         getRemoteVideoRef,
+        registerRemoteVideoElement,
         audioInputDevices,
         audioOutputDevices,
         activeAudioInput,
