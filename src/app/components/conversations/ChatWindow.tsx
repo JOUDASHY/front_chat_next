@@ -222,6 +222,7 @@ function isImageAttachment(url?: string) {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
 }
 
+
 /** Formatte la date d'un séparateur de groupe (style WhatsApp/Messenger) */
 function formatDateSeparator(dateStr: string): string {
   const date = new Date(dateStr);
@@ -273,6 +274,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const { startCall, startGroupCall, joinGroupCall, phase: callPhase, isGroupCall } = useCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   const [translations, setTranslations] = useState<Record<number, string>>({});
   const [translatingAll, setTranslatingAll] = useState(false);
   const [draftLang, setDraftLang] = useState<string>('');
@@ -323,7 +325,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Voice message state
-  const [isRecording, setIsRecording] = useState(false);
+ 
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
@@ -432,9 +434,21 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
   
   // Référence pour stocker l'instance Pusher
   const pusherRef = useRef<any>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [navProgress, setNavProgress] = useState(false);
-
+  const autoResizeInput = (el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    const lineHeight = window.innerWidth >= 768 ? 24 : 20;
+    const maxLines = 6;
+    const maxHeight = lineHeight * maxLines + 16;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  };
+  
+  useEffect(() => {
+    if (inputRef.current && newMessage === '') {
+      inputRef.current.style.height = 'auto';
+    }
+  }, [newMessage]);
   // Timeout de sécurité pour la barre de progression
   useEffect(() => {
     if (!navProgress) return;
@@ -1049,7 +1063,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
     api.post('/api/chat/typing/', { isTyping: typing, channel }).catch(() => {});
   };
 
-  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
     if (!isTypingRef.current) {
       isTypingRef.current = true;
@@ -2762,220 +2776,230 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           )}
 
           {/* BARRE PRINCIPALE */}
-          <div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-center gap-1.5 md:gap-2 min-w-0">
+          <div className="max-w-[100%] mx-auto px-2 py-2 md:px-3 md:py-3 flex items-end gap-1.5 md:gap-2 min-w-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
 
-            {/* AUDIO PREVIEW */}
-            {audioBlob && !isRecording && (
-              <div className="flex-1 flex items-center gap-1.5 md:gap-3 bg-violet-50 rounded-full px-2 md:px-4 py-1.5 md:py-2.5 min-w-0">
+{/* AUDIO PREVIEW */}
+{audioBlob && !isRecording && (
+  <div className="flex-1 flex items-center gap-1.5 md:gap-3 bg-[color-mix(in_srgb,var(--blue)_8%,white)] dark:bg-[color-mix(in_srgb,var(--blue)_18%,black)] rounded-full px-2 md:px-4 py-1.5 md:py-2.5 min-w-0 shadow-sm">
 
-                <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5 text-violet-500 shrink-0 hidden sm:block" />
+    <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5 text-[var(--blue)] shrink-0 hidden sm:block" />
 
-                <audio
-                  src={audioPreviewUrl ?? undefined}
-                  controls
-                  className="flex-1 h-8 md:h-9 min-w-[100px] w-full"
-                  style={{ minWidth: 0 }}
-                />
+    <audio
+      src={audioPreviewUrl ?? undefined}
+      controls
+      className="flex-1 h-8 md:h-9 min-w-[100px] w-full"
+      style={{ minWidth: 0 }}
+    />
 
-                <button
-                  type="button"
-                  onClick={cancelRecording}
-                  className="p-1.5 md:p-2 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors shrink-0"
-                >
-                  <XMarkIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void sendVoiceMessage()}
-                  disabled={isSending}
-                  className="p-2 md:p-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors shrink-0"
-                >
-                  <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
-
-              </div>
-            )}
-
-            {/* RECORDING */}
-            {isRecording && (
-              <div className="flex-1 flex items-center gap-2 md:gap-3 bg-red-50 rounded-full px-3 md:px-5 py-2 md:py-3 min-w-0">
-
-                <span className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-red-500 animate-pulse shrink-0" />
-
-                <span className="text-xs md:text-sm font-mono text-red-600 font-semibold shrink-0">
-                  {formatRecordingTime(recordingSeconds)}
-                </span>
-
-                <span className="text-[10px] md:text-xs text-red-400 flex-1 truncate">
-                  Enregistrement…
-                </span>
-
-                <button
-                  type="button"
-                  onClick={cancelRecording}
-                  className="text-[10px] md:text-xs text-gray-400 hover:text-red-500 transition-colors shrink-0"
-                >
-                  Annuler
-                </button>
-
-              </div>
-            )}
-
-            {/* ZONE INPUT */}
-            {!isRecording && !audioBlob && (
-              <>
-                {/* FILE */}
-                <label className={`p-2 md:p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : selectedFiles.length > 0 ? 'bg-violet-100 text-violet-600 cursor-pointer' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600 cursor-pointer'}`}>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    disabled={iBlockedThem || theyBlockedMe}
-                    onChange={(e) => handleFileSelect(e.target.files)}
-                    className="hidden"
-                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-                  />
-                  <PaperClipIcon className="h-4 w-4 md:h-6 md:w-6" />
-                </label>
-
-                {/* TRANSLATE DRAFT */}
-              <div className="flex items-center relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowTranslateMenu(!showTranslateMenu)}
-                    className={`p-2 md:p-3 rounded-full transition-colors ${showTranslateMenu ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600'}`}
-                    title="Traduire le message"
-                  >
-                    <LanguageIcon className="h-4 w-4 md:h-6 md:w-6" />
-                  </button>
-                  
-                {showTranslateMenu && (
-  <div className="absolute bottom-14 left-0 z-50 bg-white border border-gray-200 shadow-lg rounded-xl p-2 flex flex-col gap-2 min-w-[200px] max-h-64 overflow-y-auto">
-
-    <select
-      value={draftLang}
-      onChange={(e) => setDraftLang(e.target.value)}
-      className="bg-gray-50 border border-gray-200 text-sm rounded-lg text-gray-700 outline-none p-2 w-full cursor-pointer"
+    <button
+      type="button"
+      onClick={cancelRecording}
+      className="p-1.5 md:p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-colors duration-150 shrink-0"
     >
-      <option value="">Langue cible...</option>
+      <XMarkIcon className="h-4 w-4 md:h-5 md:w-5" />
+    </button>
 
-      <option value="en">Anglais</option>
-      <option value="fr">Français</option>
-      <option value="es">Espagnol</option>
-      <option value="mg">Malgache</option>
-      <option value="de">Allemand</option>
-      <option value="it">Italien</option>
-      <option value="pt">Portugais</option>
-      <option value="ru">Russe</option>
-      <option value="zh">Chinois</option>
-      <option value="ja">Japonais</option>
-      <option value="ko">Coréen</option>
-      <option value="ar">Arabe</option>
-      <option value="hi">Hindi</option>
-      <option value="tr">Turc</option>
-      <option value="vi">Vietnamien</option>
-      <option value="nl">Néerlandais</option>
-      <option value="sw">Swahili</option>
-      <option value="id">Indonésien</option>
-      <option value="af">Afrikaans</option>
-      <option value="sq">Albanais</option>
-    </select>
+    <button
+      type="button"
+      onClick={() => void sendVoiceMessage()}
+      disabled={isSending}
+      className="p-2 md:p-2.5 bg-[var(--blue)] text-white rounded-full hover:brightness-110 active:scale-95 disabled:opacity-50 shadow-sm transition-all duration-150 shrink-0"
+    >
+      <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
+    </button>
 
-    {draftLang && newMessage.trim() && (
-      <button
-        onClick={() => {
-          handleTranslateDraft();
-          setShowTranslateMenu(false);
-        }}
-        disabled={isTranslatingDraft}
-        className="w-full text-xs text-white bg-indigo-500 hover:bg-indigo-600 font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-      >
-        {isTranslatingDraft ? 'Traduction...' : 'Traduire le texte'}
-      </button>
-    )}
   </div>
 )}
-                </div>
 
-                {/* EMOJI */}
-                <div className="relative" ref={emojiPickerRef}>
-                  <button
-                    type="button"
-                    disabled={iBlockedThem || theyBlockedMe}
-                    onClick={() => setShowEmojiPicker(v => !v)}
-                    className={`p-2 md:p-3 rounded-full transition-colors ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : showEmojiPicker ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:bg-gray-100 hover:text-violet-600'}`}
-                  >
-                    <FaceSmileIcon className="h-4 w-4 md:h-6 md:w-6" />
-                  </button>
+{/* RECORDING */}
+{isRecording && (
+  <div className="flex-1 flex items-center gap-2 md:gap-3 bg-red-50 dark:bg-red-500/10 rounded-full px-3 md:px-5 py-2 md:py-3 min-w-0 shadow-sm">
 
-                  {showEmojiPicker && (
-                    <div className="absolute bottom-14 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
-                      <EmojiPicker
-                        onEmojiClick={({ emoji }) => {
-                          setNewMessage(prev => prev + emoji);
-                          inputRef.current?.focus();
-                        }}
-                        height={380}
-                        width={320}
-                        searchPlaceholder="Rechercher…"
-                        previewConfig={{ showPreview: false }}
-                      />
-                    </div>
-                  )}
-                </div>
+    <span className="relative flex h-2.5 w-2.5 md:h-3 md:w-3 shrink-0">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 md:h-3 md:w-3 bg-red-500" />
+    </span>
 
-                {/* INPUT */}
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newMessage}
-                  onChange={handleTyping}
-                  onFocus={handleInputFocus}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  placeholder={
-                    iBlockedThem || theyBlockedMe
-                      ? "Impossible d'envoyer un message…"
-                      : "Écrivez un message..."
-                  }
-                  className="flex-1 min-w-0 px-3 py-2.5 md:px-5 md:py-3.5 bg-gray-100 dark:bg-gray-800 rounded-full text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-violet-400 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50 transition-shadow"
-                  disabled={iBlockedThem || theyBlockedMe}
-                />
+    <span className="text-xs md:text-sm font-mono text-red-600 dark:text-red-400 font-semibold shrink-0 tabular-nums">
+      {formatRecordingTime(recordingSeconds)}
+    </span>
 
-                {/* SEND / MIC */}
-                {newMessage.trim() || selectedFiles.length > 0 ? (
-                  <button
-                    onClick={sendMessage}
-                    disabled={isSending}
-                    className="shrink-0 p-2.5 md:p-3.5 bg-violet-600 text-white rounded-full hover:bg-violet-500 disabled:opacity-50 transition-colors"
-                  >
-                    <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void startRecording()}
-                    disabled={isSending || iBlockedThem || theyBlockedMe}
-                    className="shrink-0 p-2.5 md:p-3.5 bg-gray-100 text-gray-500 rounded-full hover:bg-violet-100 hover:text-violet-600 disabled:opacity-50 transition-colors"
-                  >
-                    <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5" />
-                  </button>
-                )}
-              </>
-            )}
+    <span className="text-[10px] md:text-xs text-red-400 flex-1 truncate">
+      Enregistrement…
+    </span>
 
-            {/* STOP */}
-            {isRecording && (
-              <button
-                type="button"
-                onClick={stopRecording}
-                className="p-3 md:p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shrink-0"
-              >
-                <StopIcon className="h-4 w-4 md:h-5 md:w-5" />
-              </button>
-            )}
+    <button
+      type="button"
+      onClick={cancelRecording}
+      className="text-[10px] md:text-xs text-gray-400 hover:text-red-500 font-medium transition-colors duration-150 shrink-0"
+    >
+      Annuler
+    </button>
 
-          </div>
+  </div>
+)}
+
+{/* ZONE INPUT */}
+{!isRecording && !audioBlob && (
+  <>
+    {/* FILE */}
+    <label className={`p-2 md:p-3 rounded-full transition-colors duration-150 mb-0.5 ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : selectedFiles.length > 0 ? 'bg-[color-mix(in_srgb,var(--blue)_12%,white)] text-[var(--blue)] cursor-pointer' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--blue)] cursor-pointer'}`}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        disabled={iBlockedThem || theyBlockedMe}
+        onChange={(e) => handleFileSelect(e.target.files)}
+        className="hidden"
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+      />
+      <PaperClipIcon className="h-4 w-4 md:h-6 md:w-6" />
+    </label>
+
+    {/* TRANSLATE DRAFT */}
+    <div className="flex items-center relative shrink-0 mb-0.5">
+      <button
+        type="button"
+        onClick={() => setShowTranslateMenu(!showTranslateMenu)}
+        className={`p-2 md:p-3 rounded-full transition-colors duration-150 ${showTranslateMenu ? 'bg-[color-mix(in_srgb,var(--blue)_12%,white)] text-[var(--blue)]' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--blue)]'}`}
+        title="Traduire le message"
+      >
+        <LanguageIcon className="h-4 w-4 md:h-6 md:w-6" />
+      </button>
+
+      {showTranslateMenu && (
+        <div className="absolute bottom-14 left-0 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl rounded-2xl p-2.5 flex flex-col gap-2 min-w-[210px] max-h-64 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-150">
+
+          <select
+            value={draftLang}
+            onChange={(e) => setDraftLang(e.target.value)}
+            className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm rounded-xl text-gray-700 dark:text-gray-200 outline-none p-2.5 w-full cursor-pointer focus:ring-2 focus:ring-[var(--blue)]"
+          >
+            <option value="">Langue cible...</option>
+            <option value="en">Anglais</option>
+            <option value="fr">Français</option>
+            <option value="es">Espagnol</option>
+            <option value="mg">Malgache</option>
+            <option value="de">Allemand</option>
+            <option value="it">Italien</option>
+            <option value="pt">Portugais</option>
+            <option value="ru">Russe</option>
+            <option value="zh">Chinois</option>
+            <option value="ja">Japonais</option>
+            <option value="ko">Coréen</option>
+            <option value="ar">Arabe</option>
+            <option value="hi">Hindi</option>
+            <option value="tr">Turc</option>
+            <option value="vi">Vietnamien</option>
+            <option value="nl">Néerlandais</option>
+            <option value="sw">Swahili</option>
+            <option value="id">Indonésien</option>
+            <option value="af">Afrikaans</option>
+            <option value="sq">Albanais</option>
+          </select>
+
+          {draftLang && newMessage.trim() && (
+            <button
+              onClick={() => {
+                handleTranslateDraft();
+                setShowTranslateMenu(false);
+              }}
+              disabled={isTranslatingDraft}
+              className="w-full text-xs text-white bg-[var(--blue)] hover:brightness-110 active:scale-[0.98] font-medium px-3 py-2.5 rounded-xl transition-all duration-150 disabled:opacity-50 shadow-sm"
+            >
+              {isTranslatingDraft ? 'Traduction...' : 'Traduire le texte'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+
+    {/* EMOJI */}
+    <div className="relative mb-0.5" ref={emojiPickerRef}>
+      <button
+        type="button"
+        disabled={iBlockedThem || theyBlockedMe}
+        onClick={() => setShowEmojiPicker(v => !v)}
+        className={`p-2 md:p-3 rounded-full transition-colors duration-150 ${iBlockedThem || theyBlockedMe ? 'opacity-50 cursor-not-allowed text-gray-300' : showEmojiPicker ? 'bg-[color-mix(in_srgb,var(--blue)_12%,white)] text-[var(--blue)]' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-[var(--blue)]'}`}
+      >
+        <FaceSmileIcon className="h-4 w-4 md:h-6 md:w-6" />
+      </button>
+
+      {showEmojiPicker && (
+        <div className="absolute bottom-14 left-0 z-50 shadow-2xl rounded-2xl overflow-hidden ring-1 ring-black/5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <EmojiPicker
+            onEmojiClick={({ emoji }) => {
+              setNewMessage(prev => prev + emoji);
+              inputRef.current?.focus();
+            }}
+            height={380}
+            width={320}
+            searchPlaceholder="Rechercher…"
+            previewConfig={{ showPreview: false }}
+          />
+        </div>
+      )}
+    </div>
+
+    {/* INPUT — textarea auto-resize, max 6 lignes puis scroll */}
+    <textarea
+      ref={inputRef}
+      value={newMessage}
+      onChange={(e) => {
+        handleTyping(e);
+        autoResizeInput(e.target);
+      }}
+      onFocus={handleInputFocus}
+      onKeyDown={e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      }}
+      placeholder={
+        iBlockedThem || theyBlockedMe
+          ? "Impossible d'envoyer un message…"
+          : "Écrivez un message..."
+      }
+      rows={1}
+      className="flex-1 min-w-0 px-4 py-2.5 md:px-5 md:py-3.5 bg-gray-100 dark:bg-gray-800 rounded-2xl text-sm md:text-base outline-none focus:ring-2 focus:ring-[var(--blue)] text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-50 transition-shadow duration-150 resize-none leading-5 md:leading-6 max-h-[132px] md:max-h-[156px] overflow-y-auto"
+      disabled={iBlockedThem || theyBlockedMe}
+    />
+
+    {/* SEND / MIC */}
+    {newMessage.trim() || selectedFiles.length > 0 ? (
+      <button
+        onClick={sendMessage}
+        disabled={isSending}
+        className="shrink-0 p-2.5 md:p-3.5 bg-[var(--blue)] text-white rounded-full hover:brightness-110 active:scale-95 disabled:opacity-50 shadow-sm hover:shadow-md transition-all duration-150 mb-0.5"
+      >
+        <PaperAirplaneIcon className="h-4 w-4 md:h-5 md:w-5" />
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => void startRecording()}
+        disabled={isSending || iBlockedThem || theyBlockedMe}
+        className="shrink-0 p-2.5 md:p-3.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full hover:bg-[color-mix(in_srgb,var(--blue)_10%,white)] hover:text-[var(--blue)] active:scale-95 disabled:opacity-50 transition-all duration-150 mb-0.5"
+      >
+        <MicrophoneIcon className="h-4 w-4 md:h-5 md:w-5" />
+      </button>
+    )}
+  </>
+)}
+
+{/* STOP */}
+{isRecording && (
+  <button
+    type="button"
+    onClick={stopRecording}
+    className="p-3 md:p-3.5 bg-red-500 text-white rounded-full hover:bg-red-600 active:scale-95 shadow-sm transition-all duration-150 shrink-0"
+  >
+    <StopIcon className="h-4 w-4 md:h-5 md:w-5" />
+  </button>
+)}
+
+</div>
         </div>
       </div>
       {/* Lightbox plein écran image / vidéo */}

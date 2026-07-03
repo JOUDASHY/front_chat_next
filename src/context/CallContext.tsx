@@ -22,6 +22,15 @@ import { Capacitor } from '@capacitor/core';
 export type CallType = 'audio' | 'video';
 export type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'active';
 
+async function warmUpMediaAccess(type: CallType): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: type === 'video',
+  });
+  stream.getTracks().forEach((track) => track.stop());
+}
+
 export interface CallPeer {
   id: number;
   display_name: string;
@@ -427,10 +436,68 @@ export function CallProvider({ children }: { children: ReactNode }) {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
+  const attachLocalPublishedTracks = useCallback(
+    (room: import('livekit-client').Room) => {
+      room.localParticipant.videoTrackPublications.forEach((publication) => {
+        if (publication.track) {
+          attachTrackToVideo(publication.track, localVideoRef.current);
+        }
+      });
+    },
+    [attachTrackToVideo]
+  );
+
+  const publishLocalTracks = useCallback(
+    async (room: import('livekit-client').Room, type: CallType) => {
+      const { Track, createLocalTracks } = await getLiveKitModule();
+
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+        if (type === 'video') {
+          await room.localParticipant.setCameraEnabled(true);
+        } else {
+          await room.localParticipant.setCameraEnabled(false);
+        }
+      } catch (err) {
+        console.warn('LiveKit enable mic/camera failed, fallback publishTrack:', err);
+      }
+
+      const micPublication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      const camPublication = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      const needsMic = !micPublication?.track;
+      const needsCam = type === 'video' && !camPublication?.track;
+
+      if (needsMic || needsCam) {
+        try {
+          const tracks = await createLocalTracks({
+            audio: needsMic,
+            video: needsCam,
+          });
+          for (const track of tracks) {
+            const source =
+              track.kind === Track.Kind.Video ? Track.Source.Camera : Track.Source.Microphone;
+            await room.localParticipant.publishTrack(track, { source });
+            if (track.kind === Track.Kind.Video) {
+              attachTrackToVideo(track, localVideoRef.current);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to publish local tracks:', err);
+          throw err;
+        }
+      }
+
+      attachLocalPublishedTracks(room);
+      setIsMuted(!room.localParticipant.isMicrophoneEnabled);
+      setIsCameraOff(type === 'video' ? !room.localParticipant.isCameraEnabled : true);
+    },
+    [attachLocalPublishedTracks, attachTrackToVideo]
+  );
+
   const connectRoom = useCallback(
     async (livekitUrl: string, token: string, type: CallType, activateImmediately = true) => {
       await detachRoom();
-      const { Room, RoomEvent, Track } = await getLiveKitModule();
+      const { Room, RoomEvent, ParticipantEvent, Track } = await getLiveKitModule();
       const room = new Room({
         adaptiveStream: false,
         dynacast: true,
@@ -468,6 +535,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
       };
 
+      const watchRemoteParticipant = (
+        participant: import('livekit-client').RemoteParticipant
+      ) => {
+        participant.on(ParticipantEvent.TrackPublished, () => {
+          syncConnectedPeers();
+          window.setTimeout(() => {
+            void syncRoomTracksRef.current();
+          }, 150);
+        });
+      };
+
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         handleTrack(track, participant);
         syncConnectedPeers();
@@ -480,10 +558,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
 
       room.on(RoomEvent.ParticipantConnected, (participant) => {
+        watchRemoteParticipant(participant);
         const peerId = Number(participant.identity);
         if (peerId) getRemoteVideoRef(peerId);
         syncConnectedPeers();
         void syncRoomTracksRef.current();
+      });
+
+      room.on(RoomEvent.Connected, () => {
+        room.remoteParticipants.forEach(watchRemoteParticipant);
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
@@ -504,15 +587,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (activateImmediately) setPhase('active');
 
       await waitForVideoElements();
-      await room.connect(livekitUrl, token);
+      await room.connect(livekitUrl, token, { autoSubscribe: true });
       await room.startAudio().catch(() => {});
 
-      await room.localParticipant.setMicrophoneEnabled(true);
-      if (type === 'video') {
-        await room.localParticipant.setCameraEnabled(true);
-      } else {
-        await room.localParticipant.setCameraEnabled(false);
-      }
+      await publishLocalTracks(room, type);
 
       try {
         const aIn = await Room.getLocalDevices('audioinput');
@@ -539,10 +617,25 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
 
       await waitForVideoElements();
+      attachLocalPublishedTracks(room);
       syncConnectedPeers();
       await syncRoomTracks();
+      window.setTimeout(() => {
+        attachLocalPublishedTracks(room);
+        void syncRoomTracksRef.current();
+      }, 600);
     },
-    [attachTrackToVideo, detachRoom, getRemoteVideoRef, notifyBackendCallEnd, resetCall, syncConnectedPeers, syncRoomTracks]
+    [
+      attachLocalPublishedTracks,
+      attachTrackToVideo,
+      detachRoom,
+      getRemoteVideoRef,
+      notifyBackendCallEnd,
+      publishLocalTracks,
+      resetCall,
+      syncConnectedPeers,
+      syncRoomTracks,
+    ]
   );
 
   const endCall = useCallback(async () => {
@@ -680,6 +773,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
           setPhase('active');
           syncConnectedPeers();
           void syncRoomTracks();
+          window.setTimeout(() => void syncRoomTracksRef.current(), 800);
+          window.setTimeout(() => void syncRoomTracksRef.current(), 2000);
         }
       });
 
@@ -809,6 +904,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       startCallRingtone('outgoing');
 
       try {
+        await warmUpMediaAccess(type);
+
         const { data } = await api.post('/api/chat/group-calls/start/', {
           room_id: roomId,
           call_type: type,
@@ -909,6 +1006,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setCallType(payload.call_type);
       setPeer(nextSession.peer);
       setSession(nextSession);
+      sessionRef.current = nextSession;
 
       return nextSession;
     },
@@ -927,6 +1025,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       closeIncomingCallNotification();
 
       try {
+        await warmUpMediaAccess(call.call_type);
+
         const { data } = await api.post('/api/chat/group-calls/join/', {
           room_name: call.room_name,
         });
@@ -963,6 +1063,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const isGroup = 'room_id' in incoming;
 
     try {
+      await warmUpMediaAccess(incoming.call_type);
+
       const endpoint = isGroup ? '/api/chat/group-calls/respond/' : '/api/chat/calls/respond/';
       const payload: Record<string, any> = {
         room_name: incoming.room_name,
