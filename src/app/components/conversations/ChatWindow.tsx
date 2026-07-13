@@ -26,6 +26,7 @@ import {
   LanguageIcon,
   StarIcon,
   Cog6ToothIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -2208,17 +2209,30 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
       </button>
 
       {msg.content && (
-        <button
-          type="button"
-          onClick={() => {
-            setTranslatingMessage({ id: msg.id, content: msg.content });
-            setOpenMenuMessageId(null);
-          }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-        >
-          <LanguageIcon className="h-4 w-4" />
-          Traduire
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(msg.content);
+              setOpenMenuMessageId(null);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            <DocumentDuplicateIcon className="h-4 w-4" />
+            Copier
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTranslatingMessage({ id: msg.id, content: msg.content });
+              setOpenMenuMessageId(null);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+          >
+            <LanguageIcon className="h-4 w-4" />
+            Traduire
+          </button>
+        </>
       )}
 
                       <button
@@ -2363,17 +2377,30 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                                 {msg.is_pinned ? 'Désépingler' : 'Épingler'}
                               </button>
                               {msg.content && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTranslatingMessage({ id: msg.id, content: msg.content });
-                                    setOpenMenuMessageId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50"
-                                >
-                                  <LanguageIcon className="h-4 w-4" />
-                                  Traduire
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(msg.content);
+                                      setOpenMenuMessageId(null);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                  >
+                                    <DocumentDuplicateIcon className="h-4 w-4" />
+                                    Copier
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTranslatingMessage({ id: msg.id, content: msg.content });
+                                      setOpenMenuMessageId(null);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50"
+                                  >
+                                    <LanguageIcon className="h-4 w-4" />
+                                    Traduire
+                                  </button>
+                                </>
                               )}
                               {isCurrentUser && (
                               <button
