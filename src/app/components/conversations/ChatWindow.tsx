@@ -2152,10 +2152,15 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                     {!imageOnlyMessage && (
                     <>
                     {/* En-tête du message — nom uniquement en groupe */}
-                    <div className="flex justify-between mb-1 md:mb-2 items-center gap-1.5 md:gap-2">
-                      {conversation?.isGroup && (
+                    <div className={`flex mb-1 md:mb-2 items-center gap-1.5 md:gap-2 ${isCurrentUser ? 'justify-end' : 'justify-between'}`}>
+                      {conversation?.isGroup && !isCurrentUser && (
                         <span className={`text-xs md:text-sm font-semibold ${isCurrentUser ? 'text-white/90' : 'text-gray-800 dark:text-gray-300'}`}>
-                          {isCurrentUser ? 'Vous' : msg.sender}
+                          {msg.sender}
+                        </span>
+                      )}
+                      {conversation?.isGroup && isCurrentUser && (
+                        <span className="text-xs md:text-sm font-semibold text-white/90 mr-auto">
+                          Vous
                         </span>
                       )}
                       <div className="flex items-center gap-1 shrink-0">
