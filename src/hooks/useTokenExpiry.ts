@@ -1,11 +1,13 @@
 'use client';
 
 // hooks/useTokenExpiry.ts
-// Surveille l'expiration du token JWT et déconnecte automatiquement l'user
-// quand le refresh token est aussi expiré (session terminée).
+// Surveille l'expiration du token JWT et tente un refresh automatique
+// avant de déconnecter l'utilisateur. Ne déconnecte QUE si le refresh
+// token est expiré ET qu'un appel refresh échoue côté serveur.
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '@/lib/axiosClient';
 
 /**
  * Décode le payload d'un JWT (base64) sans librairie externe.
@@ -38,6 +40,29 @@ function clearSession() {
   localStorage.removeItem('user');
 }
 
+/**
+ * Tente de renouveler les tokens via /api/token/refresh/.
+ * Retourne true si le refresh a réussi, false sinon.
+ */
+async function tryRefreshToken(): Promise<boolean> {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return false;
+
+  try {
+    const { data } = await api.post<{ access: string; refresh?: string }>(
+      '/api/token/refresh/',
+      { refresh: refreshToken }
+    );
+    localStorage.setItem('accessToken', data.access);
+    if (data.refresh) {
+      localStorage.setItem('refreshToken', data.refresh);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function useTokenExpiry() {
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,7 +70,7 @@ export function useTokenExpiry() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const scheduleCheck = () => {
+    const scheduleCheck = async () => {
       if (timerRef.current) clearTimeout(timerRef.current);
 
       const accessToken = localStorage.getItem('accessToken');
@@ -59,35 +84,33 @@ export function useTokenExpiry() {
 
       const accessMsLeft = msUntilExpiry(accessToken);
 
-      // Cas Google OAuth : pas de refreshToken mais accessToken encore valide
-      // On ne déconnecte pas — axios retentera si 401
-      if (!refreshToken) {
-        if (accessMsLeft <= 0) {
-          // Access token expiré et pas de refresh → déconnexion
+      // Si l'access token expire bientôt (< 5 min) ou est déjà expiré → tenter un refresh
+      if (accessMsLeft < 5 * 60 * 1000) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          // Refresh réussi → re-programmer le prochain check
+          const newAccess = localStorage.getItem('accessToken');
+          const newAccessMs = newAccess ? msUntilExpiry(newAccess) : 0;
+          // Revérifier 5 minutes avant la prochaine expiration
+          const nextCheck = Math.max(newAccessMs - 5 * 60 * 1000, 30_000);
+          timerRef.current = setTimeout(scheduleCheck, nextCheck);
+          return;
+        }
+
+        // Refresh échoué → pas de refreshToken ou serveur refuse
+        if (!refreshToken || msUntilExpiry(refreshToken) <= 0) {
           clearSession();
           router.replace('/');
-        } else {
-          // Re-vérifier à l'expiration de l'access token
-          timerRef.current = setTimeout(scheduleCheck, accessMsLeft + 1000);
+          return;
         }
-        return;
       }
 
-      const refreshMsLeft = msUntilExpiry(refreshToken);
-
-      // Le refresh token est expiré → session terminée
-      if (refreshMsLeft <= 0) {
-        clearSession();
-        router.replace('/');
-        return;
-      }
-
-      // Programmer un check au moment où le refresh token expire
-      const checkIn = Math.max(refreshMsLeft + 1000, 5000);
-      timerRef.current = setTimeout(scheduleCheck, checkIn);
+      // Access token encore valide → re-vérifier 5 min avant expiration
+      const nextCheck = Math.max(accessMsLeft - 5 * 60 * 1000, 30_000);
+      timerRef.current = setTimeout(scheduleCheck, nextCheck);
     };
 
-    scheduleCheck();
+    void scheduleCheck();
 
     // Réagir aux changements de localStorage (autre onglet qui se déconnecte)
     const onStorage = (e: StorageEvent) => {
