@@ -2507,6 +2507,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
           content={msg.content}
           isCurrentUser={isCurrentUser}
           translatedContent={translations[msg.id]}
+          isAI={msg.sender === AI_USERNAME || msg.is_ai_response}
         />
       )
     )}
@@ -2709,7 +2710,7 @@ export default function ChatWindow({ conversation, userId, onBackClick, isMobile
                   </span>
                 </div>
                 {msg.content ? (
-                  <MessageContent content={msg.content} isCurrentUser />
+                  <MessageContent content={msg.content} isCurrentUser isAI={false} />
                 ) : null}
 
                 {msg.file && (

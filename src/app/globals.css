@@ -142,3 +142,84 @@ html, body {
   animation: progress-indeterminate 2s ease-in-out infinite;
 }
 
+/* AI Markdown Styles */
+.ai-markdown p {
+  margin-bottom: 0.5em;
+}
+
+.ai-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown strong {
+  font-weight: 700;
+}
+
+.ai-markdown em {
+  font-style: italic;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  padding-left: 1.25em;
+  margin: 0.5em 0;
+}
+
+.ai-markdown ul {
+  list-style-type: disc;
+}
+
+.ai-markdown ol {
+  list-style-type: decimal;
+}
+
+.ai-markdown li {
+  margin: 0.25em 0;
+}
+
+.ai-markdown code {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
+}
+
+.ai-markdown pre {
+  overflow-x: auto;
+}
+
+.ai-markdown blockquote {
+  border-left: 3px solid currentColor;
+  padding-left: 0.75em;
+  opacity: 0.8;
+}
+
+.ai-markdown a {
+  text-decoration: underline;
+  opacity: 0.9;
+}
+
+.ai-markdown a:hover {
+  opacity: 1;
+}
+
+.ai-markdown hr {
+  border: none;
+  border-top: 1px solid currentColor;
+  opacity: 0.2;
+  margin: 0.75em 0;
+}
+
+.ai-markdown table {
+  border-collapse: collapse;
+  font-size: 0.75em;
+}
+
+.ai-markdown th,
+.ai-markdown td {
+  border: 1px solid currentColor;
+  opacity: 0.3;
+  padding: 0.25em 0.5em;
+}
+
+.ai-markdown th {
+  font-weight: 600;
+}
+
