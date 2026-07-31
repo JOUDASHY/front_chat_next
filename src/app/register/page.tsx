@@ -80,8 +80,8 @@ const RegisterPage = () => {
           title="Rejoignez<br /><em class='not-italic' style='color: var(--jaune)'>l'aventure.</em>"
           subtitle="Créez votre compte en quelques secondes et commencez à discuter."
           quote="La meilleure plateforme pour rester connecté avec mon équipe et mes amis."
-          quoteAuthor="Alex D. — Développeur"
-          quoteInitials="AD"
+          quoteAuthor="Tobias J. — Développeur"
+          quoteInitials="TJ"
         />
 
         {/* ── Panneau droit : formulaire ── */}
@@ -100,7 +100,7 @@ const RegisterPage = () => {
               <AppLogo size={52} />
             </div>
             <h1 className="text-2xl font-semibold text-[var(--blue)] dark:text-gray-100 tracking-tight mb-1.5">
-              Créer un compte ✨
+              Créer un compte
             </h1>
             <p className="text-sm text-[var(--blue)]/55 dark:text-gray-400">
               Remplissez les champs ci-dessous pour vous inscrire.
